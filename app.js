@@ -67,7 +67,7 @@ function render(route) {
   // Set active nav
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navMap = { home: 'home', studio: 'studio', record: 'record', community: 'community', archive: 'archive' };
-  const navKey = ['profile','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'].includes(route.split(':')[0]) ? 'home' : navMap[route] || null;
+  const navKey = ['profile','profileEdit','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'].includes(route.split(':')[0]) ? 'home' : navMap[route] || null;
   if (navKey) {
     const el = document.querySelector(`.nav-item[data-nav="${navKey}"]`);
     if (el) el.classList.add('active');
@@ -84,12 +84,8 @@ function render(route) {
 const views = {
   splash: () => `
     <section class="splash">
-      <div class="logo-wrap">
-        <svg viewBox="0 0 64 64" fill="none">
-          <rect x="8" y="8" width="48" height="48" rx="12" fill="white" opacity="0.95"/>
-          <path d="M22 38 c0 -8 6 -14 14 -14 c4 0 7 2 9 5 l-4 3 c-1 -2 -3 -3 -5 -3 c-5 0 -9 4 -9 9 c0 5 4 9 9 9 c2 0 4 -1 5 -3 l4 3 c-2 3 -5 5 -9 5 c-8 0 -14 -6 -14 -14 z" fill="#8B5CF6"/>
-          <circle cx="42" cy="22" r="4" fill="#FBBF24"/>
-        </svg>
+      <div class="mascot-wrap">
+        <img src="assets/mascot.png" alt="TRACKSY" class="mascot-img" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
       </div>
       <h1>TRACKSY</h1>
       <p>오늘의 러닝을, 나만의 이야기로</p>
@@ -242,7 +238,7 @@ const views = {
           </div>
           <div class="avatar-name">${state.user.name} 님</div>
         </div>
-        <div class="profile-edit">
+        <div class="profile-edit" data-go="profileEdit" role="button" aria-label="프로필 수정">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21l4-1L20 7l-3-3L4 17l-1 4z"/></svg>
         </div>
         <div class="profile-list">
@@ -254,6 +250,53 @@ const views = {
       </div>
     </section>
   `,
+
+  profileEdit: () => {
+    const [y, m, d] = (state.user.birth || '').split('.');
+    return `
+      <div class="app-header">
+        <button class="back-btn" data-action="back">‹</button>
+        <div class="title">프로필 수정</div>
+      </div>
+      <section class="signup-screen" style="background:#fff; padding-top:8px;">
+        <div class="profile-avatar-row" style="margin-top:0; margin-bottom:28px;">
+          <div class="avatar">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 4l3 3-7 7-3 1 1-3 6-8z"/></svg>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>이름</label>
+          <input type="text" id="editName" value="${state.user.name || ''}" placeholder="이름을 입력하세요"/>
+        </div>
+
+        <div class="field">
+          <label>생년월일</label>
+          <div class="date-row">
+            <input type="text" id="editYear" value="${y || ''}" placeholder="년*" maxlength="4"/>
+            <input type="text" id="editMonth" value="${m || ''}" placeholder="월*" maxlength="2"/>
+            <input type="text" id="editDay" value="${d || ''}" placeholder="일*" maxlength="2"/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>이메일 계정</label>
+          <input type="email" id="editEmail" value="${state.user.email || ''}" placeholder="이메일을 입력하세요"/>
+        </div>
+
+        <div class="field">
+          <label>선호하는 러닝 스타일</label>
+          <div class="radio-row">
+            <label><input type="radio" name="editStyle" value="산책/러닝" ${state.user.style === '산책/러닝' ? 'checked' : ''}/> 산책/러닝</label>
+            <label><input type="radio" name="editStyle" value="10k 미만 러닝" ${state.user.style === '10k 미만 러닝' ? 'checked' : ''}/> 10k 미만 러닝</label>
+            <label><input type="radio" name="editStyle" value="마라톤" ${state.user.style === '마라톤' ? 'checked' : ''}/> 마라톤</label>
+          </div>
+        </div>
+
+        <button class="primary-btn" data-action="profile-save">저장하기</button>
+      </section>
+    `;
+  },
 
   settings: () => `
     <div class="app-header">
@@ -504,6 +547,24 @@ function bindHandlers() {
         state.inquiries.unshift(newInq);
         toast('문의가 등록되었어요');
         setTimeout(() => go('inquiryDetail:' + newInq.id, { replace: true }), 500);
+        return;
+      }
+      if (action === 'profile-save') {
+        const name = document.getElementById('editName')?.value.trim();
+        const y = document.getElementById('editYear')?.value.trim();
+        const m = document.getElementById('editMonth')?.value.trim();
+        const d = document.getElementById('editDay')?.value.trim();
+        const email = document.getElementById('editEmail')?.value.trim();
+        const style = document.querySelector('input[name="editStyle"]:checked')?.value;
+        if (!name) { toast('이름을 입력해주세요'); return; }
+        if (!y || !m || !d) { toast('생년월일을 입력해주세요'); return; }
+        if (!email || !email.includes('@')) { toast('올바른 이메일을 입력해주세요'); return; }
+        state.user.name = name;
+        state.user.birth = `${y}.${m.padStart(2,'0')}.${d.padStart(2,'0')}`;
+        state.user.email = email;
+        state.user.style = style;
+        toast('프로필이 수정되었어요');
+        setTimeout(() => back(), 600);
         return;
       }
       if (action === 'feedback-submit') {
