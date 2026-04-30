@@ -5,6 +5,7 @@ const bottomNav = document.getElementById('bottomNav');
 
 const state = {
   user: { name: '김러너', birth: '2000.01.01', email: 'tracksy1@gmail.com', style: '산책/러닝' },
+  studioTab: 'edit',
   inquiries: [
     { id: 1, type: '서비스 이용', title: '기록이 저장되지 않아요.', date: '2026.01.01 14:30', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', reply: '안녕하세요. 트랙시 고객 센터 입니다.\n\n기록이 저장되지 않는 현상은 앱의 캐시 데이터가 영향을 주는 경우로 아래 방법에 따라 확인 부탁드립니다.', status: 'wait' },
     { id: 2, type: '계정/로그인', title: '기록이 저장되지 않아요.', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', status: 'wait' },
@@ -29,6 +30,134 @@ const partners = [
   { id: 'apple', name: 'Apple 건강', cls: 'logo-apple', initial: '🍎',
     desc: 'Apple 건강 앱의 운동 기록을 TRACKSY와 연동합니다.' },
 ];
+
+// ----- Running card (reused across studio screens) -----
+function runningCard(small = false) {
+  return `
+    <div class="running-card ${small ? 'small' : ''}">
+      <div class="rc-photo"></div>
+      <div class="rc-grad"></div>
+      <div class="rc-runner"></div>
+
+      <div class="rc-top">
+        <div class="rc-top-left">
+          <div class="rc-avatar">
+            <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+          </div>
+          <div class="rc-name">닉네임</div>
+        </div>
+        <div class="rc-top-right">
+          <span>오늘도 저님</span>
+        </div>
+      </div>
+      <div class="rc-date">2026.04.06 (월)</div>
+
+      <div class="rc-week">이번주 러닝 기록 <span>🏃</span></div>
+      <div class="rc-distance">5.21<small>km</small></div>
+
+      <div class="rc-stats">
+        <div class="rc-stat">
+          <span class="rc-ic">⏱</span><b>00:32:45</b><i>운동 시간</i>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-ic">⚡</span><b>6'12"</b><i>평균 페이스</i>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-ic">🔥</span><b>368</b><i>kcal</i>
+        </div>
+      </div>
+
+      <div class="rc-bubble-wrap">
+        <div class="rc-bubble">
+          처음 발걸음이<br/>큰 변화를 만들어요! <span>💜</span>
+        </div>
+        <div class="rc-mascot">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ----- Studio panel (per-tab content) -----
+function renderStudioPanel(tab) {
+  if (tab === 'edit') {
+    return `
+      <div class="sp-head">
+        <span>편집</span>
+        <button class="sp-close" data-action="studio-tab:close" aria-label="닫기">×</button>
+      </div>
+      <div class="sp-tools">
+        <button class="sp-tool" data-action="toast:잘라내기"><span class="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/></svg>
+        </span><i>잘라내기</i></button>
+        <button class="sp-tool" data-action="toast:회전"><span class="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        </span><i>회전</i></button>
+        <button class="sp-tool" data-action="toast:좌우 반전"><span class="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18"/><path d="M3 8l4-3 4 3v8l-4 3-4-3z"/><path d="M21 8l-4-3-4 3v8l4 3 4-3z" stroke-dasharray="3 2"/></svg>
+        </span><i>좌우 반전</i></button>
+        <button class="sp-tool" data-action="toast:상하 반전"><span class="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18"/><path d="M8 3l-3 4 3 4h8l3-4-3-4z"/><path d="M8 21l-3-4 3-4h8l3 4-3 4z" stroke-dasharray="3 2"/></svg>
+        </span><i>상하 반전</i></button>
+        <button class="sp-tool" data-action="toast:색상 수정"><span class="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18 4 4 0 0 0 0-8 4 4 0 0 1 0-8z" fill="currentColor" opacity="0.3"/></svg>
+        </span><i>색을 수정</i></button>
+      </div>
+    `;
+  }
+  if (tab === 'text') {
+    return `
+      <div class="sp-tools sp-text">
+        <button class="sp-tool" data-action="toast:글꼴">
+          <span class="sp-ic"><b style="font-size:18px;font-family:serif;">Aa</b></span>
+          <i>글꼴</i>
+        </button>
+        <button class="sp-tool" data-action="toast:글자크기">
+          <span class="sp-ic"><b style="font-size:18px;">Tr</b></span>
+          <i>글자크기</i>
+        </button>
+        <button class="sp-tool" data-action="toast:색상">
+          <span class="sp-ic"><span class="color-wheel"></span></span>
+          <i>색상</i>
+        </button>
+      </div>
+    `;
+  }
+  if (tab === 'sticker') {
+    const stickers = ['🏃','💜','✨','🔥','🎯','⚡','🏆','❤️','🌟','😊','🎉','💪'];
+    return `
+      <div class="sp-stickers">
+        ${stickers.map(s => `<button class="sp-sticker" data-action="toast:${s} 추가됨">${s}</button>`).join('')}
+      </div>
+    `;
+  }
+  if (tab === 'design') {
+    return `
+      <div class="sp-tools sp-design">
+        <button class="sp-tool" data-action="toast:테마컬러">
+          <span class="sp-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M3 17l5-5 4 4 4-4 5 5"/></svg>
+          </span>
+          <i>테마컬러</i>
+        </button>
+        <button class="sp-tool" data-action="toast:스타일">
+          <span class="sp-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 9-9 9-9-9z"/></svg>
+          </span>
+          <i>스타일</i>
+        </button>
+        <button class="sp-tool" data-go="studioBg">
+          <span class="sp-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 14l4-3 4 3 4-4 6 5"/></svg>
+          </span>
+          <i>배경</i>
+        </button>
+      </div>
+    `;
+  }
+  return '';
+}
 
 // ----- Toast -----
 function toast(msg) {
@@ -59,7 +188,7 @@ function back() {
 function render(route) {
   device.classList.remove('hide-nav');
   bottomNav.style.display = '';
-  const showNav = !['splash','login','signup'].some(s => route === s);
+  const showNav = !['splash','login','signup','studio','studioExport','studioBg'].some(s => route.split(':')[0] === s);
   if (!showNav) {
     bottomNav.style.display = 'none';
     if (route === 'splash') device.classList.add('hide-nav');
@@ -526,14 +655,130 @@ const views = {
     </section>
   `,
 
-  studio: () => `
-    <div class="app-header"><div class="title">스튜디오</div></div>
-    <div class="placeholder">
-      <div class="big">🎨</div>
-      <h2>러닝 카드 스튜디오</h2>
-      <p>나만의 러닝 카드를 디자인하는 공간이에요.<br/>곧 만나요!</p>
+  studio: () => {
+    const tab = state.studioTab || 'edit';
+    return `
+    <section class="studio-screen">
+      <div class="studio-toolbar">
+        <button class="st-icon" data-action="back" aria-label="뒤로">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="st-icon" aria-label="실행취소">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-4"/></svg>
+        </button>
+        <button class="st-icon" aria-label="다시실행">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h4"/></svg>
+        </button>
+        <button class="st-icon" aria-label="레이어">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 8.5 12 15 2 8.5 12 2"/><polyline points="2 15.5 12 22 22 15.5"/></svg>
+        </button>
+        <span style="flex:1"></span>
+        <button class="st-export" data-go="studioExport">내보내기</button>
+      </div>
+
+      <div class="studio-canvas">
+        ${runningCard()}
+        <button class="st-fab" aria-label="스티커 추가">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="0.8" fill="currentColor"/><circle cx="15" cy="10" r="0.8" fill="currentColor"/><path d="M8.5 14.5c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>
+        </button>
+      </div>
+
+      <div class="studio-panel">
+        ${renderStudioPanel(tab)}
+      </div>
+
+      <div class="studio-tabs">
+        <button class="st-tab ${tab==='edit'?'active':''}" data-action="studio-tab:edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v16a2 2 0 0 0 2 2h14"/><path d="M2 6h16a2 2 0 0 1 2 2v14"/></svg>
+          <span>편집</span>
+        </button>
+        <button class="st-tab ${tab==='text'?'active':''}" data-action="studio-tab:text">
+          <span class="tab-tr">Tr</span>
+          <span>텍스트</span>
+        </button>
+        <button class="st-tab ${tab==='sticker'?'active':''}" data-action="studio-tab:sticker">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="0.9" fill="currentColor"/><circle cx="15" cy="10" r="0.9" fill="currentColor"/><path d="M8 14c1.2 1.5 2.5 2.2 4 2.2s2.8-.7 4-2.2"/></svg>
+          <span>스티커</span>
+        </button>
+        <button class="st-tab ${tab==='design'?'active':''}" data-action="studio-tab:design">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 0 0 0 18c1.7 0 3-1.3 3-3a2 2 0 0 1 2-2h2a4 4 0 0 0 4-4 9 9 0 0 0-9-9z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="11" cy="7" r="1.2" fill="currentColor"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="18" cy="13" r="1.2" fill="currentColor"/></svg>
+          <span>디자인</span>
+        </button>
+      </div>
+    </section>
+  `;
+  },
+
+  studioExport: () => `
+    <div class="app-header export-header">
+      <button class="back-btn" data-action="back" style="color:#fff;">‹</button>
+      <div class="title" style="color:#fff;">내보내기</div>
     </div>
+    <section class="export-screen">
+      <div class="export-preview">
+        ${runningCard(true)}
+      </div>
+      <div class="export-section">
+        <div class="export-label">공유 및 저장</div>
+        <button class="export-insta" data-action="toast:인스타그램으로 공유했어요">
+          <span class="ig-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white"/></svg>
+          </span>
+          <span class="ig-text">
+            <b>인스타 공유</b>
+            <em>인스타그램 스토리에 바로 공유해보세요</em>
+          </span>
+        </button>
+        <button class="export-row" data-action="toast:공유 링크가 복사되었어요">
+          <span class="er-ic">🔗</span>
+          <span>공유 링크 복사</span>
+          <span class="er-arrow">›</span>
+        </button>
+        <button class="export-row" data-action="toast:카카오톡으로 공유했어요">
+          <span class="er-ic kk">K</span>
+          <span>카카오톡 공유하기</span>
+          <span class="er-arrow">›</span>
+        </button>
+        <button class="export-row" data-action="toast:갤러리에 저장했어요">
+          <span class="er-ic">🖼</span>
+          <span>내 휴대폰 갤러리 저장</span>
+          <span class="er-arrow">›</span>
+        </button>
+      </div>
+    </section>
   `,
+
+  studioBg: () => {
+    const subtab = state.bgPickerTab || 'mine';
+    const swatches = [
+      'linear-gradient(135deg,#FFD89B,#19547B)',
+      'linear-gradient(135deg,#FFAFBD,#FFC3A0)',
+      'linear-gradient(135deg,#1F4037,#99F2C8)',
+      'linear-gradient(135deg,#E0E0E0,#B0B0B0)',
+      'linear-gradient(135deg,#FCE38A,#F38181)',
+      'linear-gradient(135deg,#7B6499,#2E2A3D)',
+    ];
+    return `
+      <section class="studio-bg-screen">
+        <div class="bg-preview">
+          ${runningCard(true)}
+        </div>
+        <div class="bg-divider"></div>
+        <div class="bg-tabs">
+          <button class="bg-tab ${subtab==='mine'?'active':''}" data-action="bg-tab:mine">내 사진</button>
+          <button class="bg-tab ${subtab==='ai'?'active':''}" data-action="bg-tab:ai">AI추천</button>
+        </div>
+        <div class="bg-grid">
+          ${swatches.map((s, i) => `
+            <button class="bg-tile" style="background:${s}" data-action="bg-pick:${i}">
+              ${i === 0 ? '<span class="bg-check">✓</span>' : ''}
+            </button>
+          `).join('')}
+        </div>
+        <button class="primary-btn bg-apply" data-action="bg-apply">배경 적용하기</button>
+      </section>
+    `;
+  },
   record: () => `
     <div class="app-header"><div class="title">기록 추가하기</div></div>
     <div class="placeholder">
@@ -581,6 +826,30 @@ function bindHandlers() {
       e.stopPropagation();
       const action = el.dataset.action;
       if (action === 'back') return back();
+      if (action.startsWith('studio-tab:')) {
+        const next = action.split(':')[1];
+        if (next === 'close') return; // panel close — keep current tab
+        state.studioTab = next;
+        render('studio');
+        return;
+      }
+      if (action.startsWith('bg-tab:')) {
+        state.bgPickerTab = action.split(':')[1];
+        render('studioBg');
+        return;
+      }
+      if (action.startsWith('bg-pick:')) {
+        screen.querySelectorAll('.bg-tile .bg-check').forEach(c => c.remove());
+        const check = document.createElement('span');
+        check.className = 'bg-check'; check.textContent = '✓';
+        el.appendChild(check);
+        return;
+      }
+      if (action === 'bg-apply') {
+        toast('배경이 적용되었어요');
+        setTimeout(() => back(), 500);
+        return;
+      }
       if (action === 'signup-submit') {
         const name = document.getElementById('signupName')?.value.trim();
         const y = document.getElementById('signupYear')?.value.trim();
