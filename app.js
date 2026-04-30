@@ -6,6 +6,11 @@ const bottomNav = document.getElementById('bottomNav');
 const state = {
   user: { name: '김러너', birth: '2000.01.01', email: 'tracksy1@gmail.com', style: '산책/러닝' },
   studioTab: 'edit',
+  archiveTab: 'calendar',
+  archiveMonth: { y: 2026, m: 4 },
+  archiveSelected: '2026-04-24',
+  aiStep: 'intro',
+  aiMood: null,
   inquiries: [
     { id: 1, type: '서비스 이용', title: '기록이 저장되지 않아요.', date: '2026.01.01 14:30', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', reply: '안녕하세요. 트랙시 고객 센터 입니다.\n\n기록이 저장되지 않는 현상은 앱의 캐시 데이터가 영향을 주는 경우로 아래 방법에 따라 확인 부탁드립니다.', status: 'wait' },
     { id: 2, type: '계정/로그인', title: '기록이 저장되지 않아요.', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', status: 'wait' },
@@ -30,6 +35,296 @@ const partners = [
   { id: 'apple', name: 'Apple 건강', cls: 'logo-apple', initial: '🍎',
     desc: 'Apple 건강 앱의 운동 기록을 TRACKSY와 연동합니다.' },
 ];
+
+// ----- Archive views -----
+function archiveCalendarView() {
+  const { y, m } = state.archiveMonth;
+  const cells = buildCalendar(y, m);
+  const sel = state.archiveSelected;
+  const today = `${y}-${pad(m)}-${pad(new Date().getDate())}`;
+  const selRec = archiveRecords[sel];
+  return `
+    <div class="cal-card">
+      <div class="cal-nav">
+        <button data-action="cal-prev">‹</button>
+        <span class="cal-title">${y}년 ${m}월</span>
+        <button data-action="cal-next">›</button>
+      </div>
+      <div class="cal-dow">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+      <div class="cal-grid">
+        ${cells.map((d, i) => {
+          if (d === null) return `<div class="cal-cell empty"></div>`;
+          const key = `${y}-${pad(m)}-${pad(d)}`;
+          const has = !!archiveRecords[key];
+          const isSel = key === sel;
+          const dow = i % 7;
+          const cls = ['cal-cell'];
+          if (has) cls.push('has');
+          if (isSel) cls.push('selected');
+          if (dow === 0) cls.push('sun');
+          if (dow === 6) cls.push('sat');
+          return `<button class="${cls.join(' ')}" data-action="cal-pick:${key}">${d}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    ${selRec ? `
+      <div class="cal-record">
+        <div class="cal-record-head">
+          <span class="cal-record-date">${sel.replace(/-/g, '.')} 기록</span>
+        </div>
+        <div class="cal-record-stats">
+          <div><b>${selRec.dist}</b><i>km</i></div>
+          <div><b>${selRec.pace}</b><i>페이스</i></div>
+          <div><b>${selRec.bpm}</b><i>bpm</i></div>
+        </div>
+      </div>
+    ` : `
+      <div class="cal-empty">
+        <div class="cal-empty-mascot">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+        </div>
+        <p>선택한 날짜에 기록이 없어요</p>
+        <button class="primary-btn" data-go="archiveManual">기록 추가하기</button>
+      </div>
+    `}
+  `;
+}
+
+function archiveListView() {
+  const { y, m } = state.archiveMonth;
+  const ymPrefix = `${y}-${pad(m)}-`;
+  const items = Object.entries(archiveRecords)
+    .filter(([k]) => k.startsWith(ymPrefix))
+    .sort((a,b) => b[0].localeCompare(a[0]));
+  return `
+    <div class="list-month">
+      <button data-action="cal-prev">‹</button>
+      <span>${y}년 ${m}월</span>
+      <button data-action="cal-next">›</button>
+    </div>
+    <div class="record-list">
+      ${items.length === 0 ? `
+        <div class="cal-empty">
+          <div class="cal-empty-mascot">
+            <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+          </div>
+          <p>이번 달 기록이 없어요</p>
+        </div>
+      ` : items.map(([k, r]) => `
+        <div class="record-item">
+          <div class="record-date">${k.replace(/-/g, '.')}</div>
+          <div class="record-stats">
+            <span><b>${r.dist}</b> km</span>
+            <span><b>${r.pace}</b></span>
+            <span><b>${r.bpm}</b> bpm</span>
+          </div>
+          <span class="record-arrow">›</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function archiveCardsView() {
+  return `
+    <div class="cards-grid">
+      ${archiveCards.map(c => `
+        <div class="card-tile" data-action="toast:${c.dist}km 카드">
+          <div class="ct-bg" style="background:${c.bg}"></div>
+          <div class="ct-overlay"></div>
+          <div class="ct-content">
+            <div class="ct-date">${c.date}</div>
+            <div class="ct-dist">${c.dist}<small>km</small></div>
+            <div class="ct-mini">
+              <span><b>${c.pace}</b><i>페이스</i></span>
+              <span><b>${c.kcal}</b><i>kcal</i></span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <button class="primary-btn cards-more" data-action="toast:카드를 더 불러왔어요" style="margin:14px 16px 0;">더 많은 카드 보러가기</button>
+  `;
+}
+
+function archiveImportSection() {
+  return `
+    <div class="import-section">
+      <div class="import-title">데이터 가져오기</div>
+      <div class="import-grid">
+        <button class="import-tile" data-go="archiveManual">
+          <div class="it-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21l4-1L20 7l-3-3L4 17l-1 4z"/></svg></div>
+          <span>직접 입력하기</span>
+        </button>
+        <button class="import-tile" data-go="archiveSync">
+          <div class="it-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M18 4v3h-3M6 20v-3h3"/></svg></div>
+          <span>다른 앱 데이터 연동</span>
+        </button>
+        <button class="import-tile" data-go="archiveScan">
+          <div class="it-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="6" width="16" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M9 6l1.5-2h3L15 6"/></svg></div>
+          <span>캡처사진 스캔</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ----- AI Journal flow -----
+function aiJournalView() {
+  const step = state.aiStep || 'intro';
+  if (step === 'intro') {
+    return `
+      <div class="ai-screen">
+        <div class="ai-modal">
+          <div class="ai-modal-head">
+            <div class="ai-modal-title">AI 오늘의 러닝일지</div>
+            <button class="modal-close" data-action="ai-close">×</button>
+          </div>
+          <div class="ai-mascot-sm">
+            <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+          </div>
+          <p class="ai-intro-msg">오늘의 러닝은 어떠셨어요?<br/>마음을 담아 일지를 만들어드릴게요.</p>
+          <button class="primary-btn" data-action="ai-step:mood">대화 시작하기</button>
+          <button class="ai-secondary" data-action="ai-close">다음에</button>
+        </div>
+      </div>
+    `;
+  }
+  if (step === 'mood') {
+    return `
+      <div class="ai-screen">
+        <div class="ai-modal tall">
+          <div class="ai-modal-head">
+            <div class="ai-modal-title">AI 오늘의 러닝일지</div>
+            <button class="modal-close" data-action="ai-close">×</button>
+          </div>
+          <div class="ai-chat">
+            <div class="ai-bubble">오늘의 러닝, 어떤 하루였나요?<br/>기분을 골라주세요 ✨</div>
+            <div class="ai-mascot-md">
+              <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+            </div>
+          </div>
+          <div class="ai-mood-row">
+            <button class="ai-mood" data-action="ai-mood:good">
+              <span class="emo">😊</span><span>좋았어요</span>
+            </button>
+            <button class="ai-mood" data-action="ai-mood:ok">
+              <span class="emo">🙂</span><span>그냥요</span>
+            </button>
+            <button class="ai-mood" data-action="ai-mood:bad">
+              <span class="emo">😣</span><span>힘들었어요</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (step === 'loading') {
+    return `
+      <div class="ai-screen">
+        <div class="ai-modal tall">
+          <div class="ai-modal-head">
+            <div class="ai-modal-title">AI 오늘의 러닝일지</div>
+            <button class="modal-close" data-action="ai-close">×</button>
+          </div>
+          <div class="ai-loading">
+            <div class="ai-loading-mascot">
+              <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+              <div class="ai-loading-dots"><span></span><span></span><span></span></div>
+            </div>
+            <p>오늘의 일지를 만들어드리고 있어요</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (step === 'result') {
+    const messages = {
+      good: '오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 ❤️',
+      ok:  '꾸준함이 가장 큰 힘이에요<br/>오늘도 잘 달렸어요 💪',
+      bad: '오늘 견뎌낸 한 걸음이<br/>내일의 나를 만들어요 ✨',
+    };
+    const msg = messages[state.aiMood] || messages.good;
+    return `
+      <div class="ai-screen">
+        <div class="ai-modal tall">
+          <div class="ai-modal-head">
+            <div class="ai-modal-title">AI 오늘의 러닝일지</div>
+            <button class="modal-close" data-action="ai-close">×</button>
+          </div>
+          <div class="ai-result">
+            <div class="ai-result-card">
+              <div class="aq">"</div>
+              <p>${msg}</p>
+              <div class="aq close">"</div>
+              <div class="ai-result-mascot">
+                <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+              </div>
+            </div>
+          </div>
+          <div class="ai-result-actions">
+            <button class="ai-secondary" data-action="ai-step:mood">다시쓰기</button>
+            <button class="primary-btn" data-action="ai-save">오늘 일기 저장하기</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  // 'empty'
+  return `
+    <div class="ai-screen">
+      <div class="ai-modal">
+        <div class="ai-modal-head">
+          <div class="ai-modal-title">AI 오늘의 러닝일지</div>
+          <button class="modal-close" data-action="ai-close">×</button>
+        </div>
+        <div class="ai-mascot-sm">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+        </div>
+        <h3 class="ai-empty-title">기록 없이 날써볼까요?</h3>
+        <p class="ai-empty-sub">간단한 마음만 적으면 트랙시가 일지로 만들어드려요.</p>
+        <button class="primary-btn" data-action="ai-step:mood">간단하게 써볼게요</button>
+        <button class="ai-secondary" data-action="ai-step:intro">다시 시작하기</button>
+      </div>
+    </div>
+  `;
+}
+
+// ----- Archive records -----
+const archiveRecords = {
+  '2026-04-04': { dist: '7.15', pace: "5'55\"", bpm: 148 },
+  '2026-04-08': { dist: '4.32', pace: "6'30\"", bpm: 142 },
+  '2026-04-15': { dist: '6.06', pace: "5'48\"", bpm: 152 },
+  '2026-04-19': { dist: '5.46', pace: "6'02\"", bpm: 150 },
+  '2026-04-23': { dist: '6.06', pace: "5'48\"", bpm: 152 },
+  '2026-04-24': { dist: '5.21', pace: "6'15\"", bpm: 155 },
+};
+
+const archiveCards = [
+  { id: 1, dist: '6.06', date: '04.15', pace: "5'48\"", time: '46:45', kcal: 154,
+    bg: 'linear-gradient(180deg,#87CEEB 0%,#A8D08D 60%,#7BA876 100%)' },
+  { id: 2, dist: '5.23', date: '04.19', pace: "6'02\"", time: '32:12', kcal: 132,
+    bg: 'linear-gradient(180deg,#FBA77C 0%,#9C6B96 60%,#3D3A57 100%)' },
+  { id: 3, dist: '10.02', date: '04.10', pace: "5'30\"", time: '55:00', kcal: 280,
+    bg: 'linear-gradient(180deg,#FECDD3 0%,#FB7185 60%,#9F1239 100%)' },
+  { id: 4, dist: '7.65', date: '04.04', pace: "6'10\"", time: '48:20', kcal: 198,
+    bg: 'linear-gradient(180deg,#1E293B 0%,#0F172A 100%)' },
+];
+
+function buildCalendar(y, m) {
+  const first = new Date(y, m - 1, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7) cells.push(null);
+  return cells;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
 
 // ----- Community posts data -----
 const communityPosts = [
@@ -251,9 +546,11 @@ function render(route) {
   const navMap = { home: 'home', studio: 'studio', record: 'record', community: 'community', archive: 'archive' };
   const homeRoutes = ['profile','profileEdit','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'];
   const communityRoutes = ['communityPost','communityCompose'];
+  const archiveRoutes = ['archiveManual','archiveSync','archiveScan','archiveAI'];
   const baseRoute = route.split(':')[0];
   const navKey = homeRoutes.includes(baseRoute) ? 'home'
     : communityRoutes.includes(baseRoute) ? 'community'
+    : archiveRoutes.includes(baseRoute) ? 'archive'
     : navMap[route] || navMap[baseRoute] || null;
   if (navKey) {
     const el = document.querySelector(`.nav-item[data-nav="${navKey}"]`);
@@ -980,14 +1277,109 @@ const views = {
       <button class="primary-btn compose-template" data-action="toast:저장된 템플릿을 불러왔어요">저장된 템플릿 가져오기</button>
     </section>
   `,
-  archive: () => `
+  archive: () => {
+    const tab = state.archiveTab || 'calendar';
+    return `
     <div class="app-header"><div class="title">보관함</div></div>
-    <div class="placeholder">
-      <div class="big">📁</div>
-      <h2>나의 보관함</h2>
-      <p>저장한 기록과 러닝카드를<br/>여기서 모아볼 수 있어요.</p>
+    <div class="archive-screen">
+      <div class="archive-tabs">
+        <button class="ar-tab ${tab==='calendar'?'active':''}" data-action="ar-tab:calendar">캘린더 모음집</button>
+        <button class="ar-tab ${tab==='list'?'active':''}" data-action="ar-tab:list">기록 모음집</button>
+        <button class="ar-tab ${tab==='cards'?'active':''}" data-action="ar-tab:cards">카드 갤러리</button>
+      </div>
+
+      ${tab === 'calendar' ? archiveCalendarView() : ''}
+      ${tab === 'list' ? archiveListView() : ''}
+      ${tab === 'cards' ? archiveCardsView() : ''}
+
+      ${tab !== 'cards' ? archiveImportSection() : ''}
+      ${tab !== 'cards' ? `
+        <button class="ai-cta" data-go="archiveAI">
+          <span class="ai-cta-emoji">✨</span>
+          <span>AI 오늘의 러닝일지</span>
+        </button>
+      ` : ''}
+    </div>
+    `;
+  },
+
+  archiveManual: () => `
+    <div class="modal-screen">
+      <div class="modal-header">
+        <div class="modal-title">데이터 직접 입력하기</div>
+        <button class="modal-close" data-action="back">×</button>
+      </div>
+      <div class="modal-sub">기록할 내용을 직접 입력해 보세요</div>
+      <div class="modal-body">
+        <div class="field">
+          <label>날짜</label>
+          <input type="text" placeholder="2026.04.24" id="amDate"/>
+        </div>
+        <div class="field">
+          <label>거리</label>
+          <input type="text" placeholder="km 단위" id="amDist"/>
+        </div>
+        <div class="field">
+          <label>시간</label>
+          <input type="text" placeholder="00:00:00" id="amTime"/>
+        </div>
+        <div class="field">
+          <label>평균 페이스</label>
+          <input type="text" placeholder="0'00&quot;" id="amPace"/>
+        </div>
+        <div class="field">
+          <label>메모 (선택)</label>
+          <textarea placeholder="오늘의 러닝을 기록해보세요" id="amNote"></textarea>
+        </div>
+      </div>
+      <button class="primary-btn" data-action="manual-save">기록 저장하기</button>
     </div>
   `,
+
+  archiveSync: () => `
+    <div class="modal-screen">
+      <div class="modal-header">
+        <div class="modal-title">타사 앱 데이터 연동하기</div>
+        <button class="modal-close" data-action="back">×</button>
+      </div>
+      <div class="modal-sub">연동할 앱을 선택해 데이터를 가져오세요</div>
+      <div class="sync-list">
+        ${partners.map(p => `
+          <div class="partner-row" data-go="partnerDetail:${p.id}">
+            <div class="logo ${p.cls}">${p.initial}</div>
+            <div class="name">${p.name}</div>
+            <div class="ext">↗</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="sync-tip">
+        <span class="tip-ic">💡</span>
+        <span>연결한 앱에서는 자동 동기화됩니다.</span>
+      </div>
+    </div>
+  `,
+
+  archiveScan: () => `
+    <div class="modal-screen">
+      <div class="modal-header">
+        <div class="modal-title">캡처사진 스캔하기</div>
+        <button class="modal-close" data-action="back">×</button>
+      </div>
+      <div class="modal-sub">기록이 담긴 캡처 사진을 올려주세요</div>
+      <div class="scan-drop">
+        <div class="scan-icon">
+          <svg viewBox="0 0 60 60" fill="none" stroke="#8B5CF6" stroke-width="2"><path d="M30 14v22m-10-12l10-10 10 10"/><path d="M10 36v8a4 4 0 0 0 4 4h32a4 4 0 0 0 4-4v-8"/></svg>
+        </div>
+        <button class="scan-pick" data-action="toast:사진을 선택해주세요">캡처 사진 가져오기</button>
+      </div>
+      <div class="scan-tip">
+        <div class="tip-title">TIP</div>
+        <div class="tip-body">시간·거리·페이스 정보가 잘 보이는 캡처를 올리면 자동으로 인식해드려요.</div>
+      </div>
+    </div>
+  `,
+
+  archiveAI: () => aiJournalView(),
 
   placeholder: (name) => `
     <div class="placeholder">
@@ -1020,6 +1412,63 @@ function bindHandlers() {
       if (action.startsWith('comm-tab:')) {
         state.communityTab = action.split(':')[1];
         render('community');
+        return;
+      }
+      if (action.startsWith('ar-tab:')) {
+        state.archiveTab = action.split(':')[1];
+        render('archive');
+        return;
+      }
+      if (action === 'cal-prev') {
+        const { y, m } = state.archiveMonth;
+        state.archiveMonth = m === 1 ? { y: y-1, m: 12 } : { y, m: m-1 };
+        render('archive');
+        return;
+      }
+      if (action === 'cal-next') {
+        const { y, m } = state.archiveMonth;
+        state.archiveMonth = m === 12 ? { y: y+1, m: 1 } : { y, m: m+1 };
+        render('archive');
+        return;
+      }
+      if (action.startsWith('cal-pick:')) {
+        state.archiveSelected = action.split(':')[1];
+        render('archive');
+        return;
+      }
+      if (action === 'manual-save') {
+        const date = document.getElementById('amDate')?.value.trim();
+        const dist = document.getElementById('amDist')?.value.trim();
+        if (!date || !dist) { toast('날짜와 거리는 필수예요'); return; }
+        toast('기록을 저장했어요');
+        setTimeout(() => back(), 500);
+        return;
+      }
+      if (action === 'ai-close') {
+        state.aiStep = 'intro';
+        state.aiMood = null;
+        back();
+        return;
+      }
+      if (action.startsWith('ai-step:')) {
+        state.aiStep = action.split(':')[1];
+        render('archiveAI');
+        return;
+      }
+      if (action.startsWith('ai-mood:')) {
+        state.aiMood = action.split(':')[1];
+        state.aiStep = 'loading';
+        render('archiveAI');
+        setTimeout(() => {
+          state.aiStep = 'result';
+          render('archiveAI');
+        }, 1100);
+        return;
+      }
+      if (action === 'ai-save') {
+        toast('오늘의 일지를 저장했어요');
+        state.aiStep = 'intro'; state.aiMood = null;
+        setTimeout(() => back(), 500);
         return;
       }
       if (action.startsWith('studio-tab:')) {
