@@ -388,8 +388,20 @@ input, textarea, select {
 .profile-edit {
   display: flex; justify-content: flex-end;
   margin-bottom: 4px; margin-top: 8px;
+  cursor: pointer;
 }
-.profile-edit svg { width: 18px; height: 18px; color: var(--text-soft); }
+.profile-edit > * { pointer-events: none; }
+.profile-edit svg {
+  width: 18px; height: 18px; color: var(--text-soft);
+  padding: 6px;
+  box-sizing: content-box;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+.profile-edit:hover svg, .profile-edit:active svg {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
 
 /* === SETTINGS === */
 .settings-screen { padding: 0 20px 30px; }
