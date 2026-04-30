@@ -84,12 +84,8 @@ function render(route) {
 const views = {
   splash: () => `
     <section class="splash">
-      <div class="logo-wrap">
-        <svg viewBox="0 0 64 64" fill="none">
-          <rect x="8" y="8" width="48" height="48" rx="12" fill="white" opacity="0.95"/>
-          <path d="M22 38 c0 -8 6 -14 14 -14 c4 0 7 2 9 5 l-4 3 c-1 -2 -3 -3 -5 -3 c-5 0 -9 4 -9 9 c0 5 4 9 9 9 c2 0 4 -1 5 -3 l4 3 c-2 3 -5 5 -9 5 c-8 0 -14 -6 -14 -14 z" fill="#8B5CF6"/>
-          <circle cx="42" cy="22" r="4" fill="#FBBF24"/>
-        </svg>
+      <div class="mascot-wrap">
+        <img src="assets/mascot.png" alt="TRACKSY" class="mascot-img" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
       </div>
       <h1>TRACKSY</h1>
       <p>오늘의 러닝을, 나만의 이야기로</p>

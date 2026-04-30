@@ -158,16 +158,22 @@ input, textarea, select {
   text-align: center;
   padding-bottom: 120px;
 }
-.splash .logo-wrap {
-  width: 120px; height: 120px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 28px;
+.splash .mascot-wrap {
+  width: 160px; height: 160px;
+  border-radius: 36px;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 24px;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.2);
+  margin-bottom: 28px;
 }
-.splash .logo-wrap svg { width: 70px; height: 70px; }
+.splash .mascot-img {
+  width: 160px; height: 160px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,0.18));
+  animation: mascot-bob 1.6s ease-in-out infinite;
+}
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
 .splash h1 { font-size: 32px; font-weight: 900; letter-spacing: 0.15em; margin-bottom: 10px; }
 .splash p { font-size: 14px; opacity: 0.9; font-weight: 400; }
 
