@@ -31,6 +31,59 @@ const partners = [
     desc: 'Apple 건강 앱의 운동 기록을 TRACKSY와 연동합니다.' },
 ];
 
+// ----- Community posts data -----
+const communityPosts = [
+  { id: 1, type: 'photo', dist: '5km/1km', time: '2m 50s', likes: 154, brand: 'STRAVA',
+    bg: 'linear-gradient(180deg,#A8D8EA 0%,#7AB8C9 50%,#5C8FA8 100%)', tall: true },
+  { id: 2, type: 'photo', dist: '6.06', user: '박채원', likes: 563,
+    bg: 'linear-gradient(180deg,#87CEEB 0%,#A8D08D 60%,#7BA876 100%)', tall: false,
+    avatarBg: 'linear-gradient(135deg,#FBBF24,#F59E0B)' },
+  { id: 3, type: 'stats', user: '이용곡', dist: '11.00', likes: 138,
+    bg: 'linear-gradient(180deg,#FECACA 0%,#FCA5A5 100%)', tall: false,
+    pace: '0\'34"', time: '1\'22"', cal: '586', extra: '21m...' },
+  { id: 4, type: 'photo', user: '이용민', time: '3m 0s', likes: 92,
+    bg: 'linear-gradient(180deg,#DDD6FE 0%,#A78BFA 100%)', tall: true },
+  { id: 5, type: 'photo', dist: '4.20', likes: 211,
+    bg: 'linear-gradient(180deg,#FED7AA 0%,#FB923C 100%)', tall: false },
+  { id: 6, type: 'photo', dist: '7.15', user: '러너준', likes: 87,
+    bg: 'linear-gradient(180deg,#A7F3D0 0%,#34D399 100%)', tall: true },
+];
+
+function feedCard(p) {
+  if (p.type === 'stats') {
+    return `
+      <div class="feed-card stats" data-go="communityPost:${p.id}">
+        <div class="fc-bg" style="background:${p.bg}"></div>
+        <button class="fc-bm" data-stop>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        </button>
+        ${p.user ? `<div class="fc-username">${p.user}</div>` : ''}
+        <div class="fc-big">${p.dist}</div>
+        <div class="fc-stats">
+          <div><b>${p.pace}</b><i>페이스</i></div>
+          <div><b>${p.time}</b><i>시간</i></div>
+          <div><b>${p.cal}</b><i>kcal</i></div>
+          <div><b>${p.extra}</b><i>거리</i></div>
+        </div>
+        <div class="fc-likes">❤ ${p.likes}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="feed-card ${p.tall ? 'tall' : ''}" data-go="communityPost:${p.id}">
+      <div class="fc-bg" style="background:${p.bg}"></div>
+      <button class="fc-bm" data-stop>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      </button>
+      ${p.brand ? `<div class="fc-brand">${p.brand}</div>` : ''}
+      ${p.dist ? `<div class="fc-dist">${p.dist}</div>` : ''}
+      ${p.time ? `<div class="fc-time">${p.time}</div>` : ''}
+      ${p.user ? `<div class="fc-user">${p.user}</div>` : ''}
+      <div class="fc-likes">❤ ${p.likes}</div>
+    </div>
+  `;
+}
+
 // ----- Running card (reused across studio screens) -----
 function runningCard(small = false) {
   return `
@@ -196,7 +249,12 @@ function render(route) {
   // Set active nav
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navMap = { home: 'home', studio: 'studio', record: 'record', community: 'community', archive: 'archive' };
-  const navKey = ['profile','profileEdit','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'].includes(route.split(':')[0]) ? 'home' : navMap[route] || null;
+  const homeRoutes = ['profile','profileEdit','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'];
+  const communityRoutes = ['communityPost','communityCompose'];
+  const baseRoute = route.split(':')[0];
+  const navKey = homeRoutes.includes(baseRoute) ? 'home'
+    : communityRoutes.includes(baseRoute) ? 'community'
+    : navMap[route] || navMap[baseRoute] || null;
   if (navKey) {
     const el = document.querySelector(`.nav-item[data-nav="${navKey}"]`);
     if (el) el.classList.add('active');
@@ -787,13 +845,140 @@ const views = {
       <p>오늘의 러닝을 직접 기록하거나<br/>파트너 앱에서 가져오세요.</p>
     </div>
   `,
-  community: () => `
-    <div class="app-header"><div class="title">커뮤니티</div></div>
-    <div class="placeholder">
-      <div class="big">👥</div>
-      <h2>러너들의 이야기</h2>
-      <p>다른 러너들의 카드를 둘러보고<br/>서로 응원해보세요.</p>
+  community: () => {
+    const tab = state.communityTab || 'hot';
+    const collections = [
+      { title: '오늘 러닝 무드', emoji: '☁️', g: 'linear-gradient(135deg,#9CA3AF,#4B5563)' },
+      { title: '데일리 러닝',   emoji: '🏆', g: 'linear-gradient(135deg,#FBBF24,#F59E0B)' },
+      { title: '야경 러닝',     emoji: '🌙', g: 'linear-gradient(135deg,#1E3A8A,#312E81)' },
+      { title: '감성 러닝',     emoji: '💜', g: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
+    ];
+    const posts = communityPosts;
+    return `
+    <section class="community-screen">
+      <div class="comm-search">
+        <div class="comm-search-box">
+          <svg class="search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <span class="search-tags">#오운완  #생활런  #응원해</span>
+        </div>
+        <button class="comm-bookmark" aria-label="저장">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        </button>
+      </div>
+
+      <div class="comm-tabs">
+        <button class="ct-tab ${tab==='hot'?'active':''}" data-action="comm-tab:hot">Hot</button>
+        <button class="ct-tab ${tab==='new'?'active':''}" data-action="comm-tab:new">New</button>
+      </div>
+
+      <div class="comm-collections-wrap">
+        <div class="cc-head">
+          <div class="cc-title">인기 모음집 <span class="cc-emoji">👟</span></div>
+          <button class="cc-write" data-go="communityCompose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            <span>글쓰기</span>
+          </button>
+        </div>
+        <div class="cc-grid">
+          ${collections.map(c => `
+            <div class="cc-tile" style="background:${c.g}">
+              <div class="cc-label">${c.title} <span>${c.emoji}</span></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="comm-feed">
+        ${posts.map(p => feedCard(p)).join('')}
+      </div>
+    </section>
+  `;
+  },
+
+  communityPost: (id) => {
+    const p = communityPosts.find(x => String(x.id) === String(id)) || communityPosts[0];
+    return `
+      <div class="app-header comm-post-header">
+        <button class="back-btn" data-action="back">‹</button>
+        <div class="comm-post-user">
+          <div class="cpu-avatar" style="background:${p.avatarBg || 'linear-gradient(135deg,#A78BFA,#7C3AED)'}"></div>
+          <span>${p.user || '박채원'}</span>
+        </div>
+        <button class="comm-bookmark" style="margin-left:auto;" aria-label="저장">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        </button>
+      </div>
+      <section class="comm-post">
+        <div class="post-card">
+          <div class="post-card-photo" style="background:${p.bg || 'linear-gradient(180deg,#7DC8E8 0%,#A8D08D 80%)'}"></div>
+          <div class="post-card-overlay">
+            <div class="pc-date">글쓴날 오전 9:41</div>
+            <div class="pc-distance">${p.dist || '6.06'}</div>
+            <div class="pc-stats-row">
+              <div><b>5'48"</b><i>페이스</i></div>
+              <div><b>46:45</b><i>시간</i></div>
+              <div><b>154</b><i>kcal</i></div>
+            </div>
+            <div class="pc-stats-row sub">
+              <div><b>25 m</b><i>고도</i></div>
+              <div><b>152</b><i>심박</i></div>
+              <div><b>173</b><i>케이던스</i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="post-body">
+          <div class="post-title">오늘 날씨 진짜 좋다 - !!!</div>
+          <div class="post-tags">@ 오공원 # 무이용 # 야자스</div>
+          <div class="post-meta">
+            <span class="post-time">4시간 전</span>
+            <span class="post-likes">❤️ 563</span>
+            <span class="post-comments">💬 120</span>
+          </div>
+        </div>
+
+        <div class="post-actions">
+          <button class="post-act" data-action="toast:즐겨찾기에 추가했어요">
+            <span>⭐</span> 즐겨찾기
+          </button>
+          <button class="post-act primary" data-action="toast:템플릿을 적용했어요">
+            <span>✨</span> 이 템플릿 사용하기
+          </button>
+        </div>
+      </section>
+    `;
+  },
+
+  communityCompose: () => `
+    <div class="app-header comm-post-header">
+      <button class="back-btn" data-action="back">‹</button>
+      <div class="comm-post-user">
+        <div class="cpu-avatar" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)"></div>
+        <span>${state.user.name || '김러너'}</span>
+      </div>
+      <button class="comm-bookmark" style="margin-left:auto;" aria-label="저장">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      </button>
     </div>
+    <section class="comm-compose">
+      <div class="compose-canvas">
+        <div class="cc-mascot">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+          <div class="cc-card-icon">
+            <svg viewBox="0 0 48 48" fill="none" stroke="#8B5CF6" stroke-width="2"><rect x="6" y="6" width="36" height="36" rx="6"/><circle cx="18" cy="18" r="3"/><path d="M6 32l10-8 8 6 8-6 10 8"/></svg>
+          </div>
+        </div>
+        <div class="cc-bring">카드 가져오기</div>
+        <button class="cc-plus" data-action="toast:카드를 가져왔어요">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+      <div class="compose-fields">
+        <input type="text" class="compose-input" id="composeCaption" placeholder="캡션 추가..."/>
+        <input type="text" class="compose-input" id="composeTags" placeholder="해시태그 추가..."/>
+      </div>
+      <button class="primary-btn compose-template" data-action="toast:저장된 템플릿을 불러왔어요">저장된 템플릿 가져오기</button>
+    </section>
   `,
   archive: () => `
     <div class="app-header"><div class="title">보관함</div></div>
@@ -815,6 +1000,12 @@ const views = {
 
 // ----- Event delegation -----
 function bindHandlers() {
+  screen.querySelectorAll('[data-stop]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toast('저장됨');
+    });
+  });
   screen.querySelectorAll('[data-go]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -826,6 +1017,11 @@ function bindHandlers() {
       e.stopPropagation();
       const action = el.dataset.action;
       if (action === 'back') return back();
+      if (action.startsWith('comm-tab:')) {
+        state.communityTab = action.split(':')[1];
+        render('community');
+        return;
+      }
       if (action.startsWith('studio-tab:')) {
         const next = action.split(':')[1];
         if (next === 'close') return; // panel close — keep current tab
