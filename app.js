@@ -78,6 +78,16 @@ function render(route) {
   if (fn) screen.innerHTML = fn(arg);
   else screen.innerHTML = views.placeholder(name);
   bindHandlers();
+  if (name === 'home') {
+    requestAnimationFrame(() => {
+      const main = screen.querySelector('.hero-main');
+      const track = screen.querySelector('.hero-track');
+      if (main && track) {
+        const targetLeft = main.offsetLeft - (track.clientWidth - main.clientWidth) / 2;
+        track.scrollTo({ left: targetLeft, behavior: 'instant' in track ? 'instant' : 'auto' });
+      }
+    });
+  }
 }
 
 // ----- Views -----
@@ -158,68 +168,121 @@ const views = {
     </section>
   `,
 
-  home: () => `
+  home: () => {
+    const week = [
+      { dow: '일', date: 13, on: false },
+      { dow: '월', date: 14, on: true  },
+      { dow: '화', date: 15, on: true  },
+      { dow: '수', date: 16, on: false },
+      { dow: '목', date: 17, on: true  },
+      { dow: '금', date: 18, on: false },
+      { dow: '토', date: 19, on: false },
+    ];
+    return `
     <section class="home-screen">
-      <div class="home-top">
-        <div class="brand">TRACKSY</div>
-        <div class="icons">
-          <button class="icon-btn" data-go="profile" title="프로필">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
-          </button>
-          <button class="icon-btn" data-go="settings" title="설정">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-          </button>
+      <div class="home-greeting">
+        <div class="greet-avatar">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+        </div>
+        <div class="greet-text">
+          <div class="greet-name">${state.user.name || '닉네임'} <span>님</span></div>
+          <div class="greet-sub">오늘도 멋진 러너의 하루를 만들어봐요!</div>
+        </div>
+        <button class="greet-settings" data-go="settings" aria-label="설정">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="hero-carousel">
+        <div class="hero-track">
+
+          <div class="hero-slide hero-photo">
+            <div class="hp-bg"></div>
+            <div class="hp-overlay"></div>
+            <div class="hp-content">
+              <div class="hp-distance">21<small>km</small></div>
+              <div class="hp-time">12:45</div>
+            </div>
+          </div>
+
+          <div class="hero-slide hero-main" data-go="record">
+            <div class="hm-content">
+              <h2>러닝 기록하기</h2>
+              <p>오늘의 러닝을 등록해볼까요?</p>
+              <div class="hm-plus">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </div>
+            </div>
+            <div class="hm-mascot">
+              <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+            </div>
+            <div class="hm-wave"></div>
+          </div>
+
+          <div class="hero-slide hero-stats">
+            <div class="hs-meta">
+              <div class="hs-date">2026.04.06 <span>(월)</span></div>
+              <div class="hs-weather">오전 7:30 · 후 18°C</div>
+            </div>
+            <div class="hs-distance">5.21<small>km</small></div>
+            <div class="hs-rows">
+              <div class="hs-row"><span class="hs-ic">⏱</span><b>00:32:45</b><i>시간</i></div>
+              <div class="hs-row"><span class="hs-ic">⚡</span><b>6'12"</b><i>페이스</i></div>
+              <div class="hs-row"><span class="hs-ic">🔥</span><b>368</b><i>kcal</i></div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <div class="hero-card">
-        <h2>러닝 카드 만들기</h2>
-        <p>오늘의 러닝을 멋진 카드로 꾸며보세요</p>
-        <button class="cta" data-go="studio">시작하기 →</button>
+      <div class="week-section">
+        <div class="week-header">
+          <h3>이번주 러닝 기록 <span class="cal">📅</span></h3>
+          <div class="week-legend">
+            <span class="legend-item"><span class="dot dot-on"></span>기록있음</span>
+            <span class="legend-item"><span class="dot dot-off"></span>기록없음</span>
+          </div>
+        </div>
+        <div class="week-grid">
+          ${week.map(d => `
+            <div class="week-day">
+              <div class="dow">${d.dow}</div>
+              <div class="dom">${d.date}</div>
+              <div class="dot ${d.on ? 'dot-on' : 'dot-off'}"></div>
+            </div>
+          `).join('')}
+        </div>
       </div>
 
-      <div class="section-title">이번 주 러닝</div>
-      <div class="stats-grid">
-        <div class="stat-card full">
-          <div class="label">
-            <span class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-8 4 16 4-12 4 8h2"/></svg></span>
-            이번 주 누적 거리
+      <div class="home-stats-row">
+        <div class="hs-card hs-month">
+          <div class="hs-fig">
+            <svg viewBox="0 0 60 60" fill="none">
+              <circle cx="38" cy="14" r="4" fill="#8B5CF6"/>
+              <path d="M22 50 L28 38 L34 30 L42 36 L48 32" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M28 38 L24 28 L34 22 L40 26" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M14 50 Q22 46 36 50 Q44 52 52 48" stroke="#E5E7EB" stroke-width="6" stroke-linecap="round" fill="none"/>
+            </svg>
           </div>
-          <div class="value">24.5 <small>km</small></div>
-          <div class="bars">
-            <div class="bar" style="height:30%"></div>
-            <div class="bar active" style="height:60%"></div>
-            <div class="bar" style="height:20%"></div>
-            <div class="bar active" style="height:80%"></div>
-            <div class="bar" style="height:45%"></div>
-            <div class="bar active" style="height:90%"></div>
-            <div class="bar" style="height:0%"></div>
-          </div>
-          <div class="bars-labels">
-            <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
-          </div>
+          <div class="hs-label">이번달 러닝 횟수</div>
+          <div class="hs-value">12 <small>회</small></div>
+          <div class="hs-badge pink">↗ 지난달 대비 20%</div>
         </div>
-
-        <div class="stat-card">
-          <div class="label">
-            <span class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span>
-            이번 달 횟수
-          </div>
-          <div class="value">12 <small>회</small></div>
-          <div class="sub">지난달보다 +3회</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="label">
-            <span class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 8L12 17l-6.5 4 2-8L2 9h7z"/></svg></span>
-            90일 최고 페이스
-          </div>
-          <div class="value">5'12" <small>/km</small></div>
-          <div class="sub">개인 베스트</div>
+        <div class="hs-card hs-best">
+          <div class="hs-fig hs-trophy">🏆</div>
+          <div class="hs-label">최고 기록(90일간)</div>
+          <div class="hs-value">10.21 <small>km</small></div>
+          <div class="hs-badge gray">2026.04.06 달성!</div>
         </div>
       </div>
     </section>
-  `,
+  `;
+  },
 
   profile: () => `
     <section class="profile-screen">
