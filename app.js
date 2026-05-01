@@ -2,6 +2,13 @@
 const screen = document.getElementById('screen');
 const device = document.getElementById('device');
 const bottomNav = document.getElementById('bottomNav');
+const modalLayer = document.getElementById('modalLayer');
+
+function mountModal(html) {
+  if (!modalLayer) return;
+  modalLayer.innerHTML = html || '';
+  modalLayer.style.display = html ? 'block' : 'none';
+}
 
 const state = {
   user: { name: '김러너', birth: '2000.01.01', email: 'tracksy1@gmail.com', style: '산책/러닝' },
@@ -13,6 +20,8 @@ const state = {
   archiveSelected: null,         // 'YYYY-MM-DD' or null
   archiveListExpanded: null,     // 'YYYY-MM-DD' or null
   archiveListCount: 4,           // number of items shown in list (더보기)
+  galleryFilter: { y: 2024, m: 5 },
+  gallerySheet: null,            // null | 'year' | 'month'
   aiStep: 'intro',               // 'intro' | 'chat' | 'loading' | 'result' | 'skip'
   aiMessages: [
     { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
@@ -84,18 +93,121 @@ function archiveScreen() {
         <button class="amt-tab ${tab==='style'?'active':''}" data-action="archive-tab:style">스타일 보관소</button>
       </div>
 
-      ${tab === 'records' ? archiveRecordsBody() : archivePlaceholderBody(tab)}
+      ${tab === 'records' ? archiveRecordsBody() :
+        tab === 'gallery' ? archiveGalleryBody() :
+        archivePlaceholderBody(tab)}
     </section>
   `;
 }
 
 function archivePlaceholderBody(tab) {
-  const label = tab === 'gallery' ? '갤러리 보관소' : '스타일 보관소';
   return `
     <div class="archive-empty-tab">
-      <div class="aet-emoji">${tab === 'gallery' ? '🖼' : '🎨'}</div>
-      <h3>${label}</h3>
+      <div class="aet-emoji">🎨</div>
+      <h3>스타일 보관소</h3>
       <p>준비 중인 화면이에요.</p>
+    </div>
+  `;
+}
+
+// ----- Gallery archive -----
+const galleryCards = [
+  { id: 1, date: '오늘 · 오전 8:29', title: '금요일 오전 러닝', dist: '6.06',
+    pace: "7'43\"", time: '46:45', kcal: 154, elev: '25m', bpm: 152, cadence: 173,
+    likes: 563, comments: 120,
+    bg: 'linear-gradient(180deg,#7BA8C4 0%,#5A8AA0 35%,#3F6878 65%,#27424F 100%)' },
+  { id: 2, date: '2024.05.12 (월)', title: '한강 야경 러닝', dist: '5.23',
+    pace: "6'35\"", time: '34:20', kcal: 278, elev: '18m', bpm: 142, cadence: 165,
+    likes: 382, comments: 98,
+    bg: 'linear-gradient(180deg,#F0A87C 0%,#C28598 35%,#7B5A82 65%,#332E45 100%)' },
+  { id: 3, date: '2024.05.18 (토)', title: '벚꽃 러닝', dist: '10.02',
+    pace: "6'12\"", time: '1:02:15', kcal: 632, elev: '45m', bpm: 148, cadence: 160,
+    likes: 421, comments: 98,
+    bg: 'linear-gradient(180deg,#FFC4D6 0%,#F4929D 40%,#C16B7A 70%,#754250 100%)' },
+  { id: 4, date: '2024.05.15 (수)', title: '야간 러닝', dist: '7.65',
+    pace: "7'01\"", time: '53:40', kcal: 412, elev: '32m', bpm: 151, cadence: 172,
+    likes: 512, comments: 110,
+    bg: 'linear-gradient(180deg,#243043 0%,#1A2333 50%,#0F1721 100%)' },
+];
+
+function archiveGalleryBody() {
+  const { y, m } = state.galleryFilter;
+  return `
+    <div class="gallery-area">
+      <div class="gallery-filters">
+        <button class="gf-pill" data-action="gallery-sheet:year">
+          <span>${y}년</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button class="gf-pill" data-action="gallery-sheet:month">
+          <span>${pad2(m)}월</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="gallery-grid">
+        ${galleryCards.map(c => galleryCard(c)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function galleryCard(c) {
+  return `
+    <div class="g-card" data-action="toast:${c.title}">
+      <div class="gc-bg" style="background:${c.bg}"></div>
+      <div class="gc-overlay"></div>
+      <div class="gc-content">
+        <div class="gc-meta">${c.date}</div>
+        <div class="gc-title">${c.title}</div>
+        <div class="gc-dist">${c.dist}<small>킬로미터</small></div>
+        <div class="gc-stats">
+          <div class="gcs-cell"><b>${c.pace}</b><i>평균 페이스</i></div>
+          <div class="gcs-cell"><b>${c.time}</b><i>시간</i></div>
+          <div class="gcs-cell"><b>${c.elev}</b><i>누적 상승</i></div>
+          <div class="gcs-cell"><b>${c.kcal}</b><i>칼로리</i></div>
+          <div class="gcs-cell"><b>${c.bpm}</b><i>평균 심박</i></div>
+          <div class="gcs-cell"><b>${c.cadence}</b><i>케이던스</i></div>
+        </div>
+        <div class="gc-reactions">
+          <span class="gcr-item">❤ ${c.likes}</span>
+          <span class="gcr-item">💬 ${c.comments}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function archiveGallerySheet() {
+  const kind = state.gallerySheet;
+  const { y, m } = state.galleryFilter;
+
+  let title, items, current, action;
+  if (kind === 'year') {
+    title = '연 단위 선택';
+    items = [2026, 2025, 2024, 2023, 2022];
+    current = y;
+    action = 'gallery-set-year';
+  } else {
+    title = '월 단위 선택';
+    items = [7, 6, 5, 4, 3];
+    current = m;
+    action = 'gallery-set-month';
+  }
+
+  return `
+    <div class="gf-overlay" data-action="gallery-sheet-close"></div>
+    <div class="gf-sheet">
+      <div class="gf-sheet-handle"></div>
+      <div class="gf-sheet-title">${title}</div>
+      <div class="gf-list">
+        ${items.map(v => `
+          <button class="gf-item ${v === current ? 'active' : ''}" data-action="${action}:${v}">
+            ${kind === 'year' ? `${v}년` : `${pad2(v)}월`}
+          </button>
+        `).join('')}
+      </div>
+      <button class="primary-btn gf-confirm" data-action="gallery-sheet-close">선택완료</button>
     </div>
   `;
 }
@@ -838,6 +950,46 @@ function render(route) {
         });
       }
     });
+  }
+
+  // Modal layer for gallery filter sheet (and others that overlay the device)
+  if (name === 'archive' && state.archiveMainTab === 'gallery' && state.gallerySheet) {
+    mountModal(archiveGallerySheet());
+    bindModalHandlers();
+  } else {
+    mountModal(null);
+  }
+}
+
+function bindModalHandlers() {
+  if (!modalLayer) return;
+  modalLayer.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = el.dataset.action;
+      // Reuse the main dispatcher by simulating: simplest is to find handlers in screen handler.
+      // Instead, just dispatch a synthetic click to the same data-action stored.
+      // We re-run the action through a small router:
+      handleAction(action, el);
+    });
+  });
+}
+
+function handleAction(action, el) {
+  if (action === 'gallery-sheet-close') {
+    state.gallerySheet = null;
+    render('archive');
+    return;
+  }
+  if (action.startsWith('gallery-set-year:')) {
+    state.galleryFilter.y = Number(action.split(':')[1]);
+    render('archive');
+    return;
+  }
+  if (action.startsWith('gallery-set-month:')) {
+    state.galleryFilter.m = Number(action.split(':')[1]);
+    render('archive');
+    return;
   }
 }
 
@@ -1689,6 +1841,27 @@ function bindHandlers() {
       // --- Archive ---
       if (action.startsWith('archive-tab:')) {
         state.archiveMainTab = action.split(':')[1];
+        state.gallerySheet = null;
+        render('archive');
+        return;
+      }
+      if (action.startsWith('gallery-sheet:')) {
+        state.gallerySheet = action.split(':')[1]; // 'year' | 'month'
+        render('archive');
+        return;
+      }
+      if (action === 'gallery-sheet-close') {
+        state.gallerySheet = null;
+        render('archive');
+        return;
+      }
+      if (action.startsWith('gallery-set-year:')) {
+        state.galleryFilter.y = Number(action.split(':')[1]);
+        render('archive');
+        return;
+      }
+      if (action.startsWith('gallery-set-month:')) {
+        state.galleryFilter.m = Number(action.split(':')[1]);
         render('archive');
         return;
       }
