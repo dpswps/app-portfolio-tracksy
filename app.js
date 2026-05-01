@@ -13,6 +13,12 @@ const state = {
   archiveSelected: null,         // 'YYYY-MM-DD' or null
   archiveListExpanded: null,     // 'YYYY-MM-DD' or null
   archiveListCount: 4,           // number of items shown in list (더보기)
+  aiStep: 'intro',               // 'intro' | 'chat' | 'loading' | 'result' | 'skip'
+  aiMessages: [
+    { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
+    { from: 'bot', text: '뛸 때 컨디션은 어땠어?' },
+  ],
+  aiSummary: null,
   inquiries: [
     { id: 1, type: '서비스 이용', title: '기록이 저장되지 않아요.', date: '2026.01.01 14:30', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', reply: '안녕하세요. 트랙시 고객 센터 입니다.\n\n기록이 저장되지 않는 현상은 앱의 캐시 데이터가 영향을 주는 경우로 아래 방법에 따라 확인 부탁드립니다.', status: 'wait' },
     { id: 2, type: '계정/로그인', title: '기록이 저장되지 않아요.', body: '가민에서 기록 떠서 왔는데, 저장이 안되어 있어서 문의합니다.', status: 'wait' },
@@ -356,9 +362,202 @@ function archiveImportSection() {
   `;
 }
 
+// ----- AI 오늘의 러닝일지 -----
+function aiJournalView() {
+  const step = state.aiStep || 'intro';
+  if (step === 'intro')   return aijIntro();
+  if (step === 'chat')    return aijChat();
+  if (step === 'loading') return aijLoading();
+  if (step === 'result')  return aijResult();
+  if (step === 'skip')    return aijSkip();
+  return aijIntro();
+}
+
+function aijHeader() {
+  return `
+    <div class="aij-header">
+      <div class="aij-title">AI 오늘의 러닝일지</div>
+      <button class="aij-close" data-action="aij-close" aria-label="닫기">×</button>
+    </div>
+  `;
+}
+
+function aijBgChatPreview() {
+  // dimmed chat preview behind the bottom-sheets / modals
+  return `
+    <div class="aij-bg">
+      <div class="aij-bg-msg-row">
+        <div class="aij-bg-mascot">
+          <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+        </div>
+        <div class="aij-bg-bubble">오늘 5km 뛰었네! 꽤 괜찮은데 ✨</div>
+      </div>
+    </div>
+  `;
+}
+
+function aijIntro() {
+  return `
+    <section class="aij-screen">
+      ${aijHeader()}
+      ${aijBgChatPreview()}
+      <div class="aij-overlay"></div>
+      <div class="aij-sheet">
+        <h3 class="aij-sheet-title">AI 오늘의 러닝일지</h3>
+        <p class="aij-sheet-sub">간단한 대화로 오늘의 러닝을 한 줄로 정리해드려요.</p>
+        <ul class="aij-points">
+          <li>
+            <span class="aij-pic">💬</span>
+            <span>오늘의 기록을 더 간단하게 정리해보세요.</span>
+          </li>
+          <li>
+            <span class="aij-pic">❓</span>
+            <span>몇 가지 질문에 답하면 충분해요.</span>
+          </li>
+        </ul>
+        <button class="primary-btn aij-primary" data-action="aij-start">대화 시작 하기</button>
+        <button class="aij-secondary" data-action="aij-skip-confirm">건너뛰기</button>
+      </div>
+    </section>
+  `;
+}
+
+function aijChat() {
+  return `
+    <section class="aij-screen aij-chat-screen">
+      ${aijHeader()}
+      <div class="aij-chat-area">
+        ${state.aiMessages.map(m => m.from === 'bot' ? `
+          <div class="aij-row left">
+            <div class="aij-mascot-sm">
+              <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+            </div>
+            <div class="aij-bubble">${m.text}</div>
+          </div>
+        ` : `
+          <div class="aij-row right">
+            <div class="aij-bubble user">${m.text}</div>
+          </div>
+        `).join('')}
+        <div class="aij-row right">
+          <div class="aij-bubble typing"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="aij-input-section">
+        <div class="aij-quick-row">
+          <button class="aij-quick" data-action="aij-mood:good">
+            <span class="aij-emo">😊</span>
+            <span>좋아</span>
+          </button>
+          <button class="aij-quick" data-action="aij-mood:ok">
+            <span class="aij-emo">😐</span>
+            <span>그냥그래</span>
+          </button>
+          <button class="aij-quick" data-action="aij-mood:bad">
+            <span class="aij-emo">😣</span>
+            <span>힘들었어</span>
+          </button>
+        </div>
+        <div class="aij-input-row">
+          <input type="text" id="aijInput" placeholder="직접 입력하기"/>
+          <button class="aij-send" data-action="aij-send" aria-label="전송">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function aijLoading() {
+  return `
+    <section class="aij-screen aij-overlay-screen">
+      ${aijHeader()}
+      ${aijBlurredChat()}
+      <div class="aij-overlay"></div>
+      <div class="aij-loading-modal">
+        <div class="aij-loading-circle">
+          <div class="aij-loading-mascot">
+            <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+            <span class="aij-q">?</span>
+          </div>
+        </div>
+        <p class="aij-loading-text">오늘의 러닝을 요약중이에요</p>
+        <div class="aij-loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </section>
+  `;
+}
+
+function aijResult() {
+  const summary = state.aiSummary || '오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜';
+  return `
+    <section class="aij-screen aij-overlay-screen">
+      ${aijHeader()}
+      ${aijBlurredChat()}
+      <div class="aij-overlay"></div>
+      <div class="aij-result-wrap">
+        <div class="aij-result-card">
+          <div class="aij-result-stars">✨ 오늘의 러닝 한 줄 요약 ✨</div>
+          <div class="aij-result-quote">
+            <span class="aij-q-mark open">"</span>
+            <p>${summary}</p>
+            <span class="aij-q-mark close">"</span>
+          </div>
+          <div class="aij-result-mascot-row">
+            <div class="aij-result-mascot">
+              <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+            </div>
+            <div class="aij-cheer-bubble">오늘도 수고했어! 😊</div>
+          </div>
+        </div>
+        <div class="aij-result-actions">
+          <button class="aij-result-save" data-action="aij-save">러닝 일지 저장하기</button>
+          <button class="aij-result-retry" data-action="aij-retry">다시하기</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function aijSkip() {
+  return `
+    <section class="aij-screen aij-overlay-screen">
+      ${aijHeader()}
+      ${aijBlurredChat()}
+      <div class="aij-overlay"></div>
+      <div class="aij-sheet">
+        <h3 class="aij-sheet-title">기록 없이 넘어갈까요?</h3>
+        <p class="aij-sheet-sub">간단한 대화를 통해 오늘을 기록할 수 있어요!<br/>기록하지 않으면 스튜디오로 바로 들어가져요.</p>
+        <button class="primary-btn aij-primary" data-action="aij-go-studio">스튜디오 바로가기</button>
+        <button class="aij-secondary purple" data-action="aij-start">대화 시작하기</button>
+      </div>
+    </section>
+  `;
+}
+
+function aijBlurredChat() {
+  return `
+    <div class="aij-blur-chat">
+      ${state.aiMessages.map(m => m.from === 'bot' ? `
+        <div class="aij-row left">
+          <div class="aij-mascot-sm">
+            <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
+          </div>
+          <div class="aij-bubble">${m.text}</div>
+        </div>
+      ` : `
+        <div class="aij-row right">
+          <div class="aij-bubble user">${m.text}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function archiveAICard() {
   return `
-    <button class="ai-journal-card" data-action="toast:AI 일지 기능은 준비 중이에요">
+    <button class="ai-journal-card" data-go="archiveAI">
       <div class="ajc-mascot">
         <img src="assets/mascot.png" alt="" onerror="this.onerror=null;this.src='assets/mascot.svg'"/>
       </div>
@@ -591,7 +790,7 @@ function render(route) {
   const navMap = { home: 'home', studio: 'studio', record: 'record', community: 'community', archive: 'archive' };
   const homeRoutes = ['profile','profileEdit','settings','partners','inquiry','inquiryDetail','inquiryList','feedback'];
   const communityRoutes = ['communityPost','communityCompose'];
-  const archiveRoutes = ['archiveManual','archiveSync','archiveScan'];
+  const archiveRoutes = ['archiveManual','archiveSync','archiveScan','archiveAI'];
   const baseRoute = route.split(':')[0];
   const navKey = homeRoutes.includes(baseRoute) ? 'home'
     : communityRoutes.includes(baseRoute) ? 'community'
@@ -623,6 +822,22 @@ function render(route) {
     if (ta && counter) {
       ta.addEventListener('input', () => { counter.textContent = ta.value.length; });
     }
+  }
+  if (name === 'archiveAI' && state.aiStep === 'chat') {
+    requestAnimationFrame(() => {
+      const area = screen.querySelector('.aij-chat-area');
+      if (area) area.scrollTop = area.scrollHeight;
+      const input = document.getElementById('aijInput');
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const sendBtn = screen.querySelector('[data-action="aij-send"]');
+            sendBtn?.click();
+          }
+        });
+      }
+    });
   }
 }
 
@@ -1440,6 +1655,8 @@ const views = {
     </div>
   `,
 
+  archiveAI: () => aiJournalView(),
+
   placeholder: (name) => `
     <div class="placeholder">
       <div class="big">✨</div>
@@ -1532,6 +1749,92 @@ function bindHandlers() {
         if (!date || !dist) { toast('날짜와 거리는 필수예요'); return; }
         toast('기록을 저장했어요');
         setTimeout(() => back(), 500);
+        return;
+      }
+
+      // --- AI 오늘의 러닝일지 ---
+      if (action === 'aij-close') {
+        // reset and exit
+        state.aiStep = 'intro';
+        state.aiMessages = [
+          { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
+          { from: 'bot', text: '뛸 때 컨디션은 어땠어?' },
+        ];
+        state.aiSummary = null;
+        back();
+        return;
+      }
+      if (action === 'aij-start') {
+        state.aiStep = 'chat';
+        render('archiveAI');
+        return;
+      }
+      if (action === 'aij-skip-confirm') {
+        state.aiStep = 'skip';
+        render('archiveAI');
+        return;
+      }
+      if (action === 'aij-go-studio') {
+        state.aiStep = 'intro';
+        navStack.length = 0;
+        go('studio');
+        return;
+      }
+      if (action.startsWith('aij-mood:')) {
+        const mood = action.split(':')[1];
+        const moodLabel = { good: '좋아', ok: '그냥그래', bad: '힘들었어' }[mood] || '좋아';
+        state.aiMessages.push({ from: 'user', text: moodLabel });
+        const summaries = {
+          good: '오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜',
+          ok:   '꾸준함이 가장 큰 힘이에요<br/>오늘도 잘 달렸어요 💪',
+          bad:  '오늘 견뎌낸 한 걸음이<br/>내일의 나를 만들어요 ✨',
+        };
+        state.aiSummary = summaries[mood] || summaries.good;
+        state.aiStep = 'loading';
+        render('archiveAI');
+        setTimeout(() => {
+          if (state.aiStep === 'loading') {
+            state.aiStep = 'result';
+            render('archiveAI');
+          }
+        }, 1400);
+        return;
+      }
+      if (action === 'aij-send') {
+        const input = document.getElementById('aijInput');
+        const text = input?.value.trim();
+        if (!text) { toast('한 줄 적어보세요'); return; }
+        state.aiMessages.push({ from: 'user', text });
+        state.aiSummary = '오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜';
+        state.aiStep = 'loading';
+        render('archiveAI');
+        setTimeout(() => {
+          if (state.aiStep === 'loading') {
+            state.aiStep = 'result';
+            render('archiveAI');
+          }
+        }, 1400);
+        return;
+      }
+      if (action === 'aij-save') {
+        toast('러닝 일지가 저장되었어요');
+        state.aiStep = 'intro';
+        state.aiMessages = [
+          { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
+          { from: 'bot', text: '뛸 때 컨디션은 어땠어?' },
+        ];
+        state.aiSummary = null;
+        setTimeout(() => back(), 500);
+        return;
+      }
+      if (action === 'aij-retry') {
+        state.aiMessages = [
+          { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
+          { from: 'bot', text: '뛸 때 컨디션은 어땠어?' },
+        ];
+        state.aiSummary = null;
+        state.aiStep = 'chat';
+        render('archiveAI');
         return;
       }
 
