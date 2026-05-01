@@ -10,6 +10,8 @@ export default function StudioPage() {
   const router = useRouter();
   const tab = useAppStore((s) => s.studioTab);
   const setTab = useAppStore((s) => s.setStudioTab);
+  const placedStickers = useAppStore((s) => s.placedStickers);
+  const removeSticker = useAppStore((s) => s.removeSticker);
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -49,8 +51,24 @@ export default function StudioPage() {
       </div>
 
       <div className="studio-canvas">
-        <RunningCard />
-        <button className="st-fab" aria-label="스티커 추가">
+        <div className="studio-card-wrap">
+          <RunningCard />
+          <div className="placed-stickers">
+            {placedStickers.map((p) => (
+              <button
+                key={p.id}
+                className="placed-sticker"
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                onClick={() => removeSticker(p.id)}
+                aria-label={`${p.emoji} 제거`}
+                title="클릭하여 제거"
+              >
+                {p.emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button className="st-fab" aria-label="스티커 추가" onClick={() => setTab("sticker")}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <circle cx="12" cy="12" r="9" />
             <circle cx="9" cy="10" r="0.8" fill="currentColor" />

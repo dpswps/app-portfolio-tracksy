@@ -4,6 +4,27 @@ import { useAppStore } from "@/stores/useAppStore";
 
 const STICKERS = ["🏃", "💜", "✨", "🔥", "🎯", "⚡", "🏆", "❤️", "🌟", "😊", "🎉", "💪"];
 
+function StickerGrid() {
+  const addSticker = useAppStore((s) => s.addSticker);
+  const showToast = useAppStore((s) => s.showToast);
+  return (
+    <div className="sp-stickers">
+      {STICKERS.map((s) => (
+        <button
+          key={s}
+          className="sp-sticker"
+          onClick={() => {
+            addSticker(s);
+            showToast(`${s} 추가됨`);
+          }}
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" | "design" }) {
   const showToast = useAppStore((s) => s.showToast);
   const t = (msg: string) => () => showToast(msg);
@@ -96,15 +117,7 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
   }
 
   if (tab === "sticker") {
-    return (
-      <div className="sp-stickers">
-        {STICKERS.map((s) => (
-          <button key={s} className="sp-sticker" onClick={t(`${s} 추가됨`)}>
-            {s}
-          </button>
-        ))}
-      </div>
-    );
+    return <StickerGrid />;
   }
 
   if (tab === "design") {

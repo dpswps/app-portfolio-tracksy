@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import Mascot from "@/components/ui/Mascot";
@@ -16,6 +17,7 @@ const week = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const user = useAppStore((s) => s.user);
   const trackRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -24,8 +26,55 @@ export default function HomePage() {
     const track = trackRef.current;
     const main = mainRef.current;
     if (!track || !main) return;
-    const targetLeft = main.offsetLeft - (track.clientWidth - main.clientWidth) / 2;
-    track.scrollTo({ left: targetLeft, behavior: "auto" });
+
+    const center = () => {
+      const targetLeft = main.offsetLeft - (track.clientWidth - main.clientWidth) / 2;
+      track.scrollTo({ left: targetLeft, behavior: "auto" });
+    };
+    requestAnimationFrame(center);
+
+    // Convert vertical wheel to horizontal scroll on desktop
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        track.scrollLeft += e.deltaY;
+      }
+    };
+    track.addEventListener("wheel", onWheel, { passive: false });
+
+    // Mouse drag-to-slide on desktop
+    let isDown = false;
+    let startX = 0;
+    let startScroll = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      isDown = true;
+      startX = e.clientX;
+      startScroll = track.scrollLeft;
+      track.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!isDown) return;
+      track.scrollLeft = startScroll - (e.clientX - startX);
+    };
+    const onUp = (e: PointerEvent) => {
+      isDown = false;
+      try {
+        track.releasePointerCapture(e.pointerId);
+      } catch {}
+    };
+    track.addEventListener("pointerdown", onDown);
+    track.addEventListener("pointermove", onMove);
+    track.addEventListener("pointerup", onUp);
+    track.addEventListener("pointercancel", onUp);
+
+    return () => {
+      track.removeEventListener("wheel", onWheel);
+      track.removeEventListener("pointerdown", onDown);
+      track.removeEventListener("pointermove", onMove);
+      track.removeEventListener("pointerup", onUp);
+      track.removeEventListener("pointercancel", onUp);
+    };
   }, []);
 
   return (
@@ -61,7 +110,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Link href="/record" className="hero-slide hero-main" ref={mainRef as never}>
+          <div
+            className="hero-slide hero-main"
+            ref={mainRef}
+            onClick={() => router.push("/record")}
+            role="button"
+            tabIndex={0}
+          >
             <div className="hm-content">
               <h2>러닝 기록하기</h2>
               <p>오늘의 러닝을 등록해볼까요?</p>
@@ -75,7 +130,7 @@ export default function HomePage() {
               <Mascot />
             </div>
             <div className="hm-wave" />
-          </Link>
+          </div>
 
           <div className="hero-slide hero-stats">
             <div className="hs-meta">

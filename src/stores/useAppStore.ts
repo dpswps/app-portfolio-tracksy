@@ -57,6 +57,7 @@ type State = {
   // studio
   studioTab: "edit" | "text" | "sticker" | "design";
   bgPickerTab: "mine" | "ai";
+  placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
   // archive
   archiveMainTab: "records" | "gallery" | "style";
@@ -88,6 +89,8 @@ type State = {
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
+  addSticker: (emoji: string) => void;
+  removeSticker: (id: number) => void;
   setArchiveMainTab: (t: State["archiveMainTab"]) => void;
   setArchiveView: (v: State["archiveView"]) => void;
   toggleCalExpanded: () => void;
@@ -116,6 +119,7 @@ export const useAppStore = create<State>((set, get) => ({
 
   studioTab: "edit",
   bgPickerTab: "mine",
+  placedStickers: [],
 
   archiveMainTab: "records",
   archiveView: "calendar",
@@ -146,6 +150,19 @@ export const useAppStore = create<State>((set, get) => ({
   hideToast: () => set({ toast: null }),
   setStudioTab: (t) => set({ studioTab: t }),
   setBgPickerTab: (t) => set({ bgPickerTab: t }),
+  addSticker: (emoji) =>
+    set((s) => {
+      const x = 15 + Math.random() * 60;
+      const y = 15 + Math.random() * 50;
+      return {
+        placedStickers: [
+          ...s.placedStickers,
+          { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
+        ],
+      };
+    }),
+  removeSticker: (id) =>
+    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
   setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
   setArchiveView: (v) =>
     set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
