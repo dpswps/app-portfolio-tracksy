@@ -22,6 +22,7 @@ const state = {
   archiveListCount: 4,           // number of items shown in list (더보기)
   galleryFilter: { y: 2024, m: 5 },
   gallerySheet: null,            // null | 'year' | 'month'
+  styleSubTab: 'saved',          // 'saved' | 'mine'
   aiStep: 'intro',               // 'intro' | 'chat' | 'loading' | 'result' | 'skip'
   aiMessages: [
     { from: 'bot', text: '오늘 5km 뛰었네! 꽤 괜찮은데 ✨' },
@@ -95,18 +96,8 @@ function archiveScreen() {
 
       ${tab === 'records' ? archiveRecordsBody() :
         tab === 'gallery' ? archiveGalleryBody() :
-        archivePlaceholderBody(tab)}
+        archiveStyleBody()}
     </section>
-  `;
-}
-
-function archivePlaceholderBody(tab) {
-  return `
-    <div class="archive-empty-tab">
-      <div class="aet-emoji">🎨</div>
-      <h3>스타일 보관소</h3>
-      <p>준비 중인 화면이에요.</p>
-    </div>
   `;
 }
 
@@ -208,6 +199,116 @@ function archiveGallerySheet() {
         `).join('')}
       </div>
       <button class="primary-btn gf-confirm" data-action="gallery-sheet-close">선택완료</button>
+    </div>
+  `;
+}
+
+// ----- Style archive -----
+const styleCards = {
+  saved: [
+    {
+      id: 's1', date: '오늘 · 5.21 (화)', title: '올림픽 공원 러닝',
+      dist: '6.06', distColor: '#1F1F23',
+      bg: 'linear-gradient(180deg,#A8D8B9 0%,#7FB68C 35%,#5C8A6E 70%,#3F5E55 100%)',
+      stats: [
+        { v: "7'43\"", l: '평균 페이스' },
+        { v: '46:45',  l: '시간' },
+        { v: '154',    l: 'BPM' },
+        { v: '25m',    l: '누적 상승' },
+        { v: '152',    l: '평균 케이던스' },
+        { v: '173',    l: '칼로리' },
+      ],
+    },
+    {
+      id: 's2', date: '2024. 04. 02 (화)', title: '벚꽃 러닝',
+      dist: '10.02', distColor: '#E11D48',
+      bg: 'linear-gradient(180deg,#FFD7E1 0%,#F5A6BB 40%,#D87693 70%,#9C5670 100%)',
+      stats: [
+        { v: "6'12\"",  l: '평균 페이스' },
+        { v: '1:02:15', l: '시간' },
+        { v: '632',     l: '칼로리' },
+        { v: '45m',     l: '누적 상승' },
+        { v: '148',     l: '평균 케이던스' },
+        { v: '160',     l: '평균 심박' },
+      ],
+    },
+  ],
+  mine: [
+    {
+      id: 'm1', date: '2024. 03. 18 (월)', title: '야간 러닝',
+      dist: '5.23', distColor: '#BEF264',
+      bg: 'linear-gradient(180deg,#1F2937 0%,#0F172A 50%,#020617 100%)',
+      stats: [
+        { v: "6'35\"", l: '평균 페이스' },
+        { v: '34:20',  l: '시간' },
+        { v: '278',    l: '칼로리' },
+        { v: '18m',    l: '누적 상승' },
+        { v: '142',    l: '평균 케이던스' },
+        { v: '165',    l: '평균 심박' },
+      ],
+    },
+    {
+      id: 'm2', date: '2024. 05. 12 (일)', title: '한강 러닝 10K',
+      dist: '5.23', distColor: '#1F1F23',
+      bg: 'linear-gradient(180deg,#FCD9A4 0%,#E89E7A 40%,#9C6B82 70%,#3D3548 100%)',
+      stats: [
+        { v: "6'35\"", l: '평균 페이스' },
+        { v: '34:20',  l: '시간' },
+        { v: '278',    l: '칼로리' },
+        { v: '18m',    l: '누적 상승' },
+        { v: '142',    l: '평균 케이던스' },
+        { v: '165',    l: '평균 심박' },
+      ],
+    },
+  ],
+};
+
+function archiveStyleBody() {
+  const sub = state.styleSubTab || 'saved';
+  const cards = styleCards[sub] || [];
+  return `
+    <div class="style-area">
+      <div class="style-subtabs">
+        <button class="sst ${sub==='saved'?'active':''}" data-action="style-sub:saved">저장한 스타일</button>
+        <button class="sst ${sub==='mine'?'active':''}" data-action="style-sub:mine">내가 만든 스타일</button>
+      </div>
+
+      <div class="style-list">
+        ${cards.map(c => styleCardHTML(c)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function styleCardHTML(c) {
+  return `
+    <div class="style-block">
+      <div class="style-card">
+        <div class="sc-bg" style="background:${c.bg}"></div>
+        <div class="sc-overlay"></div>
+        <button class="sc-bookmark" data-stop aria-label="저장">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        </button>
+        <div class="sc-content">
+          <div class="sc-meta">${c.date}</div>
+          <div class="sc-title">${c.title}</div>
+          <div class="sc-dist" style="color:${c.distColor || '#fff'}">${c.dist}</div>
+          <div class="sc-dist-unit" style="color:${c.distColor || '#fff'}">킬로미터</div>
+          <div class="sc-stats">
+            <div class="sc-stat-row">
+              ${c.stats.slice(0, 3).map(s => `
+                <div class="sc-stat"><b>${s.v}</b><i>${s.l}</i></div>
+              `).join('')}
+            </div>
+            <div class="sc-stat-row">
+              ${c.stats.slice(3, 6).map(s => `
+                <div class="sc-stat"><b>${s.v}</b><i>${s.l}</i></div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="style-use-btn" data-action="toast:${c.title} 스타일을 적용했어요">이 스타일 사용하기</button>
     </div>
   `;
 }
@@ -1842,6 +1943,11 @@ function bindHandlers() {
       if (action.startsWith('archive-tab:')) {
         state.archiveMainTab = action.split(':')[1];
         state.gallerySheet = null;
+        render('archive');
+        return;
+      }
+      if (action.startsWith('style-sub:')) {
+        state.styleSubTab = action.split(':')[1];
         render('archive');
         return;
       }
