@@ -232,14 +232,15 @@ function Result() {
   const router = useRouter();
   const summary = useAppStore((s) => s.aiSummary) || "오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜";
   const resetAI = useAppStore((s) => s.resetAI);
+  const addAIJournal = useAppStore((s) => s.addAIJournal);
   const showToast = useAppStore((s) => s.showToast);
 
   const onSave = () => {
+    addAIJournal(summary);
     showToast("러닝 일지가 저장되었어요");
     resetAI();
     setTimeout(() => {
-      if (window.history.length > 1) router.back();
-      else router.push("/archive");
+      router.push("/archive/journals");
     }, 500);
   };
 

@@ -57,7 +57,6 @@ function ManualForm() {
   const [pickedKey, setPickedKey] = useState<string | null>(initialDateKey);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
-  // Close popover on outside click
   useEffect(() => {
     if (!pickerOpen) return;
     const onDocClick = (e: MouseEvent) => {

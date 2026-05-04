@@ -33,7 +33,6 @@ export default function HomePage() {
     };
     requestAnimationFrame(center);
 
-    // Convert vertical wheel to horizontal scroll on desktop
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault();
@@ -42,7 +41,6 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    // Snap to nearest slide center
     const snapToNearest = () => {
       const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
       const center = track.scrollLeft + track.clientWidth / 2;
@@ -62,7 +60,6 @@ export default function HomePage() {
       }
     };
 
-    // Pointer drag-to-slide (mouse + touch)
     let isDown = false;
     let captured = false;
     let startX = 0;
@@ -76,8 +73,6 @@ export default function HomePage() {
       dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
-      // Don't capture pointer yet — wait until actual drag starts so that
-      // simple clicks reach their underlying targets (e.g. hero-main onClick).
     };
     const onMove = (e: PointerEvent) => {
       if (!isDown) return;
@@ -103,15 +98,12 @@ export default function HomePage() {
         } catch {}
         track.classList.remove("dragging");
       }
-      // If user actually dragged, suppress the upcoming click so the
-      // hero-main onClick doesn't accidentally navigate to /record.
       if (dragDistance > DRAG_THRESHOLD) {
         const suppress = (ev: Event) => {
           ev.stopPropagation();
           ev.preventDefault();
         };
         track.addEventListener("click", suppress, { capture: true, once: true });
-        // Snap to nearest slide after drag ends
         requestAnimationFrame(snapToNearest);
       }
     };

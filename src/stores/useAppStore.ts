@@ -1,11 +1,22 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
 type Modal = "gallerySheet" | "monthPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
+
+export type AIJournal = {
+  id: number;
+  /** YYYY-MM-DD */
+  date: string;
+  /** ISO timestamp */
+  savedAt: string;
+  /** Plain text (no HTML) one-line summary */
+  summary: string;
+};
 
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
   { from: "bot", text: "오늘 5km 뛰었네! 꽤 괜찮은데 ✨" },
@@ -74,6 +85,7 @@ type State = {
   aiStep: AIStep;
   aiMessages: AIMessage[];
   aiSummary: string | null;
+  aiJournals: AIJournal[];
 
   inquiries: Inquiry[];
 
@@ -103,102 +115,145 @@ type State = {
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
   resetAI: () => void;
+  addAIJournal: (summary: string) => void;
+  removeAIJournal: (id: number) => void;
   prependInquiry: (i: Inquiry) => void;
 };
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const useAppStore = create<State>((set, get) => ({
-  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝" },
+function todayKey(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
 
-  modal: null,
-  toast: null,
+/** Strip basic HTML tags so summary stored is plain text. */
+function stripHtml(s: string): string {
+  return s.replace(/<br\s*\/?>(\s*)/gi, "\n").replace(/<[^>]*>/g, "").trim();
+}
 
-  studioTab: "edit",
-  bgPickerTab: "mine",
-  placedStickers: [],
+export const useAppStore = create<State>()(
+  persist(
+    (set, get) => ({
+      user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝" },
 
-  archiveMainTab: "records",
-  archiveView: "calendar",
-  archiveCalExpanded: false,
-  archiveMonth: { y: 2026, m: 4 },
-  archiveSelected: null,
-  archiveListExpanded: null,
-  archiveListCount: 4,
-  galleryFilter: { y: 2024, m: 5 },
-  gallerySheet: null,
-  styleSubTab: "saved",
+      modal: null,
+      toast: null,
 
-  userRecords: {},
+      studioTab: "edit",
+      bgPickerTab: "mine",
+      placedStickers: [],
 
-  communityTab: "hot",
-
-  aiStep: "intro",
-  aiMessages: DEFAULT_AI_MESSAGES,
-  aiSummary: null,
-
-  inquiries: DEFAULT_INQUIRIES,
-
-  setUser: (p) => set((s) => ({ user: { ...s.user, ...p } })),
-  setModal: (m) => set({ modal: m }),
-  showToast: (msg) => {
-    set({ toast: msg });
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => set({ toast: null }), 1800);
-  },
-  hideToast: () => set({ toast: null }),
-  setStudioTab: (t) => set({ studioTab: t }),
-  setBgPickerTab: (t) => set({ bgPickerTab: t }),
-  addSticker: (emoji) =>
-    set((s) => {
-      const x = 15 + Math.random() * 60;
-      const y = 15 + Math.random() * 50;
-      return {
-        placedStickers: [
-          ...s.placedStickers,
-          { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
-        ],
-      };
-    }),
-  removeSticker: (id) =>
-    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
-  setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
-  setArchiveView: (v) =>
-    set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
-  toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
-  setCalExpanded: (v) => set({ archiveCalExpanded: v }),
-  setArchiveMonth: (y, m) =>
-    set({
-      archiveMonth: { y, m },
+      archiveMainTab: "records",
+      archiveView: "calendar",
+      archiveCalExpanded: false,
+      archiveMonth: { y: 2026, m: 4 },
       archiveSelected: null,
       archiveListExpanded: null,
       archiveListCount: 4,
+      galleryFilter: { y: 2024, m: 5 },
+      gallerySheet: null,
+      styleSubTab: "saved",
+
+      userRecords: {},
+
+      communityTab: "hot",
+
+      aiStep: "intro",
+      aiMessages: DEFAULT_AI_MESSAGES,
+      aiSummary: null,
+      aiJournals: [],
+
+      inquiries: DEFAULT_INQUIRIES,
+
+      setUser: (p) => set((s) => ({ user: { ...s.user, ...p } })),
+      setModal: (m) => set({ modal: m }),
+      showToast: (msg) => {
+        set({ toast: msg });
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => set({ toast: null }), 1800);
+      },
+      hideToast: () => set({ toast: null }),
+      setStudioTab: (t) => set({ studioTab: t }),
+      setBgPickerTab: (t) => set({ bgPickerTab: t }),
+      addSticker: (emoji) =>
+        set((s) => {
+          const x = 15 + Math.random() * 60;
+          const y = 15 + Math.random() * 50;
+          return {
+            placedStickers: [
+              ...s.placedStickers,
+              { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
+            ],
+          };
+        }),
+      removeSticker: (id) =>
+        set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
+      setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
+      setArchiveView: (v) =>
+        set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
+      toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+      setCalExpanded: (v) => set({ archiveCalExpanded: v }),
+      setArchiveMonth: (y, m) =>
+        set({
+          archiveMonth: { y, m },
+          archiveSelected: null,
+          archiveListExpanded: null,
+          archiveListCount: 4,
+        }),
+      pickDate: (k) =>
+        set((s) => {
+          const [yStr, mStr] = k.split("-");
+          const y = Number(yStr);
+          const m = Number(mStr);
+          const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
+          return {
+            archiveMonth: sameMonth ? s.archiveMonth : { y, m },
+            archiveSelected: s.archiveSelected === k ? null : k,
+          };
+        }),
+      toggleListExpanded: (k) =>
+        set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
+      bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+      resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
+      addRecord: (key, rec) =>
+        set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
+      setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
+      setGallerySheet: (kind) =>
+        set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
+      setStyleSubTab: (t) => set({ styleSubTab: t }),
+      setCommunityTab: (t) => set({ communityTab: t }),
+      setAIStep: (s) => set({ aiStep: s }),
+      pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
+      setAISummary: (s) => set({ aiSummary: s }),
+      resetAI: () => set({ aiStep: "intro", aiMessages: DEFAULT_AI_MESSAGES, aiSummary: null }),
+      addAIJournal: (summary) =>
+        set((s) => {
+          const now = new Date();
+          const entry: AIJournal = {
+            id: now.getTime() + Math.floor(Math.random() * 1000),
+            date: todayKey(),
+            savedAt: now.toISOString(),
+            summary: stripHtml(summary),
+          };
+          return { aiJournals: [entry, ...s.aiJournals] };
+        }),
+      removeAIJournal: (id) =>
+        set((s) => ({ aiJournals: s.aiJournals.filter((j) => j.id !== id) })),
+      prependInquiry: (i) => set((s) => ({ inquiries: [i, ...s.inquiries] })),
     }),
-  pickDate: (k) =>
-    set((s) => {
-      const [yStr, mStr] = k.split("-");
-      const y = Number(yStr);
-      const m = Number(mStr);
-      const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
-      return {
-        archiveMonth: sameMonth ? s.archiveMonth : { y, m },
-        archiveSelected: s.archiveSelected === k ? null : k,
-      };
-    }),
-  toggleListExpanded: (k) =>
-    set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
-  bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
-  resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
-  addRecord: (key, rec) =>
-    set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
-  setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
-  setGallerySheet: (kind) =>
-    set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
-  setStyleSubTab: (t) => set({ styleSubTab: t }),
-  setCommunityTab: (t) => set({ communityTab: t }),
-  setAIStep: (s) => set({ aiStep: s }),
-  pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
-  setAISummary: (s) => set({ aiSummary: s }),
-  resetAI: () => set({ aiStep: "intro", aiMessages: DEFAULT_AI_MESSAGES, aiSummary: null }),
-  prependInquiry: (i) => set((s) => ({ inquiries: [i, ...s.inquiries] })),
-}));
+    {
+      name: "tracksy-store",
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      // Only these slices are persisted across sessions (UI state stays fresh on each load)
+      partialize: (s) => ({
+        aiJournals: s.aiJournals,
+        userRecords: s.userRecords,
+      }),
+    },
+  ),
+);

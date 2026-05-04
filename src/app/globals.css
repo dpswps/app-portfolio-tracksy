@@ -2216,6 +2216,150 @@ textarea:focus { border-color: var(--primary); }
   font-size: 18px;
 }
 
+/* AI Card group container (AI journal entry + saved journals link) */
+.ai-card-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-journals-link {
+  margin: 0 14px;
+  width: calc(100% - 28px);
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ajl-icon { font-size: 16px; }
+.ajl-text {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ajl-arrow { color: var(--text-muted); font-size: 16px; }
+
+/* === Saved AI journals page === */
+.journals-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px 12px;
+}
+.journals-header .back-btn {
+  font-size: 24px;
+  color: var(--text);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.journals-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.journals-screen {
+  padding: 0 14px 24px;
+}
+
+.journals-empty {
+  margin: 32px 0 16px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.journals-empty-mascot {
+  width: 64px; height: 64px;
+  margin-bottom: 12px;
+}
+.journals-empty-mascot img { width: 100%; height: 100%; object-fit: contain; }
+.journals-empty-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.journals-empty-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+.journals-empty-cta {
+  width: 100%;
+  max-width: 280px;
+}
+
+.journals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.journals-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.journals-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  padding: 0 4px;
+}
+.journals-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.journal-card {
+  position: relative;
+  background: var(--primary-softer);
+  border: 1px solid var(--primary-soft);
+  border-radius: 14px;
+  padding: 14px 36px 14px 16px;
+}
+.journal-card-stars {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.journal-card-quote {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.5;
+  position: relative;
+  padding: 0 6px;
+}
+.journal-q {
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+.journal-q.open { margin-right: 4px; }
+.journal-q.close { margin-left: 4px; }
+.journal-card-remove {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  color: var(--text-muted);
+  background: transparent;
+  border-radius: 50%;
+}
+.journal-card-remove:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+
 /* === Archive modals (manual / sync / scan) === */
 .archive-modal {
   background: #fff;
