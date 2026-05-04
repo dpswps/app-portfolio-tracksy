@@ -39,7 +39,7 @@ export default function BottomNav() {
         </svg>
         <span>스튜디오</span>
       </Link>
-      <Link href="/record" className={`nav-item nav-fab${active === "record" ? " active" : ""}`}>
+      <div className={`nav-item nav-fab${active === "record" ? " active" : ""}`}>
         <span className="fab">
           <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
             <path d="M13 4l3 3-7 7-3 1 1-3 6-8z" />
@@ -47,7 +47,7 @@ export default function BottomNav() {
           </svg>
         </span>
         <span>기록</span>
-      </Link>
+      </div>
       <Link href="/community" className={`nav-item${active === "community" ? " active" : ""}`}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <circle cx="9" cy="9" r="3" />
