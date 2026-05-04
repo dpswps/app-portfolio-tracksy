@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { pad2 } from "@/lib/date";
 
-const YEAR_RANGE = 8; // years before/after current
+const YEAR_RANGE = 8;
 
 export default function MonthPickerSheet() {
   const archiveMonth = useAppStore((s) => s.archiveMonth);
@@ -30,7 +30,6 @@ export default function MonthPickerSheet() {
     close();
   };
 
-  // Scroll the active item into view when the sheet opens
   useEffect(() => {
     yearListRef.current
       ?.querySelector(".mp-item.active")
