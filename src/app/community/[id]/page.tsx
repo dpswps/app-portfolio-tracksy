@@ -8,11 +8,18 @@ export default function CommunityPostPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const showToast = useAppStore((s) => s.showToast);
+  const togglePostSaved = useAppStore((s) => s.togglePostSaved);
   const p = communityPosts.find((x) => String(x.id) === String(params.id)) || communityPosts[0];
+  const saved = useAppStore((s) => Boolean(s.savedPosts[String(p.id)]));
 
   const back = () => {
     if (window.history.length > 1) router.back();
     else router.push("/community");
+  };
+
+  const toggleSaved = () => {
+    const next = togglePostSaved(p.id);
+    showToast(next ? "저장됨" : "저장 취소됨");
   };
 
   return (
@@ -28,8 +35,13 @@ export default function CommunityPostPage() {
           />
           <span>{p.user || "박채원"}</span>
         </div>
-        <button className="comm-bookmark" style={{ marginLeft: "auto" }} aria-label="저장">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <button
+          className={`comm-bookmark${saved ? " saved" : ""}`}
+          style={{ marginLeft: "auto" }}
+          aria-label="저장"
+          onClick={toggleSaved}
+        >
+          <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
             <path d="M6 3h12v18l-6-4-6 4z" />
           </svg>
         </button>

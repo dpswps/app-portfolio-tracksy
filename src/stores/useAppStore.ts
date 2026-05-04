@@ -73,6 +73,7 @@ type State = {
 
   // community
   communityTab: "hot" | "new";
+  savedPosts: Record<string, boolean>;
 
   // ai journal
   aiStep: AIStep;
@@ -102,6 +103,7 @@ type State = {
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
+  togglePostSaved: (id: string | number) => boolean;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
@@ -133,6 +135,7 @@ export const useAppStore = create<State>((set, get) => ({
   styleSubTab: "saved",
 
   communityTab: "hot",
+  savedPosts: {},
 
   aiStep: "intro",
   aiMessages: DEFAULT_AI_MESSAGES,
@@ -193,6 +196,13 @@ export const useAppStore = create<State>((set, get) => ({
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
   setStyleSubTab: (t) => set({ styleSubTab: t }),
   setCommunityTab: (t) => set({ communityTab: t }),
+  togglePostSaved: (id) => {
+    const key = String(id);
+    const current = get().savedPosts[key] ?? false;
+    const next = !current;
+    set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
+    return next;
+  },
   setAIStep: (s) => set({ aiStep: s }),
   pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
   setAISummary: (s) => set({ aiSummary: s }),

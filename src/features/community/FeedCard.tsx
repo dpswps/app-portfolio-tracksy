@@ -4,18 +4,21 @@ import { useAppStore } from "@/stores/useAppStore";
 
 export default function FeedCard({ p }: { p: CommunityPost }) {
   const showToast = useAppStore((s) => s.showToast);
+  const togglePostSaved = useAppStore((s) => s.togglePostSaved);
+  const saved = useAppStore((s) => Boolean(s.savedPosts[String(p.id)]));
   const onBookmark = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    showToast("저장됨");
+    const next = togglePostSaved(p.id);
+    showToast(next ? "저장됨" : "저장 취소됨");
   };
 
   if (p.type === "stats") {
     return (
       <Link href={`/community/${p.id}`} className="feed-card stats" style={{ display: "block", textDecoration: "none", color: "inherit" }}>
         <div className="fc-bg" style={{ background: p.bg }} />
-        <button className="fc-bm" onClick={onBookmark}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <button className={`fc-bm${saved ? " saved" : ""}`} onClick={onBookmark}>
+          <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
             <path d="M6 3h12v18l-6-4-6 4z" />
           </svg>
         </button>
@@ -51,8 +54,8 @@ export default function FeedCard({ p }: { p: CommunityPost }) {
       style={{ display: "block", textDecoration: "none", color: "inherit" }}
     >
       <div className="fc-bg" style={{ background: p.bg }} />
-      <button className="fc-bm" onClick={onBookmark}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <button className={`fc-bm${saved ? " saved" : ""}`} onClick={onBookmark}>
+        <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
           <path d="M6 3h12v18l-6-4-6 4z" />
         </svg>
       </button>
