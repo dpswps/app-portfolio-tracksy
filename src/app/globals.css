@@ -476,6 +476,23 @@ input, textarea, select {
 }
 .week-header h3 { font-size: 15px; font-weight: 800; }
 .week-header .cal { margin-left: 2px; }
+.week-header .week-title-btn {
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 8px;
+  transition: background 0.15s, transform 0.1s;
+}
+.week-header .week-title-btn:hover { background: var(--primary-soft); }
+.week-header .week-title-btn:active { transform: scale(0.97); }
 .week-legend {
   display: flex; gap: 10px;
   font-size: 11px;

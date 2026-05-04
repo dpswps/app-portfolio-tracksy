@@ -94,6 +94,7 @@ type State = {
   setArchiveMainTab: (t: State["archiveMainTab"]) => void;
   setArchiveView: (v: State["archiveView"]) => void;
   toggleCalExpanded: () => void;
+  setCalExpanded: (b: boolean) => void;
   setArchiveMonth: (y: number, m: number) => void;
   pickDate: (k: string) => void;
   toggleListExpanded: (k: string) => void;
@@ -167,6 +168,7 @@ export const useAppStore = create<State>((set, get) => ({
   setArchiveView: (v) =>
     set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
   toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+  setCalExpanded: (b) => set({ archiveCalExpanded: b }),
   setArchiveMonth: (y, m) =>
     set({
       archiveMonth: { y, m },

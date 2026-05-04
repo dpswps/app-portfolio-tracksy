@@ -19,8 +19,19 @@ const week = [
 export default function HomePage() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
+  const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
+  const setArchiveView = useAppStore((s) => s.setArchiveView);
+  const setCalExpanded = useAppStore((s) => s.setCalExpanded);
   const trackRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+
+  const goToRecordsArchive = () => {
+    setArchiveMainTab("records");
+    setArchiveView("calendar");
+    // setArchiveView resets archiveCalExpanded to false, so set it true after.
+    setTimeout(() => setCalExpanded(true), 0);
+    router.push("/archive");
+  };
 
   useEffect(() => {
     const track = trackRef.current;
@@ -242,7 +253,14 @@ export default function HomePage() {
       <div className="week-section">
         <div className="week-header">
           <h3>
-            이번주 러닝 기록 <span className="cal">📅</span>
+            <button
+              type="button"
+              className="week-title-btn"
+              onClick={goToRecordsArchive}
+              aria-label="내 기록 보관소로 이동"
+            >
+              이번주 러닝 기록 <span className="cal">📅</span>
+            </button>
           </h3>
           <div className="week-legend">
             <span className="legend-item">
