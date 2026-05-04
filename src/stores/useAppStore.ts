@@ -56,6 +56,7 @@ type State = {
 
   // studio
   studioTab: "edit" | "text" | "sticker" | "design";
+  studioPanelOpen: boolean;
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
@@ -88,6 +89,7 @@ type State = {
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
+  setStudioPanelOpen: (open: boolean) => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
   addSticker: (emoji: string) => void;
   removeSticker: (id: number) => void;
@@ -118,6 +120,7 @@ export const useAppStore = create<State>((set, get) => ({
   toast: null,
 
   studioTab: "edit",
+  studioPanelOpen: true,
   bgPickerTab: "mine",
   placedStickers: [],
 
@@ -148,7 +151,8 @@ export const useAppStore = create<State>((set, get) => ({
     toastTimer = setTimeout(() => set({ toast: null }), 1800);
   },
   hideToast: () => set({ toast: null }),
-  setStudioTab: (t) => set({ studioTab: t }),
+  setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
+  setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
   setBgPickerTab: (t) => set({ bgPickerTab: t }),
   addSticker: (emoji) =>
     set((s) => {

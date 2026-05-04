@@ -1162,7 +1162,9 @@ textarea:focus { border-color: var(--primary); }
 .studio-canvas {
   position: relative;
   padding: 4px 22px 0;
-  display: flex; justify-content: center;
+  display: flex; justify-content: center; align-items: center;
+  flex: 1;
+  min-height: 0;
 }
 .st-fab {
   position: absolute;
@@ -1181,7 +1183,8 @@ textarea:focus { border-color: var(--primary); }
 .running-card {
   position: relative;
   width: 100%;
-  max-width: 280px;
+  max-width: 290px;
+  max-height: 86%;
   aspect-ratio: 9 / 16;
   border-radius: 22px;
   overflow: hidden;
@@ -1320,9 +1323,12 @@ textarea:focus { border-color: var(--primary); }
 
 /* Studio bottom panel */
 .studio-panel {
-  margin-top: 64px;
+  margin-top: auto;
   padding: 12px 4px 6px;
   border-top: 1px solid rgba(255,255,255,0.06);
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
 }
 .sp-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -1343,7 +1349,12 @@ textarea:focus { border-color: var(--primary); }
   flex-wrap: wrap;
   gap: 4px;
 }
-.sp-tools.sp-text, .sp-tools.sp-design { justify-content: flex-start; gap: 22px; padding-left: 24px; }
+.sp-tools.sp-text,
+.sp-tools.sp-design {
+  justify-content: center;
+  gap: 22px;
+  margin: auto 0;
+}
 .sp-tool {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   color: #fff;
@@ -1385,7 +1396,6 @@ textarea:focus { border-color: var(--primary); }
 
 /* Studio bottom tabs */
 .studio-tabs {
-  margin-top: auto;
   display: flex;
   background: #18181B;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -3066,7 +3076,11 @@ textarea:focus { border-color: var(--primary); }
 /* Studio: placed stickers on canvas */
 .studio-card-wrap {
   position: relative;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 .placed-stickers {
   position: absolute;
