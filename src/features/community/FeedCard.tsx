@@ -57,9 +57,11 @@ export default function FeedCard({ p }: { p: CommunityPost }) {
         </svg>
       </button>
       {p.brand && <div className="fc-brand">{p.brand}</div>}
-      {p.dist && <div className="fc-dist">{p.dist}</div>}
-      {p.time && <div className="fc-time">{p.time}</div>}
-      {p.user && <div className="fc-user">{p.user}</div>}
+      <div className="fc-top">
+        {p.user && <div className="fc-user">{p.user}</div>}
+        {p.dist && <div className="fc-dist">{p.dist}</div>}
+        {p.time && <div className="fc-time">{p.time}</div>}
+      </div>
       <div className="fc-likes">❤ {p.likes}</div>
     </Link>
   );
