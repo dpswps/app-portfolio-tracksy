@@ -35,16 +35,8 @@ export default function ProfileEditPage() {
 
   return (
     <>
-      <AppHeader title="프로필 수정" fallback="/profile" />
+      <AppHeader title="프로필 수정" fallback="/profile" style={{ background: "#fff" }} />
       <section className="signup-screen" style={{ background: "#fff", paddingTop: 8 }}>
-        <div className="profile-avatar-row" style={{ marginTop: 0, marginBottom: 28 }}>
-          <div className="avatar">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M13 4l3 3-7 7-3 1 1-3 6-8z" />
-            </svg>
-          </div>
-        </div>
-
         <div className="field">
           <label>이름</label>
           <input
