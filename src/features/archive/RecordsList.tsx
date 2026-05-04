@@ -12,14 +12,16 @@ export default function RecordsList() {
   const count = useAppStore((s) => s.archiveListCount);
   const toggle = useAppStore((s) => s.toggleListExpanded);
   const bump = useAppStore((s) => s.bumpListCount);
+  const userRecords = useAppStore((s) => s.userRecords);
 
+  const allRecords = { ...archiveRecords, ...userRecords };
   const { y, m } = month;
   const daysInMonth = new Date(y, m, 0).getDate();
-  type Item = { key: string; rec: typeof archiveRecords[string] | null };
+  type Item = { key: string; rec: typeof allRecords[string] | null };
   const all: Item[] = [];
   for (let d = daysInMonth; d >= 1; d--) {
     const k = dateKey(y, m, d);
-    all.push({ key: k, rec: archiveRecords[k] || null });
+    all.push({ key: k, rec: allRecords[k] || null });
   }
   const items = all.slice(0, count);
   const hasMore = all.length > items.length;
@@ -41,8 +43,16 @@ export default function RecordsList() {
                   <b>{it.rec.pace}</b>
                   <span>/km</span>
                   <em>·</em>
-                  <b>{it.rec.bpm}</b>
-                  <span>bpm</span>
+                  {it.rec.bpm != null ? (
+                    <>
+                      <b>{it.rec.bpm}</b>
+                      <span>bpm</span>
+                    </>
+                  ) : (
+                    <>
+                      <b>{it.rec.time || "—"}</b>
+                    </>
+                  )}
                 </span>
               ) : (
                 <span className="lr-empty">기록없음</span>
@@ -64,13 +74,20 @@ export default function RecordsList() {
                 </div>
                 <div className="lr-empty-title">선택된 날짜에 기록이 없어요</div>
                 <div className="lr-empty-sub">오늘의 러닝을 기록해보세요</div>
-                <Link href="/archive/manual" className="primary-btn lr-empty-cta" style={{ textAlign: "center", textDecoration: "none" }}>
+                <Link
+                  href={`/archive/manual?date=${encodeURIComponent(it.key)}`}
+                  className="primary-btn lr-empty-cta"
+                  style={{ textAlign: "center", textDecoration: "none" }}
+                >
                   기록 추가하기 +
                 </Link>
               </div>
             </div>
           );
         }
+        const thirdLabel = it.rec.bpm != null ? "심박수" : "시간";
+        const thirdValue = it.rec.bpm != null ? String(it.rec.bpm) : (it.rec.time || "—");
+        const thirdUnit = it.rec.bpm != null ? "bpm" : "";
         return (
           <div key={it.key} className="list-row expanded">
             <button className="lr-head" onClick={() => toggle(it.key)}>
@@ -90,11 +107,12 @@ export default function RecordsList() {
                   <small>페이스</small>
                 </div>
                 <div className="lr-stat">
-                  <b>{it.rec.bpm}</b>
-                  <i>bpm</i>
-                  <small>심박수</small>
+                  <b>{thirdValue}</b>
+                  {thirdUnit && <i>{thirdUnit}</i>}
+                  <small>{thirdLabel}</small>
                 </div>
               </div>
+              {it.rec.note && <div className="lr-rec-note">{it.rec.note}</div>}
             </div>
           </div>
         );

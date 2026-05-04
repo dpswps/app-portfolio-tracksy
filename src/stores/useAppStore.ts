@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { Inquiry } from "@/types";
+import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
 type Modal = "gallerySheet" | null;
@@ -71,6 +71,9 @@ type State = {
   gallerySheet: GallerySheetKind;
   styleSubTab: "saved" | "mine";
 
+  // user-added running records
+  userRecords: ArchiveRecords;
+
   // community
   communityTab: "hot" | "new";
 
@@ -94,10 +97,12 @@ type State = {
   setArchiveMainTab: (t: State["archiveMainTab"]) => void;
   setArchiveView: (v: State["archiveView"]) => void;
   toggleCalExpanded: () => void;
+  setCalExpanded: (v: boolean) => void;
   setArchiveMonth: (y: number, m: number) => void;
   pickDate: (k: string) => void;
   toggleListExpanded: (k: string) => void;
   bumpListCount: () => void;
+  addRecord: (key: string, rec: RunningRecord) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -131,6 +136,8 @@ export const useAppStore = create<State>((set, get) => ({
   galleryFilter: { y: 2024, m: 5 },
   gallerySheet: null,
   styleSubTab: "saved",
+
+  userRecords: {},
 
   communityTab: "hot",
 
@@ -167,6 +174,7 @@ export const useAppStore = create<State>((set, get) => ({
   setArchiveView: (v) =>
     set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
   toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+  setCalExpanded: (v) => set({ archiveCalExpanded: v }),
   setArchiveMonth: (y, m) =>
     set({
       archiveMonth: { y, m },
@@ -188,6 +196,8 @@ export const useAppStore = create<State>((set, get) => ({
   toggleListExpanded: (k) =>
     set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
   bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+  addRecord: (key, rec) =>
+    set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
   setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
   setGallerySheet: (kind) =>
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),

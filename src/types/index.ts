@@ -3,7 +3,9 @@ export type DateKey = string; // 'YYYY-MM-DD'
 export type RunningRecord = {
   dist: string;
   pace: string;
-  bpm: number;
+  bpm?: number;
+  time?: string;
+  note?: string;
 };
 
 export type ArchiveRecords = Record<DateKey, RunningRecord>;

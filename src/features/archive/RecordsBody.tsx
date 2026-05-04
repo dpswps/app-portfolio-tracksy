@@ -8,10 +8,8 @@ import AICard from "./AICard";
 
 export default function RecordsBody() {
   const view = useAppStore((s) => s.archiveView);
-  const expanded = useAppStore((s) => s.archiveCalExpanded);
   const month = useAppStore((s) => s.archiveMonth);
   const setView = useAppStore((s) => s.setArchiveView);
-  const toggleExp = useAppStore((s) => s.toggleCalExpanded);
   const setMonth = useAppStore((s) => s.setArchiveMonth);
 
   const prev = () => {
@@ -38,36 +36,32 @@ export default function RecordsBody() {
           <button className="mb-arrow" onClick={next} aria-label="다음 달">
             ›
           </button>
-          <div className="mb-toggles">
+          <div className="view-toggle" role="tablist" aria-label="보기 방식">
             <button
-              className={`mb-toggle${view === "list" ? " active" : ""}`}
-              onClick={() => setView(view === "list" ? "calendar" : "list")}
-              aria-label={view === "list" ? "캘린더 보기" : "리스트 보기"}
+              type="button"
+              role="tab"
+              aria-selected={view === "list"}
+              className={`vt-btn${view === "list" ? " active" : ""}`}
+              onClick={() => setView("list")}
+              aria-label="리스트 보기"
             >
-              {view === "list" ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M3 10h18M8 2v4M16 2v4" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
-            {view === "calendar" && (
-              <button className="mb-toggle" onClick={toggleExp} aria-label="펼치기">
-                {expanded ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M18 15l-6-6-6 6" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "calendar"}
+              className={`vt-btn${view === "calendar" ? " active" : ""}`}
+              onClick={() => setView("calendar")}
+              aria-label="캘린더 보기"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M3 10h18M8 2v4M16 2v4" />
+              </svg>
+            </button>
           </div>
         </div>
 
