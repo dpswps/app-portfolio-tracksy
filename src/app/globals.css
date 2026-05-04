@@ -188,10 +188,10 @@ input, textarea, select {
   display: flex; flex-direction: column;
   padding: 60px 28px 28px;
 }
-.login-screen .heading { margin-bottom: 56px; margin-top: 60px; }
+.login-screen .heading { margin-bottom: 32px; margin-top: 24px; }
 .login-screen h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
 .login-screen .sub { color: var(--text-soft); font-size: 14px; }
-.social-buttons { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+.social-buttons { display: flex; flex-direction: column; gap: 12px; margin-top: 0; }
 .social-btn {
   display: flex; align-items: center; justify-content: center;
   gap: 10px;
