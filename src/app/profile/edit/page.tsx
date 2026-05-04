@@ -35,7 +35,7 @@ export default function ProfileEditPage() {
 
   return (
     <>
-      <AppHeader title="프로필 수정" fallback="/profile" />
+      <AppHeader title="프로필 수정" fallback="/profile" style={{ background: "#fff" }} />
       <section className="signup-screen" style={{ background: "#fff", paddingTop: 8 }}>
         <div className="field">
           <label>이름</label>

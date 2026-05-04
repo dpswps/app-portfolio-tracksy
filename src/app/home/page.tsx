@@ -42,26 +42,78 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    // Mouse drag-to-slide on desktop
+    // Snap to nearest slide center
+    const snapToNearest = () => {
+      const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
+      const center = track.scrollLeft + track.clientWidth / 2;
+      let nearest = slides[0];
+      let minDist = Infinity;
+      for (const s of slides) {
+        const c = s.offsetLeft + s.clientWidth / 2;
+        const d = Math.abs(c - center);
+        if (d < minDist) {
+          minDist = d;
+          nearest = s;
+        }
+      }
+      if (nearest) {
+        const targetLeft = nearest.offsetLeft - (track.clientWidth - nearest.clientWidth) / 2;
+        track.scrollTo({ left: targetLeft, behavior: "smooth" });
+      }
+    };
+
+    // Pointer drag-to-slide (mouse + touch)
     let isDown = false;
+    let captured = false;
     let startX = 0;
     let startScroll = 0;
+    let dragDistance = 0;
+    const DRAG_THRESHOLD = 4;
+
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType === "touch") return;
       isDown = true;
+      captured = false;
+      dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
-      track.setPointerCapture(e.pointerId);
+      // Don't capture pointer yet — wait until actual drag starts so that
+      // simple clicks reach their underlying targets (e.g. hero-main onClick).
     };
     const onMove = (e: PointerEvent) => {
       if (!isDown) return;
-      track.scrollLeft = startScroll - (e.clientX - startX);
+      const dx = e.clientX - startX;
+      dragDistance = Math.max(dragDistance, Math.abs(dx));
+      if (!captured && Math.abs(dx) > DRAG_THRESHOLD) {
+        try {
+          track.setPointerCapture(e.pointerId);
+        } catch {}
+        captured = true;
+        track.classList.add("dragging");
+      }
+      if (captured) {
+        track.scrollLeft = startScroll - dx;
+      }
     };
     const onUp = (e: PointerEvent) => {
+      if (!isDown) return;
       isDown = false;
-      try {
-        track.releasePointerCapture(e.pointerId);
-      } catch {}
+      if (captured) {
+        try {
+          track.releasePointerCapture(e.pointerId);
+        } catch {}
+        track.classList.remove("dragging");
+      }
+      // If user actually dragged, suppress the upcoming click so the
+      // hero-main onClick doesn't accidentally navigate to /record.
+      if (dragDistance > DRAG_THRESHOLD) {
+        const suppress = (ev: Event) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+        };
+        track.addEventListener("click", suppress, { capture: true, once: true });
+        // Snap to nearest slide after drag ends
+        requestAnimationFrame(snapToNearest);
+      }
     };
     track.addEventListener("pointerdown", onDown);
     track.addEventListener("pointermove", onMove);
@@ -101,12 +153,36 @@ export default function HomePage() {
         <div className="hero-track" ref={trackRef}>
           <div className="hero-slide hero-photo">
             <div className="hp-bg" />
-            <div className="hp-overlay" />
+            <div className="hp-glow" />
             <div className="hp-content">
+              <div className="hp-top">
+                <span className="hp-label">최근 러닝</span>
+                <span className="hp-date">04.18 목</span>
+              </div>
               <div className="hp-distance">
                 21<small>km</small>
               </div>
-              <div className="hp-time">12:45</div>
+              <svg className="hp-route" viewBox="0 0 220 70" fill="none" preserveAspectRatio="none">
+                <path
+                  d="M5,45 Q35,15 65,32 T125,38 Q160,52 195,22 L215,30"
+                  stroke="#C4B5FD"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                <circle cx="5" cy="45" r="3.5" fill="#C4B5FD" />
+                <circle cx="215" cy="30" r="3.5" fill="#fff" stroke="#C4B5FD" strokeWidth="2" />
+              </svg>
+              <div className="hp-meta">
+                <div className="hp-meta-item">
+                  <span className="hp-ic">⏱</span>
+                  <span>1:42:30</span>
+                </div>
+                <div className="hp-meta-item">
+                  <span className="hp-ic">⚡</span>
+                  <span>4&apos;52&quot;</span>
+                </div>
+              </div>
             </div>
           </div>
 
