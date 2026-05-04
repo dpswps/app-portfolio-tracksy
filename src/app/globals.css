@@ -1716,6 +1716,21 @@ textarea:focus { border-color: var(--primary); }
   color: var(--text);
   margin: 0 4px;
 }
+.mb-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.mb-title-btn:hover { background: var(--primary-softer); }
+.mb-title-caret {
+  width: 14px; height: 14px;
+  color: var(--text-soft);
+}
 .mb-toggles {
   margin-left: auto;
   display: flex;
@@ -1734,11 +1749,68 @@ textarea:focus { border-color: var(--primary); }
   color: #fff;
 }
 
+/* Segmented toggle (list <-> calendar) */
+.view-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  background: var(--primary-softer);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 0;
+}
+.vt-btn {
+  width: 30px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px;
+  color: var(--text-soft);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.vt-btn svg { width: 16px; height: 16px; }
+.vt-btn.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.25);
+}
+
 /* Calendar */
 .cal-card {
   background: #fff;
   border-radius: 14px;
-  padding: 4px 4px 8px;
+  padding: 4px 4px 4px;
+  position: relative;
+  user-select: none;
+}
+
+/* Drag handle below calendar grid (drag only — no click to expand) */
+.cal-drag-handle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0 10px;
+  cursor: ns-resize;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.cal-drag-handle:active { cursor: grabbing; }
+.cal-drag-handle .cdh-bar {
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: #D1D5DB;
+  transition: background 0.15s ease, width 0.15s ease;
+  pointer-events: none;
+}
+.cal-drag-handle:hover .cdh-bar,
+.cal-drag-handle:focus-visible .cdh-bar {
+  background: var(--primary);
+  width: 64px;
+}
+.cal-drag-handle:focus-visible {
+  outline: none;
 }
 .cal-dow-row {
   display: grid;
@@ -1858,6 +1930,26 @@ textarea:focus { border-color: var(--primary); }
   width: 1px;
   background: var(--primary-soft);
   margin: 4px 0;
+}
+.sr-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--primary-softer);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.lr-rec-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--primary-softer);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 /* List view */
@@ -2005,6 +2097,29 @@ textarea:focus { border-color: var(--primary); }
   color: var(--primary-dark);
   font-size: 13px;
   font-weight: 600;
+}
+
+.list-more-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.list-more-wrap .list-more {
+  margin-top: 0;
+}
+.list-collapse {
+  align-self: stretch;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--primary-soft);
+  border-radius: 12px;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
+.list-collapse:hover {
+  background: var(--primary-softer);
 }
 
 /* Record (러닝 기록 추가) screen */
@@ -2168,13 +2283,90 @@ textarea:focus { border-color: var(--primary); }
 .am-date-input {
   position: relative;
 }
-.am-date-input input { padding-right: 36px; }
+.am-date-input input { padding-right: 40px; cursor: pointer; }
 .am-cal-ic {
   position: absolute;
   right: 10px; top: 50%;
   transform: translateY(-50%);
   font-size: 14px;
   pointer-events: none;
+}
+.am-cal-btn {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--primary);
+}
+.am-cal-btn:hover { background: var(--primary-softer); }
+.am-cal-btn svg { width: 18px; height: 18px; }
+
+/* Date picker popover */
+.am-cal-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 10px 10px 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  z-index: 30;
+}
+.amcp-head {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+.amcp-arrow {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  color: var(--text-soft);
+  background: transparent;
+  border-radius: 6px;
+}
+.amcp-arrow:hover { background: var(--primary-softer); color: var(--primary); }
+.amcp-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text);
+  margin: 0 4px;
+}
+.amcp-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+.amcp-dow .sun { color: #EF4444; }
+.amcp-dow .sat { color: #3B82F6; }
+.amcp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.amcp-day {
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  color: var(--text);
+  background: transparent;
+  border-radius: 50%;
+  padding: 0;
+}
+.amcp-day:hover { background: var(--primary-softer); }
+.amcp-day.other { color: var(--text-muted); opacity: 0.45; }
+.amcp-day.sun { color: #EF4444; }
+.amcp-day.sat { color: #3B82F6; }
+.amcp-day.sel {
+  background: var(--primary);
+  color: #fff !important;
 }
 .am-counter {
   text-align: right;
@@ -2943,6 +3135,146 @@ textarea:focus { border-color: var(--primary); }
   font-weight: 600;
 }
 
+/* === GALLERY DETAIL === */
+.g-detail-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px 12px;
+}
+.g-detail-header .back-btn {
+  font-size: 24px; color: var(--text);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.g-detail-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.g-detail-bookmark {
+  margin-left: auto;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+  background: transparent;
+}
+.g-detail-bookmark svg { width: 20px; height: 20px; }
+
+.g-detail { padding: 0 14px 24px; }
+
+.g-detail-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 14;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  color: #fff;
+}
+.g-detail-bg { position: absolute; inset: 0; }
+.g-detail-overlay {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.55) 100%),
+    linear-gradient(0deg, transparent 60%, rgba(0,0,0,0.25) 100%);
+}
+.g-detail-content {
+  position: relative;
+  z-index: 2;
+  padding: 18px 18px 16px;
+  height: 100%;
+  display: flex; flex-direction: column;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+.gd-meta {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+.gd-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 2px;
+  margin-bottom: 12px;
+}
+.gd-distance {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 18px;
+}
+.gd-distance small {
+  font-size: 16px;
+  font-weight: 600;
+  margin-left: 4px;
+  opacity: 0.9;
+}
+.gd-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.gd-stats-row.sub { margin-bottom: auto; }
+.gd-cell { display: flex; flex-direction: column; gap: 2px; }
+.gd-cell b {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.gd-cell i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.gd-reactions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.gd-react {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(139, 92, 246, 0.85);
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.g-detail-body { padding: 4px 4px 14px; }
+.gd-body-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.gd-body-sub {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.g-detail-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.gd-act {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.gd-act.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
 /* Modal layer (portals to .device, sits above #screen but below bottom nav) */
 #modalLayer {
   position: absolute;
@@ -3015,6 +3347,55 @@ textarea:focus { border-color: var(--primary); }
 }
 .gf-confirm {
   margin-top: 0;
+}
+
+/* Month/Year picker sheet */
+.mp-sheet { padding-bottom: 18px; }
+.mp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.mp-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--primary-softer);
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 0;
+}
+.mp-col-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.mp-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+}
+.mp-list::-webkit-scrollbar { width: 4px; }
+.mp-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.mp-item {
+  background: transparent;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-soft);
+  text-align: center;
+}
+.mp-item:hover { background: #fff; color: var(--text); }
+.mp-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
 }
 
 /* === 스타일 보관소 === */
