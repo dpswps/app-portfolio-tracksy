@@ -257,7 +257,7 @@ input, textarea, select {
   width: 100%;
   font-size: 15px;
   font-weight: 600;
-  margin-top: auto;
+  margin-top: 16px;
   transition: background 0.15s, transform 0.1s;
 }
 .primary-btn:active { transform: scale(0.98); background: var(--primary-dark); }
@@ -514,11 +514,35 @@ input, textarea, select {
 }
 
 /* === PROFILE === */
-.profile-screen { background: var(--primary-softer); min-height: 100%; }
+.profile-screen { background: #fff; min-height: 100%; }
 .profile-cover {
-  background: linear-gradient(135deg, #C4B5FD, #A78BFA);
-  height: 80px;
+  background: var(--primary-soft);
+  height: 160px;
+  position: relative;
 }
+.profile-share {
+  position: absolute;
+  top: 14px; right: 18px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+}
+.profile-share svg { stroke: var(--primary); }
+.cover-plus {
+  position: absolute;
+  bottom: 18px; right: 16px;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+  z-index: 20;
+}
+.cover-plus:hover { background: var(--primary-dark); }
+.cover-plus:active { transform: scale(0.92); }
+.cover-plus svg { width: 18px; height: 18px; pointer-events: none; }
 .profile-body {
   background: #fff;
   margin-top: -20px;
@@ -529,6 +553,8 @@ input, textarea, select {
 .profile-avatar-row {
   display: flex; flex-direction: column; align-items: center;
   margin-top: -60px; margin-bottom: 22px;
+  position: relative;
+  z-index: 3;
 }
 .avatar {
   width: 80px; height: 80px;
@@ -537,7 +563,31 @@ input, textarea, select {
   display: flex; align-items: center; justify-content: center;
   border: 4px solid #fff;
   box-shadow: 0 6px 16px rgba(139,92,246,0.25);
+  position: relative;
+  z-index: 3;
+  overflow: visible;
 }
+.avatar-img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.avatar-plus {
+  position: absolute;
+  right: -2px; bottom: -2px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  cursor: pointer;
+  z-index: 4;
+  transition: transform 0.1s, background 0.15s;
+}
+.avatar-plus:hover { background: var(--primary-dark); }
+.avatar-plus:active { transform: scale(0.92); }
+.avatar-plus svg { width: 14px; height: 14px; }
 .avatar svg { width: 44px; height: 44px; color: #fff; }
 .avatar-name {
   margin-top: 12px;

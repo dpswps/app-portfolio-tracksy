@@ -80,9 +80,9 @@ export default function HomePage() {
   return (
     <section className="home-screen">
       <div className="home-greeting">
-        <div className="greet-avatar">
+        <Link href="/profile" className="greet-avatar" aria-label="프로필">
           <Mascot />
-        </div>
+        </Link>
         <div className="greet-text">
           <div className="greet-name">
             {user.name || "닉네임"} <span>님</span>
