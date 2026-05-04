@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --primary: #8B5CF6;
   --primary-dark: #7C3AED;
@@ -20,7 +24,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-noto-kr), 'Noto Sans KR', system-ui, -apple-system, sans-serif;
   background: #C7C7CC;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -742,7 +746,7 @@ textarea:focus { border-color: var(--primary); }
 
 /* Toast */
 .toast {
-  position: fixed;
+  position: absolute;
   bottom: 110px;
   left: 50%; transform: translateX(-50%);
   background: rgba(31, 31, 35, 0.92);
@@ -3058,3 +3062,29 @@ textarea:focus { border-color: var(--primary); }
   background: var(--primary);
   color: #fff;
 }
+
+/* Studio: placed stickers on canvas */
+.studio-card-wrap {
+  position: relative;
+  display: inline-block;
+}
+.placed-stickers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.placed-sticker {
+  position: absolute;
+  font-size: 32px;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+  transition: transform 0.12s ease;
+  line-height: 1;
+}
+.placed-sticker:hover { transform: scale(1.15); }
+.placed-sticker:active { transform: scale(0.95); }
