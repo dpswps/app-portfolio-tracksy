@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { KO_DOW, dateKey, pad2 } from "@/lib/date";
 
@@ -21,6 +21,14 @@ function keyToInput(key: string): string {
 }
 
 export default function ArchiveManualPage() {
+  return (
+    <Suspense fallback={<div className="archive-modal" />}>
+      <ManualForm />
+    </Suspense>
+  );
+}
+
+function ManualForm() {
   const router = useRouter();
   const search = useSearchParams();
   const showToast = useAppStore((s) => s.showToast);
@@ -81,7 +89,6 @@ export default function ArchiveManualPage() {
       time: time.trim() || undefined,
       note: note.trim() || undefined,
     });
-    // Make sure the calendar lands on the right month and selects the date.
     const [yy, mm] = key.split("-").map(Number);
     setArchiveMonth(yy, mm);
     if (archiveSelected !== key) {
@@ -109,7 +116,6 @@ export default function ArchiveManualPage() {
     setPickerOpen(false);
   };
 
-  // Build calendar cells for picker
   const { y, m } = pickerYM;
   const firstDow = new Date(y, m - 1, 1).getDay();
   const daysInMonth = new Date(y, m, 0).getDate();
