@@ -1621,6 +1621,21 @@ textarea:focus { border-color: var(--primary); }
   color: var(--text);
   margin: 0 4px;
 }
+.mb-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.mb-title-btn:hover { background: var(--primary-softer); }
+.mb-title-caret {
+  width: 14px; height: 14px;
+  color: var(--text-soft);
+}
 .mb-toggles {
   margin-left: auto;
   display: flex;
@@ -1987,6 +2002,29 @@ textarea:focus { border-color: var(--primary); }
   color: var(--primary-dark);
   font-size: 13px;
   font-weight: 600;
+}
+
+.list-more-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.list-more-wrap .list-more {
+  margin-top: 0;
+}
+.list-collapse {
+  align-self: stretch;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--primary-soft);
+  border-radius: 12px;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
+.list-collapse:hover {
+  background: var(--primary-softer);
 }
 
 /* Import section */
@@ -3196,6 +3234,55 @@ textarea:focus { border-color: var(--primary); }
 }
 .gf-confirm {
   margin-top: 0;
+}
+
+/* Month/Year picker sheet */
+.mp-sheet { padding-bottom: 18px; }
+.mp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.mp-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--primary-softer);
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 0;
+}
+.mp-col-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.mp-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+}
+.mp-list::-webkit-scrollbar { width: 4px; }
+.mp-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.mp-item {
+  background: transparent;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-soft);
+  text-align: center;
+}
+.mp-item:hover { background: #fff; color: var(--text); }
+.mp-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
 }
 
 /* === 스타일 보관소 === */

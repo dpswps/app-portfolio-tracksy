@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
-type Modal = "gallerySheet" | null;
+type Modal = "gallerySheet" | "monthPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
@@ -47,19 +47,15 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 ];
 
 type State = {
-  // user
   user: { name: string; birth: string; email: string; style: string };
 
-  // ui
   modal: Modal;
   toast: string | null;
 
-  // studio
   studioTab: "edit" | "text" | "sticker" | "design";
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
-  // archive
   archiveMainTab: "records" | "gallery" | "style";
   archiveView: "calendar" | "list";
   archiveCalExpanded: boolean;
@@ -71,21 +67,16 @@ type State = {
   gallerySheet: GallerySheetKind;
   styleSubTab: "saved" | "mine";
 
-  // user-added running records
   userRecords: ArchiveRecords;
 
-  // community
   communityTab: "hot" | "new";
 
-  // ai journal
   aiStep: AIStep;
   aiMessages: AIMessage[];
   aiSummary: string | null;
 
-  // inquiries
   inquiries: Inquiry[];
 
-  // actions
   setUser: (p: Partial<State["user"]>) => void;
   setModal: (m: Modal) => void;
   showToast: (msg: string) => void;
@@ -102,6 +93,7 @@ type State = {
   pickDate: (k: string) => void;
   toggleListExpanded: (k: string) => void;
   bumpListCount: () => void;
+  resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
@@ -196,6 +188,7 @@ export const useAppStore = create<State>((set, get) => ({
   toggleListExpanded: (k) =>
     set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
   bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+  resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
   addRecord: (key, rec) =>
     set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
   setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),

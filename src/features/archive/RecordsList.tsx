@@ -12,6 +12,7 @@ export default function RecordsList() {
   const count = useAppStore((s) => s.archiveListCount);
   const toggle = useAppStore((s) => s.toggleListExpanded);
   const bump = useAppStore((s) => s.bumpListCount);
+  const resetCount = useAppStore((s) => s.resetListCount);
   const userRecords = useAppStore((s) => s.userRecords);
 
   const allRecords = { ...archiveRecords, ...userRecords };
@@ -117,10 +118,19 @@ export default function RecordsList() {
           </div>
         );
       })}
-      {hasMore && (
-        <button className="list-more" onClick={bump}>
-          더보기 ▾
-        </button>
+      {(hasMore || count > 4) && (
+        <div className="list-more-wrap">
+          {hasMore && (
+            <button className="list-more" onClick={bump}>
+              더보기 ▾
+            </button>
+          )}
+          {count > 4 && (
+            <button className="list-collapse" onClick={resetCount}>
+              접기 ▴
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

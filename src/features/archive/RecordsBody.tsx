@@ -11,6 +11,7 @@ export default function RecordsBody() {
   const month = useAppStore((s) => s.archiveMonth);
   const setView = useAppStore((s) => s.setArchiveView);
   const setMonth = useAppStore((s) => s.setArchiveMonth);
+  const setModal = useAppStore((s) => s.setModal);
 
   const prev = () => {
     const { y, m } = month;
@@ -22,6 +23,7 @@ export default function RecordsBody() {
     if (m === 12) setMonth(y + 1, 1);
     else setMonth(y, m + 1);
   };
+  const openPicker = () => setModal("monthPicker");
 
   return (
     <>
@@ -30,9 +32,19 @@ export default function RecordsBody() {
           <button className="mb-arrow" onClick={prev} aria-label="이전 달">
             ‹
           </button>
-          <span className="mb-title">
-            {month.y}년 {month.m}월
-          </span>
+          <button
+            type="button"
+            className="mb-title-btn"
+            onClick={openPicker}
+            aria-label="년월 선택"
+          >
+            <span className="mb-title">
+              {month.y}년 {month.m}월
+            </span>
+            <svg className="mb-title-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
           <button className="mb-arrow" onClick={next} aria-label="다음 달">
             ›
           </button>
