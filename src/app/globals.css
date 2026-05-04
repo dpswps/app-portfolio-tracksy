@@ -1320,7 +1320,7 @@ textarea:focus { border-color: var(--primary); }
 
 /* Studio bottom panel */
 .studio-panel {
-  margin-top: 24px;
+  margin-top: 64px;
   padding: 12px 4px 6px;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
