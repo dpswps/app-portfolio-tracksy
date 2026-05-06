@@ -64,6 +64,7 @@ type State = {
   toast: string | null;
 
   studioTab: "edit" | "text" | "sticker" | "design";
+  studioPanelOpen: boolean;
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
@@ -94,6 +95,7 @@ type State = {
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
+  setStudioPanelOpen: (open: boolean) => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
   addSticker: (emoji: string) => void;
   removeSticker: (id: number) => void;
@@ -132,18 +134,23 @@ function todayKey(): string {
 
 /** Strip basic HTML tags so summary stored is plain text. */
 function stripHtml(s: string): string {
-  return s.replace(/<br\s*\/?>(\s*)/gi, "\n").replace(/<[^>]*>/g, "").trim();
+  return s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
 }
-
 export const useAppStore = create<State>()(
   persist(
-    (set, get) => ({
-      user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝" },
+    (set) => ({
+      user: {
+        name: "김러너",
+        birth: "2000.01.01",
+        email: "tracksy1@gmail.com",
+        style: "산책/러닝",
+      },
 
       modal: null,
       toast: null,
 
       studioTab: "edit",
+      studioPanelOpen: true,
       bgPickerTab: "mine",
       placedStickers: [],
 
@@ -177,8 +184,11 @@ export const useAppStore = create<State>()(
         toastTimer = setTimeout(() => set({ toast: null }), 1800);
       },
       hideToast: () => set({ toast: null }),
-      setStudioTab: (t) => set({ studioTab: t }),
+
+      setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
+      setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
       setBgPickerTab: (t) => set({ bgPickerTab: t }),
+
       addSticker: (emoji) =>
         set((s) => {
           const x = 15 + Math.random() * 60;
@@ -190,13 +200,27 @@ export const useAppStore = create<State>()(
             ],
           };
         }),
+
       removeSticker: (id) =>
-        set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
-      setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
+        set((s) => ({
+          placedStickers: s.placedStickers.filter((p) => p.id !== id),
+        })),
+
+      setArchiveMainTab: (t) =>
+        set({ archiveMainTab: t, gallerySheet: null, modal: null }),
+
       setArchiveView: (v) =>
-        set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
-      toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+        set({
+          archiveView: v,
+          archiveCalExpanded: false,
+          archiveListExpanded: null,
+        }),
+
+      toggleCalExpanded: () =>
+        set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+
       setCalExpanded: (v) => set({ archiveCalExpanded: v }),
+
       setArchiveMonth: (y, m) =>
         set({
           archiveMonth: { y, m },
@@ -204,32 +228,62 @@ export const useAppStore = create<State>()(
           archiveListExpanded: null,
           archiveListCount: 4,
         }),
+
       pickDate: (k) =>
         set((s) => {
           const [yStr, mStr] = k.split("-");
           const y = Number(yStr);
           const m = Number(mStr);
           const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
+
           return {
             archiveMonth: sameMonth ? s.archiveMonth : { y, m },
             archiveSelected: s.archiveSelected === k ? null : k,
           };
         }),
+
       toggleListExpanded: (k) =>
-        set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
-      bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
-      resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
+        set((s) => ({
+          archiveListExpanded: s.archiveListExpanded === k ? null : k,
+        })),
+
+      bumpListCount: () =>
+        set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+
+      resetListCount: () =>
+        set({ archiveListCount: 4, archiveListExpanded: null }),
+
       addRecord: (key, rec) =>
-        set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
-      setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
-      setGallerySheet: (kind) =>
-        set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
+        set((s) => ({
+          userRecords: { ...s.userRecords, [key]: rec },
+        })),
+
+      setGalleryFilter: (p) =>
+        set((s) => ({
+          galleryFilter: { ...s.galleryFilter, ...p },
+        })),
+
+      setGallerySheet: (s) =>
+        set({ gallerySheet: s, modal: s ? "gallerySheet" : null }),
+
       setStyleSubTab: (t) => set({ styleSubTab: t }),
+
       setCommunityTab: (t) => set({ communityTab: t }),
+
       setAIStep: (s) => set({ aiStep: s }),
-      pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
+
+      pushAIMessage: (m) =>
+        set((s) => ({ aiMessages: [...s.aiMessages, m] })),
+
       setAISummary: (s) => set({ aiSummary: s }),
-      resetAI: () => set({ aiStep: "intro", aiMessages: DEFAULT_AI_MESSAGES, aiSummary: null }),
+
+      resetAI: () =>
+        set({
+          aiStep: "intro",
+          aiMessages: DEFAULT_AI_MESSAGES,
+          aiSummary: null,
+        }),
+
       addAIJournal: (summary) =>
         set((s) => {
           const now = new Date();
@@ -239,17 +293,22 @@ export const useAppStore = create<State>()(
             savedAt: now.toISOString(),
             summary: stripHtml(summary),
           };
+
           return { aiJournals: [entry, ...s.aiJournals] };
         }),
+
       removeAIJournal: (id) =>
-        set((s) => ({ aiJournals: s.aiJournals.filter((j) => j.id !== id) })),
-      prependInquiry: (i) => set((s) => ({ inquiries: [i, ...s.inquiries] })),
+        set((s) => ({
+          aiJournals: s.aiJournals.filter((j) => j.id !== id),
+        })),
+
+      prependInquiry: (i) =>
+        set((s) => ({ inquiries: [i, ...s.inquiries] })),
     }),
     {
       name: "tracksy-store",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      // Only these slices are persisted across sessions (UI state stays fresh on each load)
       partialize: (s) => ({
         aiJournals: s.aiJournals,
         userRecords: s.userRecords,
