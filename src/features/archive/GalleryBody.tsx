@@ -1,13 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import { galleryCards } from "@/data/galleryCards";
 import { pad2 } from "@/lib/date";
 
 export default function GalleryBody() {
+  const router = useRouter();
   const { y, m } = useAppStore((s) => s.galleryFilter);
   const setSheet = useAppStore((s) => s.setGallerySheet);
-  const showToast = useAppStore((s) => s.showToast);
 
   return (
     <div className="gallery-area">
@@ -28,7 +29,19 @@ export default function GalleryBody() {
 
       <div className="gallery-grid">
         {galleryCards.map((c) => (
-          <div key={c.id} className="g-card" onClick={() => showToast(c.title)}>
+          <div
+            key={c.id}
+            className="g-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push(`/archive/gallery/${c.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push(`/archive/gallery/${c.id}`);
+              }
+            }}
+          >
             <div className="gc-bg" style={{ background: c.bg }} />
             <div className="gc-overlay" />
             <div className="gc-content">
