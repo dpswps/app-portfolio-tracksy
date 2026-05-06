@@ -1,10 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import type { Inquiry } from "@/types";
+import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
-type Modal = "gallerySheet" | null;
+type Modal = "gallerySheet" | "monthPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
@@ -47,19 +47,16 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 ];
 
 type State = {
-  // user
   user: { name: string; birth: string; email: string; style: string };
 
-  // ui
   modal: Modal;
   toast: string | null;
 
-  // studio
   studioTab: "edit" | "text" | "sticker" | "design";
+  studioPanelOpen: boolean;
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
-  // archive
   archiveMainTab: "records" | "gallery" | "style";
   archiveView: "calendar" | "list";
   archiveCalExpanded: boolean;
@@ -71,34 +68,36 @@ type State = {
   gallerySheet: GallerySheetKind;
   styleSubTab: "saved" | "mine";
 
-  // community
+  userRecords: ArchiveRecords;
+
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
 
-  // ai journal
   aiStep: AIStep;
   aiMessages: AIMessage[];
   aiSummary: string | null;
 
-  // inquiries
   inquiries: Inquiry[];
 
-  // actions
   setUser: (p: Partial<State["user"]>) => void;
   setModal: (m: Modal) => void;
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
+  setStudioPanelOpen: (open: boolean) => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
   addSticker: (emoji: string) => void;
   removeSticker: (id: number) => void;
   setArchiveMainTab: (t: State["archiveMainTab"]) => void;
   setArchiveView: (v: State["archiveView"]) => void;
   toggleCalExpanded: () => void;
+  setCalExpanded: (v: boolean) => void;
   setArchiveMonth: (y: number, m: number) => void;
   pickDate: (k: string) => void;
   toggleListExpanded: (k: string) => void;
   bumpListCount: () => void;
+  resetListCount: () => void;
+  addRecord: (key: string, rec: RunningRecord) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -120,6 +119,7 @@ export const useAppStore = create<State>((set, get) => ({
   toast: null,
 
   studioTab: "edit",
+  studioPanelOpen: true,
   bgPickerTab: "mine",
   placedStickers: [],
 
@@ -133,6 +133,8 @@ export const useAppStore = create<State>((set, get) => ({
   galleryFilter: { y: 2024, m: 5 },
   gallerySheet: null,
   styleSubTab: "saved",
+
+  userRecords: {},
 
   communityTab: "hot",
   savedPosts: {},
@@ -151,7 +153,8 @@ export const useAppStore = create<State>((set, get) => ({
     toastTimer = setTimeout(() => set({ toast: null }), 1800);
   },
   hideToast: () => set({ toast: null }),
-  setStudioTab: (t) => set({ studioTab: t }),
+  setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
+  setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
   setBgPickerTab: (t) => set({ bgPickerTab: t }),
   addSticker: (emoji) =>
     set((s) => {
@@ -170,6 +173,7 @@ export const useAppStore = create<State>((set, get) => ({
   setArchiveView: (v) =>
     set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
   toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+  setCalExpanded: (v) => set({ archiveCalExpanded: v }),
   setArchiveMonth: (y, m) =>
     set({
       archiveMonth: { y, m },
@@ -191,6 +195,9 @@ export const useAppStore = create<State>((set, get) => ({
   toggleListExpanded: (k) =>
     set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
   bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+  resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
+  addRecord: (key, rec) =>
+    set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
   setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
   setGallerySheet: (kind) =>
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),

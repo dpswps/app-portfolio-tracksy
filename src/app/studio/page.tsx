@@ -10,6 +10,8 @@ export default function StudioPage() {
   const router = useRouter();
   const tab = useAppStore((s) => s.studioTab);
   const setTab = useAppStore((s) => s.setStudioTab);
+  const panelOpen = useAppStore((s) => s.studioPanelOpen);
+  const setPanelOpen = useAppStore((s) => s.setStudioPanelOpen);
   const placedStickers = useAppStore((s) => s.placedStickers);
   const removeSticker = useAppStore((s) => s.removeSticker);
 
@@ -78,9 +80,11 @@ export default function StudioPage() {
         </button>
       </div>
 
-      <div className="studio-panel">
-        <StudioPanel tab={tab} />
-      </div>
+      {panelOpen && (
+        <div className="studio-panel">
+          <StudioPanel tab={tab} onClose={() => setPanelOpen(false)} />
+        </div>
+      )}
 
       <div className="studio-tabs">
         <button className={`st-tab${tab === "edit" ? " active" : ""}`} onClick={() => setTab("edit")}>

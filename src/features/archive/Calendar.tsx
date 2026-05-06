@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { archiveRecords } from "@/data/archiveRecords";
 import { useAppStore } from "@/stores/useAppStore";
 import { dateKey, formatKoreanDate, KO_DOW } from "@/lib/date";
@@ -11,6 +12,50 @@ export default function Calendar() {
   const expanded = useAppStore((s) => s.archiveCalExpanded);
   const selected = useAppStore((s) => s.archiveSelected);
   const pickDate = useAppStore((s) => s.pickDate);
+  const setExpanded = useAppStore((s) => s.setCalExpanded);
+  const userRecords = useAppStore((s) => s.userRecords);
+  const allRecords = { ...archiveRecords, ...userRecords };
+
+  const dragStartY = useRef<number | null>(null);
+  const dragStartExpanded = useRef<boolean>(false);
+  const triggered = useRef<boolean>(false);
+  const DRAG_THRESHOLD = 18;
+
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragStartY.current = e.clientY;
+    dragStartExpanded.current = expanded;
+    triggered.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartY.current === null || triggered.current) return;
+    const dy = e.clientY - dragStartY.current;
+    if (!dragStartExpanded.current && dy > DRAG_THRESHOLD) {
+      triggered.current = true;
+      setExpanded(true);
+    } else if (dragStartExpanded.current && dy < -DRAG_THRESHOLD) {
+      triggered.current = true;
+      setExpanded(false);
+    }
+  };
+  const onHandlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartY.current !== null) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+    dragStartY.current = null;
+    triggered.current = false;
+  };
+  const onHandleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setExpanded(true);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setExpanded(false);
+    }
+  };
 
   const { y, m } = month;
   const firstDow = new Date(y, m - 1, 1).getDay();
@@ -55,7 +100,7 @@ export default function Calendar() {
 
   return (
     <>
-      <div className="cal-card">
+      <div className={`cal-card${expanded ? " expanded" : ""}`}>
         <div className="cal-dow-row">
           {KO_DOW.map((d, i) => (
             <span key={d} className={i === 0 ? "sun" : i === 6 ? "sat" : ""}>
@@ -65,7 +110,7 @@ export default function Calendar() {
         </div>
         <div className="cal-grid">
           {visibleCells.map((c, i) => {
-            const has = !!archiveRecords[c.key];
+            const has = !!allRecords[c.key];
             const isSel = selected === c.key;
             const dow = i % 7;
             const cls = ["cal-day"];
@@ -82,6 +127,20 @@ export default function Calendar() {
             );
           })}
         </div>
+        <div
+          className="cal-drag-handle"
+          role="separator"
+          tabIndex={0}
+          aria-label={expanded ? "위로 드래그하여 캘린더 접기" : "아래로 드래그하여 캘린더 펼치기"}
+          aria-orientation="horizontal"
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerEnd}
+          onPointerCancel={onHandlePointerEnd}
+          onKeyDown={onHandleKeyDown}
+        >
+          <span className="cdh-bar" />
+        </div>
       </div>
 
       <SelectedDateBlock />
@@ -91,6 +150,7 @@ export default function Calendar() {
 
 function SelectedDateBlock() {
   const sel = useAppStore((s) => s.archiveSelected);
+  const userRecords = useAppStore((s) => s.userRecords);
 
   if (!sel) {
     return (
@@ -109,7 +169,7 @@ function SelectedDateBlock() {
       </div>
     );
   }
-  const rec = archiveRecords[sel];
+  const rec = userRecords[sel] || archiveRecords[sel];
   if (!rec) {
     return (
       <div className="sel-block sel-empty">
@@ -121,12 +181,21 @@ function SelectedDateBlock() {
           오늘의 러닝을 기록하고<br />
           나만의 기록을 만들어보세요
         </div>
-        <Link href="/archive/manual" className="primary-btn sel-cta" style={{ display: "block", textAlign: "center", textDecoration: "none" }}>
+        <Link
+          href={`/archive/manual?date=${encodeURIComponent(sel)}`}
+          className="primary-btn sel-cta"
+          style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+        >
           기록 추가하기 +
         </Link>
       </div>
     );
   }
+
+  const thirdLabel = rec.bpm != null ? "심박수" : "시간";
+  const thirdValue = rec.bpm != null ? String(rec.bpm) : (rec.time || "—");
+  const thirdUnit = rec.bpm != null ? "bpm" : "";
+
   return (
     <div className="sel-block sel-record">
       <div className="sr-date">{formatKoreanDate(sel)}</div>
@@ -144,11 +213,12 @@ function SelectedDateBlock() {
         </div>
         <div className="sr-divider" />
         <div className="sr-stat">
-          <b>{rec.bpm}</b>
-          <i>bpm</i>
-          <small>심박수</small>
+          <b>{thirdValue}</b>
+          {thirdUnit && <i>{thirdUnit}</i>}
+          <small>{thirdLabel}</small>
         </div>
       </div>
+      {rec.note && <div className="sr-note">{rec.note}</div>}
     </div>
   );
 }
