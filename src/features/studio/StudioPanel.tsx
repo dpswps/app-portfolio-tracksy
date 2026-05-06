@@ -25,7 +25,13 @@ function StickerGrid() {
   );
 }
 
-export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" | "design" }) {
+export default function StudioPanel({
+  tab,
+  onClose,
+}: {
+  tab: "edit" | "text" | "sticker" | "design";
+  onClose?: () => void;
+}) {
   const showToast = useAppStore((s) => s.showToast);
   const t = (msg: string) => () => showToast(msg);
 
@@ -34,7 +40,7 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
       <>
         <div className="sp-head">
           <span>편집</span>
-          <button className="sp-close" aria-label="닫기">
+          <button className="sp-close" aria-label="닫기" onClick={onClose}>
             ×
           </button>
         </div>
