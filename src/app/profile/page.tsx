@@ -8,10 +8,11 @@ import { useAppStore } from "@/stores/useAppStore";
 export default function ProfilePage() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
+  const setUser = useAppStore((s) => s.setUser);
   const showToast = useAppStore((s) => s.showToast);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const avatarUrl = user.avatarUrl ?? null;
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
   const back = () => {
@@ -27,10 +28,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    setAvatarUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+    if (user.avatarUrl) {
+      try {
+        URL.revokeObjectURL(user.avatarUrl);
+      } catch {}
+    }
+    setUser({ avatarUrl: url });
     showToast("프로필 사진이 변경되었어요");
     e.target.value = "";
   };

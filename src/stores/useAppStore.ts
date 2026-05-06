@@ -47,7 +47,7 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 ];
 
 type State = {
-  user: { name: string; birth: string; email: string; style: string };
+  user: { name: string; birth: string; email: string; style: string; avatarUrl?: string | null };
 
   modal: Modal;
   toast: string | null;
@@ -111,7 +111,7 @@ type State = {
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useAppStore = create<State>((set, get) => ({
-  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝" },
+  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝", avatarUrl: null },
 
   modal: null,
   toast: null,

@@ -144,7 +144,11 @@ export default function HomePage() {
     <section className="home-screen">
       <div className="home-greeting">
         <Link href="/profile" className="greet-avatar" aria-label="프로필">
-          <Mascot />
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt="프로필" className="greet-avatar-img" />
+          ) : (
+            <Mascot />
+          )}
         </Link>
         <div className="greet-text">
           <div className="greet-name">
