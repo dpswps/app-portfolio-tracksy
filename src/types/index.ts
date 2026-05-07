@@ -20,6 +20,10 @@ export type Partner = {
 
 export type GalleryCard = {
   id: number;
+  /** Year of this run (used for filtering) */
+  y: number;
+  /** Month of this run, 1-12 (used for filtering) */
+  m: number;
   date: string;
   title: string;
   dist: string;

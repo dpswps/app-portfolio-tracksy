@@ -81,6 +81,9 @@ type State = {
 
   userRecords: ArchiveRecords;
 
+  /** Style cards that the user removed from "저장한 스타일" tab via bookmark click */
+  removedSavedStyleIds: string[];
+
   communityTab: "hot" | "new";
 
   aiStep: AIStep;
@@ -112,6 +115,8 @@ type State = {
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
+  removeSavedStyle: (id: string) => void;
+  restoreSavedStyle: (id: string) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
@@ -132,10 +137,10 @@ function todayKey(): string {
   return `${y}-${m}-${dd}`;
 }
 
-/** Strip basic HTML tags so summary stored is plain text. */
 function stripHtml(s: string): string {
   return s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
 }
+
 export const useAppStore = create<State>()(
   persist(
     (set) => ({
@@ -166,6 +171,8 @@ export const useAppStore = create<State>()(
       styleSubTab: "saved",
 
       userRecords: {},
+
+      removedSavedStyleIds: [],
 
       communityTab: "hot",
 
@@ -268,6 +275,18 @@ export const useAppStore = create<State>()(
 
       setStyleSubTab: (t) => set({ styleSubTab: t }),
 
+      removeSavedStyle: (id) =>
+        set((s) =>
+          s.removedSavedStyleIds.includes(id)
+            ? s
+            : { removedSavedStyleIds: [...s.removedSavedStyleIds, id] },
+        ),
+
+      restoreSavedStyle: (id) =>
+        set((s) => ({
+          removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== id),
+        })),
+
       setCommunityTab: (t) => set({ communityTab: t }),
 
       setAIStep: (s) => set({ aiStep: s }),
@@ -312,6 +331,7 @@ export const useAppStore = create<State>()(
       partialize: (s) => ({
         aiJournals: s.aiJournals,
         userRecords: s.userRecords,
+        removedSavedStyleIds: s.removedSavedStyleIds,
       }),
     },
   ),

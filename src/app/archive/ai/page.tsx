@@ -12,11 +12,45 @@ const MOOD_LABEL: Record<string, string> = {
   bad: "힘들었어",
 };
 
-const MOOD_SUMMARY: Record<string, string> = {
-  good: "오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜",
-  ok: "꾸준함이 가장 큰 힘이에요<br/>오늘도 잘 달렸어요 💪",
-  bad: "오늘 견뎌낸 한 걸음이<br/>내일의 나를 만들어요 ✨",
-};
+const FALLBACK_SUMMARY = "오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜";
+
+type ChatMsg = { from: "bot" | "user"; text: string };
+
+/** Ask the API for the coach's next message (multi-turn). */
+async function fetchReply(messages: ChatMsg[]): Promise<string> {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "reply", messages }),
+    });
+    if (!res.ok) return "그랬구나! 더 얘기해줄래?";
+    const data = await res.json();
+    return typeof data?.reply === "string" && data.reply.trim()
+      ? data.reply
+      : "그랬구나! 더 얘기해줄래?";
+  } catch {
+    return "그랬구나! 더 얘기해줄래?";
+  }
+}
+
+/** Ask the API for the final one-line summary. */
+async function fetchSummary(messages: ChatMsg[]): Promise<string> {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "summary", messages }),
+    });
+    if (!res.ok) return FALLBACK_SUMMARY;
+    const data = await res.json();
+    return typeof data?.summary === "string" && data.summary.trim()
+      ? data.summary
+      : FALLBACK_SUMMARY;
+  } catch {
+    return FALLBACK_SUMMARY;
+  }
+}
 
 export default function AIJournalPage() {
   const step = useAppStore((s) => s.aiStep);
@@ -104,28 +138,31 @@ function Chat() {
   const showToast = useAppStore((s) => s.showToast);
 
   const [input, setInput] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
-  const triggeredRef = useRef(false);
 
+  // Scroll the chat area to bottom whenever messages or typing indicator change
   useEffect(() => {
     const a = areaRef.current;
     if (a) a.scrollTop = a.scrollHeight;
-  }, [messages]);
+  }, [messages, isReplying]);
 
-  const triggerLoading = (summary: string) => {
-    if (triggeredRef.current) return;
-    triggeredRef.current = true;
-    setSummary(summary);
-    setStep("loading");
-    setTimeout(() => {
-      const cur = useAppStore.getState().aiStep;
-      if (cur === "loading") useAppStore.getState().setAIStep("result");
-    }, 1400);
+  // Send a user turn, then ask Gemini for the next coach reply
+  const sendUserMessage = async (text: string) => {
+    if (isReplying || !text.trim()) return;
+    const userMsg: ChatMsg = { from: "user", text };
+    const next = [...messages, userMsg];
+    pushMsg(userMsg);
+    setInput("");
+    setIsReplying(true);
+
+    const reply = await fetchReply(next);
+    pushMsg({ from: "bot", text: reply });
+    setIsReplying(false);
   };
 
   const onMood = (mood: "good" | "ok" | "bad") => {
-    pushMsg({ from: "user", text: MOOD_LABEL[mood] });
-    triggerLoading(MOOD_SUMMARY[mood]);
+    void sendUserMessage(MOOD_LABEL[mood]);
   };
 
   const onSend = () => {
@@ -134,9 +171,24 @@ function Chat() {
       showToast("한 줄 적어보세요");
       return;
     }
-    pushMsg({ from: "user", text });
-    setInput("");
-    triggerLoading("오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜");
+    void sendUserMessage(text);
+  };
+
+  // Whether the user has spoken at least once — only then can we summarize
+  const hasUserTurn = messages.some((m) => m.from === "user");
+
+  const onFinish = async () => {
+    if (!hasUserTurn) {
+      showToast("먼저 대화를 한두 마디 해주세요");
+      return;
+    }
+    if (isReplying) return;
+    setStep("loading");
+    const summary = await fetchSummary(messages);
+    if (useAppStore.getState().aiStep === "loading") {
+      setSummary(summary);
+      useAppStore.getState().setAIStep("result");
+    }
   };
 
   return (
@@ -157,25 +209,31 @@ function Chat() {
             </div>
           ),
         )}
-        <div className="aij-row right">
-          <div className="aij-bubble typing">
-            <span />
-            <span />
-            <span />
+        {isReplying && (
+          <div className="aij-row left">
+            <div className="aij-mascot-sm">
+              <Mascot />
+            </div>
+            <div className="aij-bubble typing">
+              <span />
+              <span />
+              <span />
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
       <div className="aij-input-section">
         <div className="aij-quick-row">
-          <button className="aij-quick" onClick={() => onMood("good")}>
+          <button className="aij-quick" onClick={() => onMood("good")} disabled={isReplying}>
             <span className="aij-emo">😊</span>
             <span>좋아</span>
           </button>
-          <button className="aij-quick" onClick={() => onMood("ok")}>
+          <button className="aij-quick" onClick={() => onMood("ok")} disabled={isReplying}>
             <span className="aij-emo">😐</span>
             <span>그냥그래</span>
           </button>
-          <button className="aij-quick" onClick={() => onMood("bad")}>
+          <button className="aij-quick" onClick={() => onMood("bad")} disabled={isReplying}>
             <span className="aij-emo">😣</span>
             <span>힘들었어</span>
           </button>
@@ -191,14 +249,27 @@ function Chat() {
                 onSend();
               }
             }}
-            placeholder="직접 입력하기"
+            placeholder={isReplying ? "코치가 답을 작성 중이에요..." : "직접 입력하기"}
+            disabled={isReplying}
           />
-          <button className="aij-send" onClick={onSend} aria-label="전송">
+          <button
+            className="aij-send"
+            onClick={onSend}
+            aria-label="전송"
+            disabled={isReplying}
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
         </div>
+        <button
+          className="aij-finish-btn"
+          onClick={onFinish}
+          disabled={!hasUserTurn || isReplying}
+        >
+          ✨ 대화 마치고 한 줄 요약 만들기
+        </button>
       </div>
     </section>
   );
@@ -230,7 +301,7 @@ function Loading() {
 
 function Result() {
   const router = useRouter();
-  const summary = useAppStore((s) => s.aiSummary) || "오늘은 안정적인 페이스로<br/>기분 좋게 달린 날 🏃💜";
+  const summary = useAppStore((s) => s.aiSummary) || FALLBACK_SUMMARY;
   const resetAI = useAppStore((s) => s.resetAI);
   const addAIJournal = useAppStore((s) => s.addAIJournal);
   const showToast = useAppStore((s) => s.showToast);

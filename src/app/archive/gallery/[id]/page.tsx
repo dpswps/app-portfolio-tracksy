@@ -75,11 +75,6 @@ export default function GalleryDetailPage() {
                 <i>케이던스</i>
               </div>
             </div>
-
-            <div className="gd-reactions">
-              <span className="gd-react">❤ {card.likes}</span>
-              <span className="gd-react">💬 {card.comments}</span>
-            </div>
           </div>
         </div>
 
@@ -88,21 +83,6 @@ export default function GalleryDetailPage() {
           <div className="gd-body-sub">
             {card.dist}km · {card.time} · 평균 페이스 {card.pace}
           </div>
-        </div>
-
-        <div className="g-detail-actions">
-          <button
-            className="gd-act"
-            onClick={() => showToast("즐겨찾기에 추가했어요")}
-          >
-            <span>⭐</span> 즐겨찾기
-          </button>
-          <button
-            className="gd-act primary"
-            onClick={() => showToast("이 카드 템플릿을 적용했어요")}
-          >
-            <span>✨</span> 이 템플릿 사용하기
-          </button>
         </div>
       </section>
     </>

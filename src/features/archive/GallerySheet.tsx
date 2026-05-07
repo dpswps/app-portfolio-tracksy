@@ -1,13 +1,17 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { pad2 } from "@/lib/date";
+
+const YEAR_BACK = 16; // how many years back from current year (no future years)
 
 export default function GallerySheet() {
   const kind = useAppStore((s) => s.gallerySheet);
   const filter = useAppStore((s) => s.galleryFilter);
   const setSheet = useAppStore((s) => s.setGallerySheet);
   const setFilter = useAppStore((s) => s.setGalleryFilter);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const close = () => setSheet(null);
 
@@ -17,13 +21,22 @@ export default function GallerySheet() {
 
   if (kind === "year") {
     title = "연 단위 선택";
-    items = [2026, 2025, 2024, 2023, 2022];
+    const baseY = new Date().getFullYear();
+    items = [];
+    for (let i = baseY; i >= baseY - YEAR_BACK; i--) items.push(i);
     current = filter.y;
   } else {
     title = "월 단위 선택";
-    items = [7, 6, 5, 4, 3];
+    items = [];
+    for (let i = 1; i <= 12; i++) items.push(i);
     current = filter.m;
   }
+
+  useEffect(() => {
+    listRef.current
+      ?.querySelector(".gf-item.active")
+      ?.scrollIntoView({ block: "center" });
+  }, [kind]);
 
   const select = (v: number) => {
     if (kind === "year") setFilter({ y: v });
@@ -36,7 +49,7 @@ export default function GallerySheet() {
       <div className="gf-sheet">
         <div className="gf-sheet-handle" />
         <div className="gf-sheet-title">{title}</div>
-        <div className="gf-list">
+        <div className="gf-list gf-list-scroll" ref={listRef}>
           {items.map((v) => (
             <button
               key={v}

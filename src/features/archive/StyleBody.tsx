@@ -3,26 +3,34 @@
 import { useAppStore } from "@/stores/useAppStore";
 import { styleCards } from "@/data/styleCards";
 import type { StyleCard } from "@/types";
+import Mascot from "@/components/ui/Mascot";
 
-function StyleCardEl({ c }: { c: StyleCard }) {
+function StyleCardEl({ c, isSavedTab }: { c: StyleCard; isSavedTab: boolean }) {
   const showToast = useAppStore((s) => s.showToast);
+  const removeSavedStyle = useAppStore((s) => s.removeSavedStyle);
+
+  const onBookmarkClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeSavedStyle(c.id);
+    showToast("저장한 스타일에서 삭제했어요");
+  };
+
   return (
     <div className="style-block">
       <div className="style-card">
         <div className="sc-bg" style={{ background: c.bg }} />
         <div className="sc-overlay" />
-        <button
-          className="sc-bookmark"
-          aria-label="저장"
-          onClick={(e) => {
-            e.stopPropagation();
-            showToast("저장됨");
-          }}
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 3h12v18l-6-4-6 4z" />
-          </svg>
-        </button>
+        {isSavedTab && (
+          <button
+            className="sc-bookmark saved"
+            aria-label="저장한 스타일에서 삭제"
+            onClick={onBookmarkClick}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 3h12v18l-6-4-6 4z" />
+            </svg>
+          </button>
+        )}
         <div className="sc-content">
           <div className="sc-meta">{c.date}</div>
           <div className="sc-title">{c.title}</div>
@@ -65,7 +73,12 @@ function StyleCardEl({ c }: { c: StyleCard }) {
 export default function StyleBody() {
   const sub = useAppStore((s) => s.styleSubTab);
   const setSub = useAppStore((s) => s.setStyleSubTab);
-  const cards = styleCards[sub] || [];
+  const removedIds = useAppStore((s) => s.removedSavedStyleIds);
+  const baseCards = styleCards[sub] || [];
+  const cards =
+    sub === "saved"
+      ? baseCards.filter((c) => !removedIds.includes(c.id))
+      : baseCards;
 
   return (
     <div className="style-area">
@@ -78,11 +91,27 @@ export default function StyleBody() {
         </button>
       </div>
 
-      <div className="style-list">
-        {cards.map((c) => (
-          <StyleCardEl key={c.id} c={c} />
-        ))}
-      </div>
+      {cards.length === 0 ? (
+        <div className="style-empty">
+          <div className="style-empty-mascot">
+            <Mascot />
+          </div>
+          <div className="style-empty-title">
+            {sub === "saved" ? "저장한 스타일이 없어요" : "아직 만든 스타일이 없어요"}
+          </div>
+          <div className="style-empty-sub">
+            {sub === "saved"
+              ? "마음에 드는 스타일을 북마크해보세요"
+              : "스튜디오에서 나만의 스타일을 만들어보세요"}
+          </div>
+        </div>
+      ) : (
+        <div className="style-list">
+          {cards.map((c) => (
+            <StyleCardEl key={c.id} c={c} isSavedTab={sub === "saved"} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
