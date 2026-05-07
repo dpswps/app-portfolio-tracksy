@@ -47,7 +47,7 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 ];
 
 type State = {
-  user: { name: string; birth: string; email: string; style: string; avatarUrl?: string | null };
+  user: { name: string; birth: string; email: string; style: string; avatarUrl?: string | null; coverUrl?: string | null };
 
   modal: Modal;
   toast: string | null;
@@ -69,6 +69,7 @@ type State = {
   styleSubTab: "saved" | "mine";
 
   userRecords: ArchiveRecords;
+  connectedPartners: string[];
 
   communityTab: "hot" | "new";
 
@@ -97,6 +98,9 @@ type State = {
   bumpListCount: () => void;
   resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
+  mergeRecords: (records: ArchiveRecords) => void;
+  connectPartner: (id: string) => void;
+  disconnectPartner: (id: string) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -111,7 +115,7 @@ type State = {
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useAppStore = create<State>((set, get) => ({
-  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝", avatarUrl: null },
+  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝", avatarUrl: null, coverUrl: null },
 
   modal: null,
   toast: null,
@@ -133,6 +137,7 @@ export const useAppStore = create<State>((set, get) => ({
   styleSubTab: "saved",
 
   userRecords: {},
+  connectedPartners: [],
 
   communityTab: "hot",
 
@@ -195,6 +200,16 @@ export const useAppStore = create<State>((set, get) => ({
   resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
   addRecord: (key, rec) =>
     set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
+  mergeRecords: (records) =>
+    set((s) => ({ userRecords: { ...s.userRecords, ...records } })),
+  connectPartner: (id) =>
+    set((s) =>
+      s.connectedPartners.includes(id)
+        ? s
+        : { connectedPartners: [...s.connectedPartners, id] }
+    ),
+  disconnectPartner: (id) =>
+    set((s) => ({ connectedPartners: s.connectedPartners.filter((x) => x !== id) })),
   setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
   setGallerySheet: (kind) =>
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),

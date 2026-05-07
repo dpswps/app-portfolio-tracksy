@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 
 export default function ProfilePage() {
@@ -13,7 +13,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const avatarUrl = user.avatarUrl ?? null;
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const coverUrl = user.coverUrl ?? null;
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -46,10 +46,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    setCoverUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+    if (user.coverUrl) {
+      try {
+        URL.revokeObjectURL(user.coverUrl);
+      } catch {}
+    }
+    setUser({ coverUrl: url });
     showToast("배경 이미지가 변경되었어요");
     e.target.value = "";
   };

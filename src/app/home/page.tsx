@@ -2,28 +2,121 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import Mascot from "@/components/ui/Mascot";
-
-const week = [
-  { dow: "일", date: 13, on: false },
-  { dow: "월", date: 14, on: true },
-  { dow: "화", date: 15, on: true },
-  { dow: "수", date: 16, on: false },
-  { dow: "목", date: 17, on: true },
-  { dow: "금", date: 18, on: false },
-  { dow: "토", date: 19, on: false },
-];
+import { archiveRecords } from "@/data/archiveRecords";
+import { KO_DOW, parseKey, pad2 } from "@/lib/date";
 
 export default function HomePage() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
+  const userRecords = useAppStore((s) => s.userRecords);
   const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
   const setArchiveView = useAppStore((s) => s.setArchiveView);
   const setCalExpanded = useAppStore((s) => s.setCalExpanded);
+  const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
+  const pickDate = useAppStore((s) => s.pickDate);
   const trackRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+
+  // Today as YYYY-MM-DD (local time)
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  }, []);
+
+  // Pick the 2 most recent runs (today or earlier) from static + user records.
+  const recentRuns = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    return Object.entries(merged)
+      .filter(([k]) => k <= todayKey)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, 2)
+      .map(([key, rec]) => ({ key, rec }));
+  }, [userRecords, todayKey]);
+
+  // Count of runs in current month + delta vs. previous month.
+  const monthStats = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1; // 1-indexed
+    const prevY = m === 1 ? y - 1 : y;
+    const prevM = m === 1 ? 12 : m - 1;
+    const curPrefix = `${y}-${pad2(m)}`;
+    const prevPrefix = `${prevY}-${pad2(prevM)}`;
+    let cur = 0;
+    let prev = 0;
+    for (const k of Object.keys(merged)) {
+      if (k.startsWith(curPrefix)) cur++;
+      else if (k.startsWith(prevPrefix)) prev++;
+    }
+    let badge: { text: string; cls: "pink" | "gray" };
+    if (prev === 0 && cur === 0) {
+      badge = { text: "기록을 등록해보세요", cls: "gray" };
+    } else if (prev === 0) {
+      badge = { text: `↗ 이번달 ${cur}회 기록`, cls: "pink" };
+    } else if (cur === 0) {
+      badge = { text: "↘ 이번달 첫 기록 도전!", cls: "gray" };
+    } else {
+      const diff = Math.round(((cur - prev) / prev) * 100);
+      if (diff > 0) badge = { text: `↗ 지난달 대비 ${diff}%`, cls: "pink" };
+      else if (diff < 0) badge = { text: `↘ 지난달 대비 ${Math.abs(diff)}%`, cls: "gray" };
+      else badge = { text: "지난달과 동일", cls: "gray" };
+    }
+    return { cur, prev, badge };
+  }, [userRecords]);
+
+  // Best run (longest distance) within the past 90 days.
+  const bestRecord = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today);
+    cutoff.setDate(today.getDate() - 90);
+    let best: { key: string; dist: number; distStr: string } | null = null;
+    for (const [key, rec] of Object.entries(merged)) {
+      const d = new Date(`${key}T00:00:00`);
+      if (isNaN(d.getTime()) || d < cutoff || d > today) continue;
+      const dist = parseFloat(rec.dist);
+      if (isNaN(dist)) continue;
+      if (!best || dist > best.dist) {
+        best = { key, dist, distStr: rec.dist };
+      }
+    }
+    return best;
+  }, [userRecords, todayKey]);
+
+  const bestDateLabel = useMemo(() => {
+    if (!bestRecord) return null;
+    const { y, m, d } = parseKey(bestRecord.key);
+    return `${y}.${pad2(m)}.${pad2(d)} 달성!`;
+  }, [bestRecord]);
+
+  // This week's 7 days (Sunday → Saturday) based on today's date.
+  const week = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - today.getDay()); // back to Sunday
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      return {
+        dow: KO_DOW[i],
+        date: d.getDate(),
+        key,
+        on: !!merged[key],
+        isToday: key === todayKey,
+      };
+    });
+  }, [userRecords, todayKey]);
+
+  const recentPrimary = recentRuns[0];
+  const recentSecondary = recentRuns[1];
 
   const goToRecordsArchive = () => {
     setArchiveMainTab("records");
@@ -31,6 +124,25 @@ export default function HomePage() {
     // setArchiveView resets archiveCalExpanded to false, so set it true after.
     setTimeout(() => setCalExpanded(true), 0);
     router.push("/archive");
+  };
+
+  const goToRecordOnArchive = (key: string) => {
+    const { y, m } = parseKey(key);
+    setArchiveMainTab("records");
+    setArchiveView("calendar");
+    setArchiveMonth(y, m);
+    pickDate(key);
+    setTimeout(() => setCalExpanded(true), 0);
+    router.push("/archive");
+  };
+
+  const formatShortDate = (k: string) => {
+    const { m, d, dow } = parseKey(k);
+    return `${pad2(m)}.${pad2(d)} ${KO_DOW[dow]}`;
+  };
+  const formatLongDate = (k: string) => {
+    const { y, m, d, dow } = parseKey(k);
+    return { full: `${y}.${pad2(m)}.${pad2(d)}`, dow: KO_DOW[dow] };
   };
 
   useEffect(() => {
@@ -166,16 +278,24 @@ export default function HomePage() {
 
       <div className="hero-carousel">
         <div className="hero-track" ref={trackRef}>
-          <div className="hero-slide hero-photo">
+          <div
+            className="hero-slide hero-photo"
+            onClick={() => recentPrimary && goToRecordOnArchive(recentPrimary.key)}
+            role={recentPrimary ? "button" : undefined}
+            tabIndex={recentPrimary ? 0 : undefined}
+          >
             <div className="hp-bg" />
             <div className="hp-glow" />
             <div className="hp-content">
               <div className="hp-top">
                 <span className="hp-label">최근 러닝</span>
-                <span className="hp-date">04.18 목</span>
+                <span className="hp-date">
+                  {recentPrimary ? formatShortDate(recentPrimary.key) : "기록 없음"}
+                </span>
               </div>
               <div className="hp-distance">
-                21<small>km</small>
+                {recentPrimary ? recentPrimary.rec.dist : "—"}
+                <small>km</small>
               </div>
               <svg className="hp-route" viewBox="0 0 220 70" fill="none" preserveAspectRatio="none">
                 <path
@@ -191,11 +311,11 @@ export default function HomePage() {
               <div className="hp-meta">
                 <div className="hp-meta-item">
                   <span className="hp-ic">⏱</span>
-                  <span>1:42:30</span>
+                  <span>{recentPrimary?.rec.time || "—"}</span>
                 </div>
                 <div className="hp-meta-item">
                   <span className="hp-ic">⚡</span>
-                  <span>4&apos;52&quot;</span>
+                  <span>{recentPrimary?.rec.pace || "—"}</span>
                 </div>
               </div>
             </div>
@@ -223,31 +343,44 @@ export default function HomePage() {
             <div className="hm-wave" />
           </div>
 
-          <div className="hero-slide hero-stats">
+          <div
+            className="hero-slide hero-stats"
+            onClick={() => recentSecondary && goToRecordOnArchive(recentSecondary.key)}
+            role={recentSecondary ? "button" : undefined}
+            tabIndex={recentSecondary ? 0 : undefined}
+          >
             <div className="hs-meta">
               <div className="hs-date">
-                2026.04.06 <span>(월)</span>
+                {recentSecondary ? (
+                  <>
+                    {formatLongDate(recentSecondary.key).full}{" "}
+                    <span>({formatLongDate(recentSecondary.key).dow})</span>
+                  </>
+                ) : (
+                  "기록 없음"
+                )}
               </div>
-              <div className="hs-weather">오전 7:30 · 후 18°C</div>
+              <div className="hs-weather">이전 러닝 기록</div>
             </div>
             <div className="hs-distance">
-              5.21<small>km</small>
+              {recentSecondary ? recentSecondary.rec.dist : "—"}
+              <small>km</small>
             </div>
             <div className="hs-rows">
               <div className="hs-row">
                 <span className="hs-ic">⏱</span>
-                <b>00:32:45</b>
+                <b>{recentSecondary?.rec.time || "—"}</b>
                 <i>시간</i>
               </div>
               <div className="hs-row">
                 <span className="hs-ic">⚡</span>
-                <b>6&apos;12&quot;</b>
+                <b>{recentSecondary?.rec.pace || "—"}</b>
                 <i>페이스</i>
               </div>
               <div className="hs-row">
-                <span className="hs-ic">🔥</span>
-                <b>368</b>
-                <i>kcal</i>
+                <span className="hs-ic">❤️</span>
+                <b>{recentSecondary?.rec.bpm ?? "—"}</b>
+                <i>bpm</i>
               </div>
             </div>
           </div>
@@ -279,17 +412,28 @@ export default function HomePage() {
         </div>
         <div className="week-grid">
           {week.map((d) => (
-            <div key={d.dow} className="week-day">
+            <button
+              key={d.key}
+              type="button"
+              className={`week-day${d.isToday ? " today" : ""}`}
+              onClick={() => goToRecordOnArchive(d.key)}
+              aria-label={`${d.dow}요일 ${d.date}일 보관함으로 이동`}
+            >
               <div className="dow">{d.dow}</div>
               <div className="dom">{d.date}</div>
               <div className={`dot ${d.on ? "dot-on" : "dot-off"}`} />
-            </div>
+            </button>
           ))}
         </div>
       </div>
 
       <div className="home-stats-row">
-        <div className="hs-card hs-month">
+        <button
+          type="button"
+          className="hs-card hs-month"
+          onClick={goToRecordsArchive}
+          aria-label="이번달 러닝 기록 보러가기"
+        >
           <div className="hs-fig">
             <svg viewBox="0 0 60 60" fill="none">
               <circle cx="38" cy="14" r="4" fill="#8B5CF6" />
@@ -300,18 +444,26 @@ export default function HomePage() {
           </div>
           <div className="hs-label">이번달 러닝 횟수</div>
           <div className="hs-value">
-            12 <small>회</small>
+            {monthStats.cur} <small>회</small>
           </div>
-          <div className="hs-badge pink">↗ 지난달 대비 20%</div>
-        </div>
-        <div className="hs-card hs-best">
+          <div className={`hs-badge ${monthStats.badge.cls}`}>{monthStats.badge.text}</div>
+        </button>
+        <button
+          type="button"
+          className="hs-card hs-best"
+          onClick={() => bestRecord && goToRecordOnArchive(bestRecord.key)}
+          aria-label="최고 기록 보러가기"
+          disabled={!bestRecord}
+        >
           <div className="hs-fig hs-trophy">🏆</div>
           <div className="hs-label">최고 기록(90일간)</div>
           <div className="hs-value">
-            10.21 <small>km</small>
+            {bestRecord ? bestRecord.distStr : "—"} <small>km</small>
           </div>
-          <div className="hs-badge gray">2026.04.06 달성!</div>
-        </div>
+          <div className="hs-badge gray">
+            {bestDateLabel || "기록 없음"}
+          </div>
+        </button>
       </div>
     </section>
   );
