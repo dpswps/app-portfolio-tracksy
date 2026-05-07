@@ -25,27 +25,92 @@ function StickerGrid() {
   );
 }
 
-export default function StudioPanel({
-  tab,
-  onClose,
-}: {
-  tab: "edit" | "text" | "sticker" | "design";
-  onClose?: () => void;
-}) {
+function TextTab() {
+  const texts = useAppStore((s) => s.studioTexts);
+  const activeId = useAppStore((s) => s.studioActiveTextId);
+  const submenu = useAppStore((s) => s.studioTextSubmenu);
+  const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
+  const addText = useAppStore((s) => s.addStudioText);
   const showToast = useAppStore((s) => s.showToast);
+
+  const hasActive = texts.some((t) => t.id === activeId);
+  const toggle = (m: "font" | "size" | "color") => {
+    if (!hasActive) {
+      showToast("먼저 텍스트를 추가해주세요");
+      return;
+    }
+    setSubmenu(submenu === m ? "none" : m);
+  };
+
+  return (
+    <div className="sp-tools sp-text">
+      <button className="sp-tool" onClick={() => addText()}>
+        <span className="sp-ic">
+          <b style={{ fontSize: 18 }}>＋</b>
+        </span>
+        <i>추가</i>
+      </button>
+      <button
+        className={`sp-tool${submenu === "font" ? " active" : ""}`}
+        onClick={() => toggle("font")}
+      >
+        <span className="sp-ic">
+          <b style={{ fontSize: 18, fontFamily: "serif" }}>Aa</b>
+        </span>
+        <i>글꼴</i>
+      </button>
+      <button
+        className={`sp-tool${submenu === "size" ? " active" : ""}`}
+        onClick={() => toggle("size")}
+      >
+        <span className="sp-ic">
+          <b style={{ fontSize: 18 }}>Tr</b>
+        </span>
+        <i>글자크기</i>
+      </button>
+      <button
+        className={`sp-tool${submenu === "color" ? " active" : ""}`}
+        onClick={() => toggle("color")}
+      >
+        <span className="sp-ic">
+          <span className="color-wheel" />
+        </span>
+        <i>색상</i>
+      </button>
+    </div>
+  );
+}
+
+export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" | "design" }) {
+  const showToast = useAppStore((s) => s.showToast);
+  const rotateBackground = useAppStore((s) => s.rotateBackground);
+  const toggleFlipH = useAppStore((s) => s.toggleFlipH);
+  const toggleFlipV = useAppStore((s) => s.toggleFlipV);
+  const setCropMode = useAppStore((s) => s.setStudioCropMode);
+  const bg = useAppStore((s) => s.studioBackground);
+  const cycleRatio = useAppStore((s) => s.cycleRatio);
+  const ratio = useAppStore((s) => s.studioRatio);
   const t = (msg: string) => () => showToast(msg);
+
+  const ratioLabel = (r: string) => r.replace("/", ":");
 
   if (tab === "edit") {
     return (
       <>
         <div className="sp-head">
           <span>편집</span>
-          <button className="sp-close" aria-label="닫기" onClick={onClose}>
-            ×
-          </button>
         </div>
         <div className="sp-tools">
-          <button className="sp-tool" onClick={t("잘라내기")}>
+          <button
+            className="sp-tool"
+            onClick={() => {
+              if (!bg) {
+                showToast("먼저 배경 사진을 등록해주세요");
+                return;
+              }
+              setCropMode(true);
+            }}
+          >
             <span className="sp-ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 2v14a2 2 0 0 0 2 2h14" />
@@ -54,7 +119,13 @@ export default function StudioPanel({
             </span>
             <i>잘라내기</i>
           </button>
-          <button className="sp-tool" onClick={t("회전")}>
+          <button
+            className="sp-tool"
+            onClick={() => {
+              rotateBackground();
+              showToast("회전");
+            }}
+          >
             <span className="sp-ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M3 12a9 9 0 1 0 3-6.7" />
@@ -63,7 +134,13 @@ export default function StudioPanel({
             </span>
             <i>회전</i>
           </button>
-          <button className="sp-tool" onClick={t("좌우 반전")}>
+          <button
+            className="sp-tool"
+            onClick={() => {
+              toggleFlipH();
+              showToast("좌우 반전");
+            }}
+          >
             <span className="sp-ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 3v18" />
@@ -73,7 +150,13 @@ export default function StudioPanel({
             </span>
             <i>좌우 반전</i>
           </button>
-          <button className="sp-tool" onClick={t("상하 반전")}>
+          <button
+            className="sp-tool"
+            onClick={() => {
+              toggleFlipV();
+              showToast("상하 반전");
+            }}
+          >
             <span className="sp-ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M3 12h18" />
@@ -83,14 +166,25 @@ export default function StudioPanel({
             </span>
             <i>상하 반전</i>
           </button>
-          <button className="sp-tool" onClick={t("색상 수정")}>
+          <button
+            className="sp-tool"
+            onClick={() => {
+              cycleRatio();
+              // showToast on the next tick so it reads the updated ratio from store
+              setTimeout(() => {
+                const nextRatio = useAppStore.getState().studioRatio;
+                showToast(`비율 ${ratioLabel(nextRatio)}`);
+              }, 0);
+            }}
+          >
             <span className="sp-ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 3a9 9 0 0 1 0 18 4 4 0 0 0 0-8 4 4 0 0 1 0-8z" fill="currentColor" opacity="0.3" />
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M3 10h18" />
+                <path d="M8 5v14" />
               </svg>
             </span>
-            <i>색을 수정</i>
+            <i>비율 수정{ratio !== "9/16" ? ` (${ratioLabel(ratio)})` : ""}</i>
           </button>
         </div>
       </>
@@ -98,28 +192,7 @@ export default function StudioPanel({
   }
 
   if (tab === "text") {
-    return (
-      <div className="sp-tools sp-text">
-        <button className="sp-tool" onClick={t("글꼴")}>
-          <span className="sp-ic">
-            <b style={{ fontSize: 18, fontFamily: "serif" }}>Aa</b>
-          </span>
-          <i>글꼴</i>
-        </button>
-        <button className="sp-tool" onClick={t("글자크기")}>
-          <span className="sp-ic">
-            <b style={{ fontSize: 18 }}>Tr</b>
-          </span>
-          <i>글자크기</i>
-        </button>
-        <button className="sp-tool" onClick={t("색상")}>
-          <span className="sp-ic">
-            <span className="color-wheel" />
-          </span>
-          <i>색상</i>
-        </button>
-      </div>
-    );
+    return <TextTab />;
   }
 
   if (tab === "sticker") {

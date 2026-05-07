@@ -7,6 +7,27 @@ import type { AIMessage, AIStep } from "@/types";
 type Modal = "gallerySheet" | "monthPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
+type StudioSnapshot = {
+  studioBackground: string | null;
+  studioRotate: number;
+  studioFlipH: boolean;
+  studioFlipV: boolean;
+  studioCrop: number;
+  studioRatio: string;
+  studioTexts: Array<{
+    id: number;
+    text: string;
+    x: number;
+    y: number;
+    size: number;
+    font: string;
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string;
+  }>;
+  placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
+};
+
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
   { from: "bot", text: "오늘 5km 뛰었네! 꽤 괜찮은데 ✨" },
   { from: "bot", text: "뛸 때 컨디션은 어땠어?" },
@@ -53,7 +74,28 @@ type State = {
   toast: string | null;
 
   studioTab: "edit" | "text" | "sticker" | "design";
-  studioPanelOpen: boolean;
+  studioBackground: string | null;
+  studioRotate: number; // 0, 90, 180, 270
+  studioFlipH: boolean;
+  studioFlipV: boolean;
+  studioCrop: number; // 1, 1.25, 1.5, 1.75 (legacy zoom — kept for reset only)
+  studioCropMode: boolean;
+  studioRatio: string; // "9/16" | "4/5" | "1/1" | "5/4"
+  studioTexts: Array<{
+    id: number;
+    text: string;
+    x: number; // percent 0-100
+    y: number; // percent 0-100
+    size: number; // px
+    font: string; // CSS font-family
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string; // hex
+  }>;
+  studioActiveTextId: number | null;
+  studioTextSubmenu: "none" | "font" | "size" | "color";
+  studioHistory: StudioSnapshot[];
+  studioFuture: StudioSnapshot[];
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
@@ -83,7 +125,21 @@ type State = {
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
-  setStudioPanelOpen: (open: boolean) => void;
+  setStudioBackground: (url: string | null) => void;
+  rotateBackground: () => void;
+  toggleFlipH: () => void;
+  toggleFlipV: () => void;
+  cycleCrop: () => void;
+  setStudioCropMode: (on: boolean) => void;
+  cycleRatio: () => void;
+  addStudioText: () => void;
+  updateStudioText: (id: number, patch: Partial<State["studioTexts"][number]>) => void;
+  removeStudioText: (id: number) => void;
+  setActiveStudioText: (id: number | null) => void;
+  setStudioTextSubmenu: (s: State["studioTextSubmenu"]) => void;
+  pushStudioHistory: () => void;
+  studioUndo: () => void;
+  studioRedo: () => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
   addSticker: (emoji: string) => void;
   removeSticker: (id: number) => void;
@@ -117,7 +173,18 @@ export const useAppStore = create<State>((set, get) => ({
   toast: null,
 
   studioTab: "edit",
-  studioPanelOpen: true,
+  studioBackground: null,
+  studioRotate: 0,
+  studioFlipH: false,
+  studioFlipV: false,
+  studioCrop: 1,
+  studioCropMode: false,
+  studioRatio: "9/16",
+  studioTexts: [],
+  studioActiveTextId: null,
+  studioTextSubmenu: "none",
+  studioHistory: [],
+  studioFuture: [],
   bgPickerTab: "mine",
   placedStickers: [],
 
@@ -150,10 +217,140 @@ export const useAppStore = create<State>((set, get) => ({
     toastTimer = setTimeout(() => set({ toast: null }), 1800);
   },
   hideToast: () => set({ toast: null }),
-  setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
-  setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
+  setStudioTab: (t) => set({ studioTab: t }),
+  setStudioBackground: (url) => {
+    get().pushStudioHistory();
+    set({
+      studioBackground: url,
+      studioRotate: 0,
+      studioFlipH: false,
+      studioFlipV: false,
+      studioCrop: 1,
+      studioCropMode: false,
+    });
+  },
+  setStudioCropMode: (on) => set({ studioCropMode: on }),
+  rotateBackground: () => {
+    get().pushStudioHistory();
+    set((s) => ({ studioRotate: (s.studioRotate + 90) % 360 }));
+  },
+  toggleFlipH: () => {
+    get().pushStudioHistory();
+    set((s) => ({ studioFlipH: !s.studioFlipH }));
+  },
+  toggleFlipV: () => {
+    get().pushStudioHistory();
+    set((s) => ({ studioFlipV: !s.studioFlipV }));
+  },
+  cycleCrop: () => {
+    get().pushStudioHistory();
+    set((s) => {
+      const steps = [1, 1.25, 1.5, 1.75];
+      const idx = steps.indexOf(s.studioCrop);
+      const next = steps[(idx + 1) % steps.length] ?? 1;
+      return { studioCrop: next };
+    });
+  },
+  cycleRatio: () => {
+    get().pushStudioHistory();
+    set((s) => {
+      const steps = ["9/16", "4/5", "1/1", "5/4"];
+      const idx = steps.indexOf(s.studioRatio);
+      const next = steps[(idx + 1) % steps.length] ?? "9/16";
+      return { studioRatio: next };
+    });
+  },
+  addStudioText: () => {
+    get().pushStudioHistory();
+    set((s) => {
+      const id = Date.now();
+      const t = {
+        id,
+        text: "텍스트 입력",
+        x: 50,
+        y: 50,
+        size: 28,
+        font: "var(--font-noto-kr), 'Noto Sans KR', system-ui, sans-serif",
+        color: "#FFFFFF",
+      };
+      return { studioTexts: [...s.studioTexts, t], studioActiveTextId: id };
+    });
+  },
+  updateStudioText: (id, patch) =>
+    set((s) => ({
+      studioTexts: s.studioTexts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    })),
+  removeStudioText: (id) => {
+    get().pushStudioHistory();
+    set((s) => ({
+      studioTexts: s.studioTexts.filter((t) => t.id !== id),
+      studioActiveTextId: s.studioActiveTextId === id ? null : s.studioActiveTextId,
+    }));
+  },
+  setActiveStudioText: (id) => set({ studioActiveTextId: id }),
+  setStudioTextSubmenu: (m) => set({ studioTextSubmenu: m }),
+  pushStudioHistory: () =>
+    set((s) => {
+      const snap: StudioSnapshot = {
+        studioBackground: s.studioBackground,
+        studioRotate: s.studioRotate,
+        studioFlipH: s.studioFlipH,
+        studioFlipV: s.studioFlipV,
+        studioCrop: s.studioCrop,
+        studioRatio: s.studioRatio,
+        studioTexts: s.studioTexts.map((t) => ({ ...t })),
+        placedStickers: s.placedStickers.map((p) => ({ ...p })),
+      };
+      // Cap history at 50 to avoid unbounded memory.
+      const next = [...s.studioHistory, snap];
+      if (next.length > 50) next.shift();
+      return { studioHistory: next, studioFuture: [] };
+    }),
+  studioUndo: () =>
+    set((s) => {
+      if (s.studioHistory.length === 0) return s;
+      const past = s.studioHistory.slice(0, -1);
+      const target = s.studioHistory[s.studioHistory.length - 1]!;
+      const current: StudioSnapshot = {
+        studioBackground: s.studioBackground,
+        studioRotate: s.studioRotate,
+        studioFlipH: s.studioFlipH,
+        studioFlipV: s.studioFlipV,
+        studioCrop: s.studioCrop,
+        studioRatio: s.studioRatio,
+        studioTexts: s.studioTexts.map((t) => ({ ...t })),
+        placedStickers: s.placedStickers.map((p) => ({ ...p })),
+      };
+      return {
+        ...target,
+        studioHistory: past,
+        studioFuture: [...s.studioFuture, current],
+      };
+    }),
+  studioRedo: () =>
+    set((s) => {
+      if (s.studioFuture.length === 0) return s;
+      const future = s.studioFuture.slice(0, -1);
+      const target = s.studioFuture[s.studioFuture.length - 1]!;
+      const current: StudioSnapshot = {
+        studioBackground: s.studioBackground,
+        studioRotate: s.studioRotate,
+        studioFlipH: s.studioFlipH,
+        studioFlipV: s.studioFlipV,
+        studioCrop: s.studioCrop,
+        studioRatio: s.studioRatio,
+        studioTexts: s.studioTexts.map((t) => ({ ...t })),
+        placedStickers: s.placedStickers.map((p) => ({ ...p })),
+      };
+      return {
+        ...target,
+        studioHistory: [...s.studioHistory, current],
+        studioFuture: future,
+      };
+    }),
   setBgPickerTab: (t) => set({ bgPickerTab: t }),
-  addSticker: (emoji) =>
+  addSticker: (emoji) => {
+    get().pushStudioHistory();
     set((s) => {
       const x = 15 + Math.random() * 60;
       const y = 15 + Math.random() * 50;
@@ -163,9 +360,12 @@ export const useAppStore = create<State>((set, get) => ({
           { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
         ],
       };
-    }),
-  removeSticker: (id) =>
-    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
+    });
+  },
+  removeSticker: (id) => {
+    get().pushStudioHistory();
+    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) }));
+  },
   setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
   setArchiveView: (v) =>
     set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),

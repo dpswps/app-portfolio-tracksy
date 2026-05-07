@@ -1,11 +1,45 @@
+"use client";
+
 import Mascot from "@/components/ui/Mascot";
+import { useAppStore } from "@/stores/useAppStore";
 
 export default function RunningCard({ small = false }: { small?: boolean }) {
+  const bg = useAppStore((s) => s.studioBackground);
+  const rotate = useAppStore((s) => s.studioRotate);
+  const flipH = useAppStore((s) => s.studioFlipH);
+  const flipV = useAppStore((s) => s.studioFlipV);
+  const crop = useAppStore((s) => s.studioCrop);
+  const ratio = useAppStore((s) => s.studioRatio);
+
+  const transforms: string[] = [];
+  if (rotate) transforms.push(`rotate(${rotate}deg)`);
+  if (flipH) transforms.push("scaleX(-1)");
+  if (flipV) transforms.push("scaleY(-1)");
+  if (crop && crop !== 1) transforms.push(`scale(${crop})`);
+  const transform = transforms.length > 0 ? transforms.join(" ") : undefined;
+
+  const photoStyle = bg
+    ? {
+        backgroundImage: `url(${bg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        transform,
+        transformOrigin: "center",
+        transition: "transform 0.18s ease",
+      }
+    : transform
+    ? { transform, transformOrigin: "center", transition: "transform 0.18s ease" }
+    : undefined;
+
+  // ratio is consumed by card-stage in studio/page.tsx; reference it here so
+  // the component re-renders when ratio changes (no-op on small preview).
+  void ratio;
+
   return (
     <div className={`running-card${small ? " small" : ""}`}>
-      <div className="rc-photo" />
+      <div className="rc-photo" style={photoStyle} />
       <div className="rc-grad" />
-      <div className="rc-runner" />
+      {!bg && <div className="rc-runner" />}
 
       <div className="rc-top">
         <div className="rc-top-left">
