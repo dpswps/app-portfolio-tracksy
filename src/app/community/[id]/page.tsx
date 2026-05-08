@@ -52,41 +52,10 @@ export default function CommunityPostPage() {
             className="post-card-photo"
             style={{
               background: p.image
-                ? `url(${p.image}) center/cover no-repeat`
+                ? `url(${p.image}) top center/cover no-repeat`
                 : p.bg || "linear-gradient(180deg,#7DC8E8 0%,#A8D08D 80%)",
             }}
           />
-          <div className="post-card-overlay">
-            <div className="pc-distance">{p.dist || "6.06"}</div>
-            <div className="pc-stats-row">
-              <div>
-                <b>5&apos;48&quot;</b>
-                <i>페이스</i>
-              </div>
-              <div>
-                <b>46:45</b>
-                <i>시간</i>
-              </div>
-              <div>
-                <b>154</b>
-                <i>kcal</i>
-              </div>
-            </div>
-            <div className="pc-stats-row sub">
-              <div>
-                <b>25 m</b>
-                <i>고도</i>
-              </div>
-              <div>
-                <b>152</b>
-                <i>심박</i>
-              </div>
-              <div>
-                <b>173</b>
-                <i>케이던스</i>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="post-body">
