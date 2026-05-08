@@ -74,11 +74,25 @@ export default function StyleBody() {
   const sub = useAppStore((s) => s.styleSubTab);
   const setSub = useAppStore((s) => s.setStyleSubTab);
   const removedIds = useAppStore((s) => s.removedSavedStyleIds);
+  const userSavedStyles = useAppStore((s) => s.userSavedStyles);
+
+  // For the "saved" tab: merge default samples + user-saved styles, remove user-deleted ones.
+  // For the "mine" tab: just show the seed data.
   const baseCards = styleCards[sub] || [];
-  const cards =
-    sub === "saved"
-      ? baseCards.filter((c) => !removedIds.includes(c.id))
-      : baseCards;
+  let cards: StyleCard[];
+  if (sub === "saved") {
+    // user-saved first (newest on top), then default samples; dedupe by id.
+    const seen = new Set<string>();
+    const merged: StyleCard[] = [];
+    for (const c of [...userSavedStyles, ...baseCards]) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      merged.push(c);
+    }
+    cards = merged.filter((c) => !removedIds.includes(c.id));
+  } else {
+    cards = baseCards;
+  }
 
   return (
     <div className="style-area">
@@ -101,7 +115,7 @@ export default function StyleBody() {
           </div>
           <div className="style-empty-sub">
             {sub === "saved"
-              ? "마음에 드는 스타일을 북마크해보세요"
+              ? "갤러리에서 마음에 드는 스타일을 저장해보세요"
               : "스튜디오에서 나만의 스타일을 만들어보세요"}
           </div>
         </div>

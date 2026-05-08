@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
+import type { ArchiveRecords, Inquiry, RunningRecord, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
 type Modal = "gallerySheet" | "monthPicker" | null;
@@ -10,11 +10,8 @@ type GallerySheetKind = "year" | "month" | null;
 
 export type AIJournal = {
   id: number;
-  /** YYYY-MM-DD */
   date: string;
-  /** ISO timestamp */
   savedAt: string;
-  /** Plain text (no HTML) one-line summary */
   summary: string;
 };
 
@@ -83,6 +80,9 @@ type State = {
   /** Style cards that the user removed from "저장한 스타일" tab via bookmark click */
   removedSavedStyleIds: string[];
 
+  /** Style cards saved by the user (e.g., from a gallery card detail page) */
+  userSavedStyles: StyleCard[];
+
   communityTab: "hot" | "new";
 
   aiStep: AIStep;
@@ -116,6 +116,7 @@ type State = {
   setStyleSubTab: (t: State["styleSubTab"]) => void;
   removeSavedStyle: (id: string) => void;
   restoreSavedStyle: (id: string) => void;
+  addUserSavedStyle: (style: StyleCard) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
@@ -172,6 +173,7 @@ export const useAppStore = create<State>()(
       userRecords: {},
 
       removedSavedStyleIds: [],
+      userSavedStyles: [],
 
       communityTab: "hot",
 
@@ -286,6 +288,18 @@ export const useAppStore = create<State>()(
           removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== id),
         })),
 
+      addUserSavedStyle: (style) =>
+        set((s) => {
+          const exists = s.userSavedStyles.some((x) => x.id === style.id);
+          const nextStyles = exists
+            ? s.userSavedStyles.map((x) => (x.id === style.id ? style : x))
+            : [style, ...s.userSavedStyles];
+          return {
+            userSavedStyles: nextStyles,
+            removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== style.id),
+          };
+        }),
+
       setCommunityTab: (t) => set({ communityTab: t }),
 
       setAIStep: (s) => set({ aiStep: s }),
@@ -331,6 +345,7 @@ export const useAppStore = create<State>()(
         aiJournals: s.aiJournals,
         userRecords: s.userRecords,
         removedSavedStyleIds: s.removedSavedStyleIds,
+        userSavedStyles: s.userSavedStyles,
       }),
     },
   ),

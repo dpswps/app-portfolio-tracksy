@@ -3507,7 +3507,16 @@ textarea:focus { border-color: var(--primary); }
   font-weight: 600;
 }
 
-.g-detail-body { padding: 4px 4px 14px; }
+.g-detail-body {
+  padding: 4px 4px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gd-body-text {
+  flex: 1;
+  min-width: 0;
+}
 .gd-body-title {
   font-size: 15px;
   font-weight: 700;
@@ -3518,6 +3527,21 @@ textarea:focus { border-color: var(--primary); }
   font-size: 12px;
   color: var(--text-soft);
 }
+.gd-save-style-btn {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+  white-space: nowrap;
+}
+.gd-save-style-btn:hover { background: var(--primary-dark); }
+.gd-save-style-btn:active { transform: scale(0.97); }
 
 .g-detail-actions {
   display: grid;

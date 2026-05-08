@@ -68,7 +68,7 @@ function BgChatPreview() {
         <div className="aij-bg-mascot">
           <Mascot />
         </div>
-        <div className="aij-bg-bubble">오늘 5km 뛰었네! 꽤 괜찮은데 ✨</div>
+        <div className="aij-bg-bubble">오늘 러닝 어땠어? 컨디션 좀 얘기해줘 🏃‍♀️</div>
       </div>
     </div>
   );
@@ -128,7 +128,6 @@ function Intro() {
   );
 }
 
-/** Hard cap on coach (bot) messages including the 2 hardcoded greeting messages. */
 const MAX_BOT_TURNS = 10;
 const WRAP_UP_TEXT = "이제까지 들은 얘기로 오늘의 러닝을 정리해줄게! ✨";
 

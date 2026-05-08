@@ -3,11 +3,32 @@
 import { useParams, useRouter } from "next/navigation";
 import { galleryCards } from "@/data/galleryCards";
 import { useAppStore } from "@/stores/useAppStore";
+import type { GalleryCard, StyleCard } from "@/types";
+
+/** Convert a gallery card into the StyleCard shape used by the saved-styles list. */
+function galleryCardToStyle(card: GalleryCard): StyleCard {
+  return {
+    id: `gallery-${card.id}`,
+    date: card.date,
+    title: card.title,
+    dist: card.dist,
+    bg: card.bg,
+    stats: [
+      { v: card.pace, l: "평균 페이스" },
+      { v: card.time, l: "시간" },
+      { v: String(card.kcal), l: "칼로리" },
+      { v: card.elev, l: "누적 상승" },
+      { v: String(card.bpm), l: "평균 심박" },
+      { v: String(card.cadence), l: "케이던스" },
+    ],
+  };
+}
 
 export default function GalleryDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const showToast = useAppStore((s) => s.showToast);
+  const addUserSavedStyle = useAppStore((s) => s.addUserSavedStyle);
 
   const card =
     galleryCards.find((c) => String(c.id) === String(params.id)) || galleryCards[0];
@@ -15,6 +36,11 @@ export default function GalleryDetailPage() {
   const back = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/archive");
+  };
+
+  const onSaveStyle = () => {
+    addUserSavedStyle(galleryCardToStyle(card));
+    showToast(`${card.title} 스타일을 저장했어요`);
   };
 
   return (
@@ -79,10 +105,19 @@ export default function GalleryDetailPage() {
         </div>
 
         <div className="g-detail-body">
-          <div className="gd-body-title">{card.title}</div>
-          <div className="gd-body-sub">
-            {card.dist}km · {card.time} · 평균 페이스 {card.pace}
+          <div className="gd-body-text">
+            <div className="gd-body-title">{card.title}</div>
+            <div className="gd-body-sub">
+              {card.dist}km · {card.time} · 평균 페이스 {card.pace}
+            </div>
           </div>
+          <button
+            type="button"
+            className="gd-save-style-btn"
+            onClick={onSaveStyle}
+          >
+            ✨ 이 스타일 저장하기
+          </button>
         </div>
       </section>
     </>
