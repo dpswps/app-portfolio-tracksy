@@ -72,6 +72,7 @@ type State = {
 
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
+  composeSelectedCardId: string | null;
 
   aiStep: AIStep;
   aiMessages: AIMessage[];
@@ -103,6 +104,7 @@ type State = {
   setStyleSubTab: (t: State["styleSubTab"]) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
   togglePostSaved: (id: string | number) => boolean;
+  setComposeSelectedCardId: (id: string | null) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
@@ -138,6 +140,7 @@ export const useAppStore = create<State>((set, get) => ({
 
   communityTab: "hot",
   savedPosts: {},
+  composeSelectedCardId: null,
 
   aiStep: "intro",
   aiMessages: DEFAULT_AI_MESSAGES,
@@ -210,6 +213,7 @@ export const useAppStore = create<State>((set, get) => ({
     set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
     return next;
   },
+  setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
   setAIStep: (s) => set({ aiStep: s }),
   pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
   setAISummary: (s) => set({ aiSummary: s }),
