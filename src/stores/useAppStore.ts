@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
-type Modal = "gallerySheet" | "monthPicker" | null;
+type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
@@ -70,6 +70,7 @@ type State = {
 
   userRecords: ArchiveRecords;
   connectedPartners: string[];
+  bestMetric: "dist" | "time" | "pace";
 
   communityTab: "hot" | "new";
 
@@ -101,6 +102,7 @@ type State = {
   mergeRecords: (records: ArchiveRecords) => void;
   connectPartner: (id: string) => void;
   disconnectPartner: (id: string) => void;
+  setBestMetric: (m: State["bestMetric"]) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -138,6 +140,7 @@ export const useAppStore = create<State>((set, get) => ({
 
   userRecords: {},
   connectedPartners: [],
+  bestMetric: "dist",
 
   communityTab: "hot",
 
@@ -210,6 +213,7 @@ export const useAppStore = create<State>((set, get) => ({
     ),
   disconnectPartner: (id) =>
     set((s) => ({ connectedPartners: s.connectedPartners.filter((x) => x !== id) })),
+  setBestMetric: (m) => set({ bestMetric: m }),
   setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
   setGallerySheet: (kind) =>
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),

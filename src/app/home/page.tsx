@@ -12,6 +12,8 @@ export default function HomePage() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
   const userRecords = useAppStore((s) => s.userRecords);
+  const bestMetric = useAppStore((s) => s.bestMetric);
+  const setModal = useAppStore((s) => s.setModal);
   const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
   const setArchiveView = useAppStore((s) => s.setArchiveView);
   const setCalExpanded = useAppStore((s) => s.setCalExpanded);
@@ -68,31 +70,73 @@ export default function HomePage() {
     return { cur, prev, badge };
   }, [userRecords]);
 
-  // Best run (longest distance) within the past 90 days.
+  // Best run within the past 90 days, computed by selected metric.
   const bestRecord = useMemo(() => {
     const merged = { ...archiveRecords, ...userRecords };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const cutoff = new Date(today);
     cutoff.setDate(today.getDate() - 90);
-    let best: { key: string; dist: number; distStr: string } | null = null;
+
+    const paceToSec = (p?: string) => {
+      if (!p) return null;
+      const m = p.match(/(\d+)['′](\d+)/);
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    };
+    const timeToSec = (t?: string) => {
+      if (!t) return null;
+      const parts = t.split(":").map((x) => parseInt(x, 10));
+      if (parts.some((n) => isNaN(n))) return null;
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return null;
+    };
+
+    type Best = { key: string; valueStr: string; numericRank: number };
+    let best: Best | null = null;
+    // For pace, smaller = better. For dist/time, larger = better.
+    const isLowerBetter = bestMetric === "pace";
+
     for (const [key, rec] of Object.entries(merged)) {
       const d = new Date(`${key}T00:00:00`);
       if (isNaN(d.getTime()) || d < cutoff || d > today) continue;
-      const dist = parseFloat(rec.dist);
-      if (isNaN(dist)) continue;
-      if (!best || dist > best.dist) {
-        best = { key, dist, distStr: rec.dist };
+
+      let n: number | null = null;
+      let str = "";
+      if (bestMetric === "dist") {
+        n = parseFloat(rec.dist);
+        if (isNaN(n)) continue;
+        str = rec.dist;
+      } else if (bestMetric === "time") {
+        n = timeToSec(rec.time);
+        if (n == null) continue;
+        str = rec.time as string;
+      } else {
+        n = paceToSec(rec.pace);
+        if (n == null) continue;
+        str = rec.pace;
+      }
+      if (
+        !best ||
+        (isLowerBetter ? n < best.numericRank : n > best.numericRank)
+      ) {
+        best = { key, valueStr: str, numericRank: n };
       }
     }
     return best;
-  }, [userRecords, todayKey]);
+  }, [userRecords, todayKey, bestMetric]);
 
   const bestDateLabel = useMemo(() => {
     if (!bestRecord) return null;
     const { y, m, d } = parseKey(bestRecord.key);
     return `${y}.${pad2(m)}.${pad2(d)} 달성!`;
   }, [bestRecord]);
+
+  const bestUnit =
+    bestMetric === "dist" ? "km" : bestMetric === "time" ? "" : "/km";
+  const bestActiveLabel =
+    bestMetric === "dist" ? "거리" : bestMetric === "time" ? "시간" : "페이스";
 
   // This week's 7 days (Sunday → Saturday) based on today's date.
   const week = useMemo(() => {
@@ -165,24 +209,35 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    // Snap to nearest slide center
-    const snapToNearest = () => {
+    // Pick the snap-target slide based on current scroll position + release velocity.
+    // Positive velocity (px/ms) means finger moved right (content moved right),
+    // which corresponds to scrolling LEFT (i.e. previous slide).
+    const getSnapTarget = (velocity: number) => {
       const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
-      const center = track.scrollLeft + track.clientWidth / 2;
-      let nearest = slides[0];
+      if (slides.length === 0) return null;
+      const viewCenter = track.scrollLeft + track.clientWidth / 2;
+      let nearestIdx = 0;
       let minDist = Infinity;
-      for (const s of slides) {
+      slides.forEach((s, i) => {
         const c = s.offsetLeft + s.clientWidth / 2;
-        const d = Math.abs(c - center);
+        const d = Math.abs(c - viewCenter);
         if (d < minDist) {
           minDist = d;
-          nearest = s;
+          nearestIdx = i;
         }
-      }
-      if (nearest) {
-        const targetLeft = nearest.offsetLeft - (track.clientWidth - nearest.clientWidth) / 2;
-        track.scrollTo({ left: targetLeft, behavior: "smooth" });
-      }
+      });
+      // If user flicks fast enough, advance one slide in the direction of motion.
+      const FLICK = 0.45; // px/ms
+      if (velocity < -FLICK && nearestIdx < slides.length - 1) nearestIdx++;
+      else if (velocity > FLICK && nearestIdx > 0) nearestIdx--;
+      return slides[nearestIdx];
+    };
+
+    const snapWithVelocity = (velocity: number) => {
+      const target = getSnapTarget(velocity);
+      if (!target) return;
+      const targetLeft = target.offsetLeft - (track.clientWidth - target.clientWidth) / 2;
+      track.scrollTo({ left: targetLeft, behavior: "smooth" });
     };
 
     // Pointer drag-to-slide (mouse + touch)
@@ -191,6 +246,9 @@ export default function HomePage() {
     let startX = 0;
     let startScroll = 0;
     let dragDistance = 0;
+    let lastX = 0;
+    let lastTime = 0;
+    let velocity = 0;
     const DRAG_THRESHOLD = 4;
 
     const onDown = (e: PointerEvent) => {
@@ -199,6 +257,9 @@ export default function HomePage() {
       dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
+      lastX = e.clientX;
+      lastTime = performance.now();
+      velocity = 0;
       // Don't capture pointer yet — wait until actual drag starts so that
       // simple clicks reach their underlying targets (e.g. hero-main onClick).
     };
@@ -214,7 +275,17 @@ export default function HomePage() {
         track.classList.add("dragging");
       }
       if (captured) {
+        // 1:1 follow-finger scroll; CSS disables snap while .dragging is set.
         track.scrollLeft = startScroll - dx;
+        // Smooth (low-pass) velocity sampling — px/ms.
+        const now = performance.now();
+        const dt = now - lastTime;
+        if (dt > 0) {
+          const inst = (e.clientX - lastX) / dt;
+          velocity = velocity * 0.6 + inst * 0.4;
+        }
+        lastX = e.clientX;
+        lastTime = now;
       }
     };
     const onUp = (e: PointerEvent) => {
@@ -224,7 +295,16 @@ export default function HomePage() {
         try {
           track.releasePointerCapture(e.pointerId);
         } catch {}
-        track.classList.remove("dragging");
+        // Stale velocity guard — if the pointer paused before release, treat as 0.
+        const sinceMove = performance.now() - lastTime;
+        if (sinceMove > 80) velocity = 0;
+        // Run snap on the next frame so the browser has up-to-date scrollLeft.
+        requestAnimationFrame(() => snapWithVelocity(velocity));
+        // Re-enable CSS snap after the smooth animation roughly finishes
+        // so subsequent native scrolls still snap on each slide.
+        window.setTimeout(() => {
+          track.classList.remove("dragging");
+        }, 280);
       }
       // If user actually dragged, suppress the upcoming click so the
       // hero-main onClick doesn't accidentally navigate to /record.
@@ -234,8 +314,6 @@ export default function HomePage() {
           ev.preventDefault();
         };
         track.addEventListener("click", suppress, { capture: true, once: true });
-        // Snap to nearest slide after drag ends
-        requestAnimationFrame(snapToNearest);
       }
     };
     track.addEventListener("pointerdown", onDown);
@@ -448,22 +526,43 @@ export default function HomePage() {
           </div>
           <div className={`hs-badge ${monthStats.badge.cls}`}>{monthStats.badge.text}</div>
         </button>
-        <button
-          type="button"
-          className="hs-card hs-best"
-          onClick={() => bestRecord && goToRecordOnArchive(bestRecord.key)}
-          aria-label="최고 기록 보러가기"
-          disabled={!bestRecord}
-        >
-          <div className="hs-fig hs-trophy">🏆</div>
-          <div className="hs-label">최고 기록(90일간)</div>
-          <div className="hs-value">
-            {bestRecord ? bestRecord.distStr : "—"} <small>km</small>
-          </div>
-          <div className="hs-badge gray">
-            {bestDateLabel || "기록 없음"}
-          </div>
-        </button>
+        <div className="hs-card hs-best">
+          <button
+            type="button"
+            className="best-options-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setModal("bestPicker");
+            }}
+            aria-label="최고 기록 옵션 변경"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="5" cy="12" r="1.4" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+              <circle cx="19" cy="12" r="1.4" fill="currentColor" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            className="hs-best-body"
+            onClick={() => bestRecord && goToRecordOnArchive(bestRecord.key)}
+            aria-label="최고 기록 보러가기"
+            disabled={!bestRecord}
+          >
+            <div className="hs-fig hs-trophy">🏆</div>
+            <div className="hs-label">
+              최고 {bestActiveLabel}(90일간)
+            </div>
+            <div className="hs-value">
+              {bestRecord ? bestRecord.valueStr : "—"}
+              {bestUnit && <small>{bestUnit}</small>}
+            </div>
+            <div className="hs-badge gray">
+              {bestDateLabel || "기록 없음"}
+            </div>
+          </button>
+        </div>
       </div>
     </section>
   );

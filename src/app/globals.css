@@ -312,12 +312,18 @@ input, textarea, select {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-padding-left: 16px;
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   cursor: grab;
   touch-action: pan-x;
   user-select: none;
 }
-.hero-track.dragging { cursor: grabbing; }
+.hero-track.dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+}
 .hero-track.dragging * { pointer-events: none; }
 .hero-track::-webkit-scrollbar { display: none; }
 .hero-track { scrollbar-width: none; }
@@ -576,6 +582,69 @@ button.hs-card:hover { border-color: var(--primary-soft); }
 button.hs-card:active { transform: scale(0.98); }
 button.hs-card:disabled { cursor: default; opacity: 0.7; }
 button.hs-card:disabled:hover { border-color: var(--border-soft); }
+
+/* Best record card with options popover */
+.hs-best {
+  padding: 0;
+  overflow: visible;
+}
+.hs-best-body {
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: 14px;
+  cursor: pointer;
+  display: block;
+  border-radius: 16px;
+  transition: transform 0.1s;
+}
+.hs-best-body:active { transform: scale(0.98); }
+.hs-best-body:disabled { cursor: default; opacity: 0.7; }
+.best-options-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.15s, color 0.15s;
+}
+.best-options-btn:hover { background: var(--primary-soft); color: var(--primary); }
+.best-options-btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary); }
+.best-options-btn svg { width: 18px; height: 18px; }
+/* Best metric bottom sheet */
+.bm-sheet { padding: 14px 22px 22px; }
+.bm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.bm-item {
+  background: transparent;
+  border: 0;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, font-weight 0.15s;
+}
+.bm-item:hover { background: var(--primary-softer); }
+.bm-item.active {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+.bm-apply { margin-top: 0; }
 .hs-card .hs-fig {
   height: 36px;
   display: flex; align-items: flex-start;
@@ -2705,10 +2774,11 @@ textarea:focus { border-color: var(--primary); }
 /* === AI 오늘의 러닝일지 === */
 .aij-screen {
   background: #fff;
-  min-height: 100%;
+  height: 100%;
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .aij-header {
@@ -2737,6 +2807,8 @@ textarea:focus { border-color: var(--primary); }
 /* Background chat preview (used in intro / loading / result / skip) */
 .aij-bg {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
   padding: 8px 18px 0;
   background-image: radial-gradient(rgba(139,92,246,0.12) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -2851,8 +2923,11 @@ textarea:focus { border-color: var(--primary); }
 }
 .aij-chat-area {
   flex: 1;
+  min-height: 0;
   padding: 8px 16px 16px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2974,6 +3049,8 @@ textarea:focus { border-color: var(--primary); }
 }
 .aij-blur-chat {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
   padding: 8px 16px 16px;
   display: flex;
   flex-direction: column;
