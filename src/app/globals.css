@@ -842,8 +842,8 @@ textarea:focus { border-color: var(--primary); }
 /* Toast */
 .toast {
   position: absolute;
-  bottom: 110px;
-  left: 50%; transform: translateX(-50%);
+  top: 56px;
+  left: 50%; transform: translateX(-50%) translateY(-8px);
   background: rgba(31, 31, 35, 0.92);
   color: #fff;
   padding: 12px 22px;
@@ -853,8 +853,9 @@ textarea:focus { border-color: var(--primary); }
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* Hide bottom nav on certain screens */
 .hide-nav .bottom-nav { display: none; }
@@ -1244,8 +1245,15 @@ textarea:focus { border-color: var(--primary); }
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
   color: #fff;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 .studio-toolbar .st-icon svg { width: 22px; height: 22px; }
+.studio-toolbar .st-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 .studio-toolbar .st-export {
   background: var(--primary);
   color: #fff;
@@ -1291,6 +1299,13 @@ textarea:focus { border-color: var(--primary); }
 .st-fab.st-fab-image {
   border-radius: 50%;
   position: relative;
+}
+.st-fab.st-fab-record {
+  border-radius: 50%;
+}
+.st-fab.st-fab-record svg {
+  width: 22px;
+  height: 22px;
 }
 .st-fab.st-fab-image .st-fab-plus {
   position: absolute;
@@ -1583,6 +1598,75 @@ textarea:focus { border-color: var(--primary); }
   height: 16px;
 }
 
+/* Editable stat texts on the running card */
+.running-card [contenteditable="true"] {
+  outline: none;
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.running-card [contenteditable="true"]:hover {
+  background: rgba(255,255,255,0.10);
+}
+.running-card [contenteditable="true"]:focus {
+  background: rgba(255,255,255,0.18);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.6);
+}
+
+/* In-app eyedropper (Instagram-style teardrop loupe) */
+.eyedropper-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+/* Teardrop "drop" pin: rounded top, point at bottom-center */
+.eyedropper-drop {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+}
+.eyedropper-drop-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50% 50% 50% 50% / 60% 60% 100% 100%;
+  border: 3px solid #fff;
+  box-sizing: border-box;
+}
+/* Tiny ring with center dot at exact sample pixel */
+.eyedropper-pin {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: transparent;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+}
+.eyedropper-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: #fff;
+}
+
 /* sp-tool active state for text submenu buttons */
 .sp-tool.active .sp-ic {
   background: rgba(139,92,246,0.35);
@@ -1840,18 +1924,28 @@ textarea:focus { border-color: var(--primary); }
 .export-header { background: #0E0E11; }
 .export-screen {
   background: #0E0E11;
-  min-height: 100%;
+  height: 100%;
   color: #fff;
-  padding-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .export-preview {
-  display: flex; justify-content: center;
-  padding: 6px 20px 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 6px 20px 12px;
+  flex: 1;
+  min-height: 0;
+}
+.export-preview .running-card.small {
+  max-height: 100%;
 }
 .export-section {
   background: #0E0E11;
-  padding: 20px 18px 16px;
+  padding: 14px 18px 14px;
   border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
 }
 .export-label {
   font-size: 13px; font-weight: 600;

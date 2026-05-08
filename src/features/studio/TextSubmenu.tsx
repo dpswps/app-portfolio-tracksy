@@ -176,63 +176,40 @@ const COLORS = [
   "#F472B6",
 ];
 
-type EyeDropperResult = { sRGBHex: string };
-type EyeDropperCtor = new () => { open: () => Promise<EyeDropperResult> };
-
 function EyedropperButton({
   currentColor,
-  onPick,
 }: {
   currentColor: string;
   onPick: (hex: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const setEyedropperActive = useAppStore((s) => s.setStudioEyedropperActive);
+  const bg = useAppStore((s) => s.studioBackground);
   const showToast = useAppStore((s) => s.showToast);
 
-  const onClick = async () => {
-    const w = window as unknown as { EyeDropper?: EyeDropperCtor };
-    if (typeof w.EyeDropper === "function") {
-      try {
-        const ed = new w.EyeDropper();
-        const result = await ed.open();
-        if (result?.sRGBHex) onPick(result.sRGBHex.toUpperCase());
-      } catch {
-        // user cancelled — silent
-      }
+  const onClick = () => {
+    if (!bg) {
+      showToast("먼저 배경 사진을 등록해주세요");
       return;
     }
-    // Fallback: open native color picker
-    if (inputRef.current) {
-      inputRef.current.value = currentColor;
-      inputRef.current.click();
-    } else {
-      showToast("이 브라우저에서는 스포이드를 지원하지 않아요");
-    }
+    setEyedropperActive(true);
   };
 
+  // currentColor unused now — kept on signature for caller compatibility.
+  void currentColor;
+
   return (
-    <>
-      <button
-        className="tcolor tcolor-pick"
-        aria-label="스포이드로 색 선택"
-        title="스포이드"
-        onClick={onClick}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14.5 3.5a2.121 2.121 0 1 1 3 3L15 9l-3-3 2.5-2.5z" />
-          <path d="M12 6l6 6" />
-          <path d="M12 6l-7.5 7.5a2 2 0 0 0-.5.86L3 18l3.64-1a2 2 0 0 0 .86-.5L15 9" />
-        </svg>
-      </button>
-      <input
-        ref={inputRef}
-        type="color"
-        defaultValue={currentColor}
-        onChange={(e) => onPick(e.target.value.toUpperCase())}
-        style={{ display: "none" }}
-        aria-hidden
-      />
-    </>
+    <button
+      className="tcolor tcolor-pick"
+      aria-label="스포이드로 색 선택"
+      title="스포이드"
+      onClick={onClick}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.5 3.5a2.121 2.121 0 1 1 3 3L15 9l-3-3 2.5-2.5z" />
+        <path d="M12 6l6 6" />
+        <path d="M12 6l-7.5 7.5a2 2 0 0 0-.5.86L3 18l3.64-1a2 2 0 0 0 .86-.5L15 9" />
+      </svg>
+    </button>
   );
 }
 
@@ -243,6 +220,7 @@ export default function TextSubmenu() {
   const updateText = useAppStore((s) => s.updateStudioText);
   const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
   const showToast = useAppStore((s) => s.showToast);
+  const pushHistory = useAppStore((s) => s.pushStudioHistory);
   const sliderRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ active: boolean }>({ active: false });
 
@@ -271,6 +249,8 @@ export default function TextSubmenu() {
     }
     (e.target as Element).setPointerCapture?.(e.pointerId);
     dragRef.current.active = true;
+    // record one undo entry per slider drag session
+    pushHistory();
     setSize(e.clientY);
   };
   const onSliderMove = (e: React.PointerEvent) => {
@@ -327,13 +307,14 @@ export default function TextSubmenu() {
                   key={f.key}
                   className={`tfont${isActive ? " active" : ""}`}
                   style={{ fontFamily: f.family, fontWeight: f.weight ?? 500, fontStyle: f.style ?? "normal" }}
-                  onClick={() =>
+                  onClick={() => {
+                    pushHistory();
                     updateText(active.id, {
                       font: f.family,
                       fontWeight: f.weight ?? 500,
                       fontStyle: f.style ?? "normal",
-                    })
-                  }
+                    });
+                  }}
                 >
                   {f.label}
                 </button>
@@ -348,7 +329,10 @@ export default function TextSubmenu() {
           <HScroller>
             <EyedropperButton
               currentColor={active.color}
-              onPick={(c) => updateText(active.id, { color: c })}
+              onPick={(c) => {
+                pushHistory();
+                updateText(active.id, { color: c });
+              }}
             />
             {COLORS.map((c) => (
               <button
@@ -356,7 +340,10 @@ export default function TextSubmenu() {
                 className={`tcolor${active.color === c ? " active" : ""}`}
                 style={{ background: c }}
                 aria-label={c}
-                onClick={() => updateText(active.id, { color: c })}
+                onClick={() => {
+                  pushHistory();
+                  updateText(active.id, { color: c });
+                }}
               />
             ))}
           </HScroller>

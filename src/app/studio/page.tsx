@@ -8,6 +8,7 @@ import StudioPanel from "@/features/studio/StudioPanel";
 import CropOverlay from "@/features/studio/CropOverlay";
 import TextOverlay from "@/features/studio/TextOverlay";
 import TextSubmenu from "@/features/studio/TextSubmenu";
+import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
 import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
@@ -25,7 +26,14 @@ export default function StudioPage() {
   const redo = useAppStore((s) => s.studioRedo);
   const canUndo = useAppStore((s) => s.studioHistory.length > 0);
   const canRedo = useAppStore((s) => s.studioFuture.length > 0);
+  const loadNextRecord = useAppStore((s) => s.loadNextStudioRecord);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onLoadRecord = () => {
+    const date = loadNextRecord();
+    if (date) showToast(`${date} 기록 불러옴`);
+    else showToast("불러올 기록이 없어요");
+  };
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -94,7 +102,7 @@ export default function StudioPage() {
         </button>
         <span style={{ flex: 1 }} />
         <Link href="/studio/export" className="st-export" style={{ textDecoration: "none" }}>
-          내보내기
+          저장하기
         </Link>
       </div>
 
@@ -119,6 +127,7 @@ export default function StudioPage() {
             </div>
             {cropMode && <CropOverlay />}
             {tab === "text" && <TextSubmenu />}
+            <EyedropperLoupe />
           </div>
         </div>
         <div className="st-fab-stack">
@@ -136,6 +145,13 @@ export default function StudioPage() {
               <path d="M21 16l-5-5-9 9" />
             </svg>
             <span className="st-fab-plus" aria-hidden>+</span>
+          </button>
+          <button className="st-fab st-fab-record" aria-label="기록 불러오기" onClick={onLoadRecord}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 3h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z" />
+              <path d="M5 7h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
+              <path d="M9 13l2 2 4-4" />
+            </svg>
           </button>
           <input
             ref={fileInputRef}

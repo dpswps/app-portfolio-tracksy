@@ -120,6 +120,10 @@ export default function CropOverlay() {
       try {
         const dataUrl = canvas.toDataURL("image/png");
         setBackground(dataUrl);
+        // Match the card aspect ratio to the cropped region so the new
+        // image fills the card naturally without being zoomed in or
+        // letter-boxed.
+        useAppStore.setState({ studioRatio: `${canvas.width}/${canvas.height}` });
         showToast("자르기 적용");
       } catch {
         showToast("자르기에 실패했어요");

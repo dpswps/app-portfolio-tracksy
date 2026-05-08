@@ -114,6 +114,7 @@ export default function TextOverlay() {
   const setActive = useAppStore((s) => s.setActiveStudioText);
   const updateText = useAppStore((s) => s.updateStudioText);
   const removeText = useAppStore((s) => s.removeStudioText);
+  const pushHistory = useAppStore((s) => s.pushStudioHistory);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     id: number | null;
@@ -122,7 +123,8 @@ export default function TextOverlay() {
     startPctX: number;
     startPctY: number;
     moved: boolean;
-  }>({ id: null, startX: 0, startY: 0, startPctX: 0, startPctY: 0, moved: false });
+    pushed: boolean;
+  }>({ id: null, startX: 0, startY: 0, startPctX: 0, startPctY: 0, moved: false, pushed: false });
 
   const onPointerDownItem =
     (id: number, x: number, y: number) => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -142,6 +144,7 @@ export default function TextOverlay() {
         startPctX: x,
         startPctY: y,
         moved: false,
+        pushed: false,
       };
     };
 
@@ -153,7 +156,14 @@ export default function TextOverlay() {
     const r = el.getBoundingClientRect();
     const dx = ((e.clientX - d.startX) / r.width) * 100;
     const dy = ((e.clientY - d.startY) / r.height) * 100;
-    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) d.moved = true;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+      d.moved = true;
+      // push history once per drag, only when actual movement begins
+      if (!d.pushed) {
+        pushHistory();
+        d.pushed = true;
+      }
+    }
     const x = Math.max(0, Math.min(100, d.startPctX + dx));
     const y = Math.max(0, Math.min(100, d.startPctY + dy));
     updateText(d.id, { x, y });

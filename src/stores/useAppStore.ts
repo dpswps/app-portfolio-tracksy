@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
+import { archiveRecords } from "@/data/archiveRecords";
 
 type Modal = "gallerySheet" | "monthPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
@@ -94,6 +95,16 @@ type State = {
   }>;
   studioActiveTextId: number | null;
   studioTextSubmenu: "none" | "font" | "size" | "color";
+  studioEyedropperActive: boolean;
+  studioCardData: {
+    weekTitle: string;
+    distance: string;
+    time: string;
+    pace: string;
+    calories: string;
+    bubble: string;
+  };
+  studioRecordIdx: number;
   studioHistory: StudioSnapshot[];
   studioFuture: StudioSnapshot[];
   bgPickerTab: "mine" | "ai";
@@ -137,6 +148,9 @@ type State = {
   removeStudioText: (id: number) => void;
   setActiveStudioText: (id: number | null) => void;
   setStudioTextSubmenu: (s: State["studioTextSubmenu"]) => void;
+  setStudioEyedropperActive: (on: boolean) => void;
+  setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
+  loadNextStudioRecord: () => string | null;
   pushStudioHistory: () => void;
   studioUndo: () => void;
   studioRedo: () => void;
@@ -183,6 +197,16 @@ export const useAppStore = create<State>((set, get) => ({
   studioTexts: [],
   studioActiveTextId: null,
   studioTextSubmenu: "none",
+  studioEyedropperActive: false,
+  studioCardData: {
+    weekTitle: "이번주 러닝 기록",
+    distance: "5.21",
+    time: "00:32:45",
+    pace: "6'12\"",
+    calories: "368",
+    bubble: "처음 발걸음이\n큰 변화를 만들어요!",
+  },
+  studioRecordIdx: -1,
   studioHistory: [],
   studioFuture: [],
   bgPickerTab: "mine",
@@ -254,7 +278,7 @@ export const useAppStore = create<State>((set, get) => ({
   cycleRatio: () => {
     get().pushStudioHistory();
     set((s) => {
-      const steps = ["9/16", "4/5", "1/1", "5/4"];
+      const steps = ["9/16", "4/5", "1/1", "5/4", "4/3"];
       const idx = steps.indexOf(s.studioRatio);
       const next = steps[(idx + 1) % steps.length] ?? "9/16";
       return { studioRatio: next };
@@ -289,6 +313,28 @@ export const useAppStore = create<State>((set, get) => ({
   },
   setActiveStudioText: (id) => set({ studioActiveTextId: id }),
   setStudioTextSubmenu: (m) => set({ studioTextSubmenu: m }),
+  setStudioEyedropperActive: (on) => set({ studioEyedropperActive: on }),
+  setStudioCardData: (patch) =>
+    set((s) => ({ studioCardData: { ...s.studioCardData, ...patch } })),
+  loadNextStudioRecord: () => {
+    const entries = Object.entries(archiveRecords).sort(([a], [b]) =>
+      a < b ? 1 : -1,
+    );
+    if (entries.length === 0) return null;
+    get().pushStudioHistory();
+    const cur = get().studioRecordIdx;
+    const next = (cur + 1) % entries.length;
+    const [date, rec] = entries[next]!;
+    set((s) => ({
+      studioRecordIdx: next,
+      studioCardData: {
+        ...s.studioCardData,
+        distance: rec.dist,
+        pace: rec.pace,
+      },
+    }));
+    return date;
+  },
   pushStudioHistory: () =>
     set((s) => {
       const snap: StudioSnapshot = {

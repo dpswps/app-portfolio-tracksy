@@ -1,7 +1,73 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
+
+// Uncontrolled contentEditable: sets initial text via ref on mount, then
+// emits onChange without React re-rendering its children (preserves caret).
+function EditableText({
+  value,
+  onChange,
+  className,
+  multiline = false,
+  small,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+  multiline?: boolean;
+  small?: boolean;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const editedRef = useRef(false);
+  const pushHistory = useAppStore((s) => s.pushStudioHistory);
+  const Tag = (multiline ? "div" : "span") as "div" | "span";
+
+  // Initial mount only — render the value via DOM, never via React children.
+  useEffect(() => {
+    if (ref.current && ref.current.innerText !== value) {
+      ref.current.innerText = value;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // If the value was changed externally (e.g. via "load record" or undo),
+  // sync the DOM only when the element is not currently being edited.
+  useEffect(() => {
+    if (!ref.current) return;
+    if (document.activeElement === ref.current) return;
+    if (ref.current.innerText !== value) {
+      ref.current.innerText = value;
+    }
+  }, [value]);
+
+  if (small) {
+    // small preview shouldn't be editable
+    return <Tag className={className}>{value}</Tag>;
+  }
+
+  return (
+    <Tag
+      ref={ref as React.RefObject<HTMLSpanElement & HTMLDivElement>}
+      className={className}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      onPointerDown={(e) => e.stopPropagation()}
+      onInput={(e) => {
+        if (!editedRef.current) {
+          pushHistory();
+          editedRef.current = true;
+        }
+        onChange((e.currentTarget as HTMLElement).innerText);
+      }}
+      onBlur={() => {
+        editedRef.current = false;
+      }}
+    />
+  );
+}
 
 export default function RunningCard({ small = false }: { small?: boolean }) {
   const bg = useAppStore((s) => s.studioBackground);
@@ -10,6 +76,8 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
   const flipV = useAppStore((s) => s.studioFlipV);
   const crop = useAppStore((s) => s.studioCrop);
   const ratio = useAppStore((s) => s.studioRatio);
+  const card = useAppStore((s) => s.studioCardData);
+  const setCard = useAppStore((s) => s.setStudioCardData);
 
   const transforms: string[] = [];
   if (rotate) transforms.push(`rotate(${rotate}deg)`);
@@ -41,48 +109,68 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
       <div className="rc-grad" />
       {!bg && <div className="rc-runner" />}
 
-      <div className="rc-top">
-        <div className="rc-top-left">
-          <div className="rc-avatar">
-            <Mascot />
-          </div>
-          <div className="rc-name">닉네임</div>
-        </div>
-        <div className="rc-top-right">
-          <span>오늘도 저님</span>
-        </div>
-      </div>
-      <div className="rc-date">2026.04.06 (월)</div>
-
       <div className="rc-week">
-        이번주 러닝 기록 <span>🏃</span>
+        <EditableText
+          small={small}
+          value={card.weekTitle}
+          onChange={(v) => setCard({ weekTitle: v })}
+        />{" "}
+        <span>🏃</span>
       </div>
       <div className="rc-distance">
-        5.21<small>km</small>
+        <EditableText
+          small={small}
+          value={card.distance}
+          onChange={(v) => setCard({ distance: v })}
+        />
+        <small>km</small>
       </div>
 
       <div className="rc-stats">
         <div className="rc-stat">
           <span className="rc-ic">⏱</span>
-          <b>00:32:45</b>
+          <b>
+            <EditableText
+              small={small}
+              value={card.time}
+              onChange={(v) => setCard({ time: v })}
+            />
+          </b>
           <i>운동 시간</i>
         </div>
         <div className="rc-stat">
           <span className="rc-ic">⚡</span>
-          <b>6&apos;12&quot;</b>
+          <b>
+            <EditableText
+              small={small}
+              value={card.pace}
+              onChange={(v) => setCard({ pace: v })}
+            />
+          </b>
           <i>평균 페이스</i>
         </div>
         <div className="rc-stat">
           <span className="rc-ic">🔥</span>
-          <b>368</b>
+          <b>
+            <EditableText
+              small={small}
+              value={card.calories}
+              onChange={(v) => setCard({ calories: v })}
+            />
+          </b>
           <i>kcal</i>
         </div>
       </div>
 
       <div className="rc-bubble-wrap">
         <div className="rc-bubble">
-          처음 발걸음이<br />
-          큰 변화를 만들어요! <span>💜</span>
+          <EditableText
+            small={small}
+            multiline
+            value={card.bubble}
+            onChange={(v) => setCard({ bubble: v })}
+          />{" "}
+          <span>💜</span>
         </div>
         <div className="rc-mascot">
           <Mascot />
