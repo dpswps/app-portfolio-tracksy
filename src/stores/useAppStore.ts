@@ -19,8 +19,7 @@ export type AIJournal = {
 };
 
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
-  { from: "bot", text: "오늘 5km 뛰었네! 꽤 괜찮은데 ✨" },
-  { from: "bot", text: "뛸 때 컨디션은 어땠어?" },
+  { from: "bot", text: "오늘 러닝 어땠어? 컨디션 좀 얘기해줘 🏃‍♀️" },
 ];
 
 const DEFAULT_INQUIRIES: Inquiry[] = [

@@ -16,6 +16,10 @@ const TOPICS = [
   { key: "next", label: "다음 러닝 계획·목표" },
 ] as const;
 
+// Groq is OpenAI-compatible.
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+
 export async function POST(req: Request) {
   let messages: ChatMessage[] = [];
   let mode: Mode = "reply";
@@ -28,7 +32,7 @@ export async function POST(req: Request) {
     /* ignore */
   }
 
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       mode === "summary"
@@ -45,42 +49,48 @@ export async function POST(req: Request) {
   const botUtterances = messages.filter((m) => m.from === "bot").map((m) => m.text);
   const userUtterances = messages.filter((m) => m.from === "user").map((m) => m.text);
 
-  const baseSystem = `너는 트랙시(Tracksy) 러닝 앱의 친근한 AI 러닝 코치 "트랙시"야.
-러너와 짧고 따뜻한 대화로 오늘의 러닝을 정리해줘.
-항상 친근한 반말, 짧고 자연스럽게, 격려와 응원의 톤.`;
+  const baseSystem = `너는 트랙시 러닝 앱의 친근한 AI 러닝 코치야.
+짧고 따뜻한 반말, 격려와 응원의 톤.`;
 
-  let systemInstruction = "";
+  let systemPrompt = "";
   let userPrompt = "";
+  let maxTokens = 200;
+  let temperature = 0.85;
 
   if (mode === "summary") {
-    systemInstruction = `${baseSystem}
+    systemPrompt = `${baseSystem}
 
-지금은 대화를 마치고 "한 줄 요약"을 만드는 단계야.
+너의 임무: 러너의 오늘 러닝 대화를 보고, **러너가 실제로 말한 사실을 활용한** 한 줄 요약을 만들어.
 
-# 절대 규칙
-- 두 줄 이내, 합쳐서 30자 이내
-- 줄바꿈은 <br/>로 표시
-- 끝에 어울리는 이모지 1~2개 (러닝/감정/날씨 등 대화 내용에 맞게)
-- 따옴표/인사/부연설명/라벨 절대 없이 요약 한 줄만 출력
-- **러너가 말한 구체적인 내용**(거리, 장소, 기분 키워드 등)을 반영해서 매번 다르게 표현해
-- 일반적인 "오늘도 수고했어" 같은 뻔한 문장 금지
+# 절차
+1단계: 대화에서 사실을 추출 (장소/거리/시간대/날씨/기분/동행 — 러너가 말한 것만)
+2단계: 위 사실 1~2개로 한 줄 요약 작성
 
-# 좋은 예시 (대화에 따라 다양하게)
-- 러너가 한강에서 5km 좋게 뛰었으면: "한강에서 5km<br/>완벽한 하루였어 🌊✨"
-- 러너가 비 오는데 뛰었으면: "비 속을 달린<br/>강한 너 🌧️💪"
-- 러너가 힘들었다 했으면: "힘들어도 끝까지<br/>달려낸 오늘 🔥"
-- 러너가 야간에 뛰었으면: "달빛 아래 한 걸음<br/>오늘도 잘했어 🌙✨"
-- 러너가 친구랑 같이 뛰었으면: "함께 달린 즐거움<br/>최고의 하루 🤝💜"
+# 출력 형식
+- 두 줄 이내, 합쳐서 30자 내외
+- 줄바꿈은 <br/>
+- 끝에 어울리는 이모지 1~2개
+- 결과 텍스트만 출력 (라벨/설명/따옴표 절대 금지)
 
-위 예시는 형식 참고용이고, 실제 대화에 맞춰 새로운 표현을 만들어.`;
+# 좋은 예시
+러너: 한강, 5km, 좋아 → 한강에서 5km<br/>완벽한 하루였어 🌊✨
+러너: 비, 힘들었어 → 비를 뚫고 달린<br/>강한 너 🌧️💪
+러너: 야간, 혼자 → 달빛 아래 혼자<br/>묵묵히 달린 밤 🌙
+러너: 친구, 10km → 친구와 함께 10km<br/>웃으며 달린 하루 🤝💜
 
-    userPrompt = `[지금까지 대화]
+# 나쁜 예시 (금지)
+- "오늘도 수고했어!" (대화 무시)
+- "달리는 사람, 오늘도 너야 🔥" (구체적 사실 없음)`;
+
+    userPrompt = `[러너가 한 말 — 꼭 활용]
+${userUtterances.map((u, i) => `${i + 1}. "${u}"`).join("\n") || "(없음)"}
+
+[전체 대화]
 ${transcript}
 
-[러너가 말한 핵심 키워드들]
-${userUtterances.join(" / ") || "(없음)"}
-
-위 대화에서 러너의 구체적인 표현·상황을 살려서, 오늘 러닝을 한 줄로 따뜻하게 요약해줘. 똑같은 표현을 쓰지 말고 매번 새롭게 표현해.`;
+자, 위 키워드를 살려서 한 줄 요약 텍스트만 출력해.`;
+    maxTokens = 200;
+    temperature = 0.85;
   } else {
     const forbiddenList =
       botUtterances.length === 0
@@ -91,77 +101,80 @@ ${userUtterances.join(" / ") || "(없음)"}
     const remainingTopics = TOPICS.filter((t) => !usedTopics.has(t.key));
     const focusTopic = remainingTopics[0] ?? TOPICS[0];
 
-    systemInstruction = `${baseSystem}
+    systemPrompt = `${baseSystem}
 
-지금은 러너와 대화를 이어가는 단계야. 다음에 코치가 할 한 마디만 출력해.
+지금은 러너와 대화 중이야. 코치의 다음 한 마디를 출력해.
 
-# ⚠️ 절대 규칙
-이미 한 질문을 또 묻지 마. 절대 비슷한 표현으로도 묻지 마.
-**아래 "이번에 다룰 주제"에만 집중**해서 단 하나의 질문을 만들어.
+⚠️ 절대 규칙:
+- 이미 한 질문 또 묻지 마
+- 아래 "이번 주제"에만 집중
 
-# 형식
-- 1~2문장, 50자 이내
-- 구조: 짧은 응원/공감 한마디 + 새로운 질문 한 개
-- 라벨("코치:" 같은 거) 없이 발화 내용만 출력
-- 따옴표 금지`;
+형식: 1~2문장 50자 이내, 응원/공감 + 새 질문 1개. 라벨/따옴표 금지.`;
 
     userPrompt = `[지금까지 대화]
 ${transcript}
 
-[이미 코치가 한 질문/발화 — 절대 또 하지 말 것]
+[이미 한 발화 — 또 하지 말 것]
 ${forbiddenList}
 
-[이번에 다룰 주제 — 이것만 자연스럽게 물어볼 것]
+[이번 주제]
 ${focusTopic.label}
 
-이제 코치의 다음 한 마디를 출력해. 위 주제만 다루고, 이미 한 질문/발화는 절대 다시 하지 마.`;
+코치의 다음 한 마디만 출력.`;
+    maxTokens = 150;
+    temperature = 1.0;
   }
 
   try {
-    const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { role: "system", parts: [{ text: systemInstruction }] },
-          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            temperature: 1.0,
-            maxOutputTokens: mode === "summary" ? 120 : 120,
-            topP: 0.95,
-            topK: 40,
-          },
-        }),
-        signal: AbortSignal.timeout(10_000),
+    const upstream = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
-    );
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+        top_p: 0.95,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
 
     if (!upstream.ok) {
       const t = await upstream.text();
-      console.error(`Gemini ${mode} error:`, upstream.status, t);
+      console.error(`[chat:${mode}] Groq HTTP error:`, upstream.status, t);
       return NextResponse.json(
         mode === "summary"
-          ? { summary: pickFallbackSummary(messages), error: "upstream-failed" }
-          : { reply: pickFallbackReply(botUtterances), error: "upstream-failed" },
+          ? { summary: pickFallbackSummary(messages), error: `http-${upstream.status}` }
+          : { reply: pickFallbackReply(botUtterances), error: `http-${upstream.status}` },
         { status: 200 },
       );
     }
 
     const data = await upstream.json();
-    const raw =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      (mode === "summary" ? pickFallbackSummary(messages) : pickFallbackReply(botUtterances));
+    const choice = data?.choices?.[0];
+    const finishReason: string | undefined = choice?.finish_reason;
+    const raw: string = choice?.message?.content ?? "";
 
-    const cleaned = String(raw)
-      .trim()
-      .replace(/^["'“”]+|["'“”]+$/g, "")
-      .replace(/^(요약|한 ?줄 ?요약|코치)[:：]\s*/i, "")
-      .trim();
+    console.log(
+      `[chat:${mode}] finish=${finishReason} len=${raw.length} preview=${raw.slice(0, 80).replace(/\n/g, "\\n")}`,
+    );
+
+    const cleaned = sanitize(raw);
 
     if (mode === "summary") {
+      if (cleaned) {
+        return NextResponse.json({ summary: cleaned });
+      }
+      console.warn(`[chat:summary] empty after clean — finish=${finishReason}, raw="${raw}"`);
       return NextResponse.json({
-        summary: cleaned || pickFallbackSummary(messages),
+        summary: pickFallbackSummary(messages),
+        error: `empty-${finishReason ?? "unknown"}`,
       });
     }
 
@@ -170,7 +183,7 @@ ${focusTopic.label}
     }
     return NextResponse.json({ reply: pickFallbackReply(botUtterances) });
   } catch (err) {
-    console.error(`Gemini ${mode} call failed:`, err);
+    console.error(`[chat:${mode}] exception:`, err);
     return NextResponse.json(
       mode === "summary"
         ? { summary: pickFallbackSummary(messages), error: "exception" }
@@ -178,6 +191,16 @@ ${focusTopic.label}
       { status: 200 },
     );
   }
+}
+
+function sanitize(raw: string): string {
+  let s = String(raw).trim();
+  if (!s) return "";
+  s = s.replace(/^(?:한 ?줄 ?요약|요약|코치|답변)\s*[:：]\s*/i, "");
+  if (/^["'“”].*["'“”]$/.test(s)) {
+    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
+  }
+  return s.trim();
 }
 
 function detectUsedTopics(botUtterances: string[]): Set<string> {
@@ -244,7 +267,6 @@ const FALLBACK_SUMMARIES = [
   "달림으로<br/>완성된 하루 🌈",
 ];
 
-/** Pick a summary fallback that varies based on conversation length / time. */
 function pickFallbackSummary(messages: ChatMessage[]): string {
   const seed =
     messages.reduce((s, m) => s + m.text.length, 0) + new Date().getMinutes();

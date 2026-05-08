@@ -16,7 +16,6 @@ const FALLBACK_SUMMARY = "오늘은 안정적인 페이스로<br/>기분 좋게 
 
 type ChatMsg = { from: "bot" | "user"; text: string };
 
-/** Ask the API for the coach's next message (multi-turn). */
 async function fetchReply(messages: ChatMsg[]): Promise<string> {
   try {
     const res = await fetch("/api/chat", {
@@ -34,7 +33,6 @@ async function fetchReply(messages: ChatMsg[]): Promise<string> {
   }
 }
 
-/** Ask the API for the final one-line summary. */
 async function fetchSummary(messages: ChatMsg[]): Promise<string> {
   try {
     const res = await fetch("/api/chat", {
@@ -130,6 +128,10 @@ function Intro() {
   );
 }
 
+/** Hard cap on coach (bot) messages including the 2 hardcoded greeting messages. */
+const MAX_BOT_TURNS = 10;
+const WRAP_UP_TEXT = "이제까지 들은 얘기로 오늘의 러닝을 정리해줄게! ✨";
+
 function Chat() {
   const messages = useAppStore((s) => s.aiMessages);
   const pushMsg = useAppStore((s) => s.pushAIMessage);
@@ -141,22 +143,38 @@ function Chat() {
   const [isReplying, setIsReplying] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll the chat area to bottom whenever messages or typing indicator change
   useEffect(() => {
     const a = areaRef.current;
     if (a) a.scrollTop = a.scrollHeight;
   }, [messages, isReplying]);
 
-  // Send a user turn, then ask Gemini for the next coach reply
   const sendUserMessage = async (text: string) => {
     if (isReplying || !text.trim()) return;
     const userMsg: ChatMsg = { from: "user", text };
-    const next = [...messages, userMsg];
+    const conversationAfterUser = [...messages, userMsg];
     pushMsg(userMsg);
     setInput("");
     setIsReplying(true);
 
-    const reply = await fetchReply(next);
+    const currentBotCount = messages.filter((m) => m.from === "bot").length;
+
+    if (currentBotCount >= MAX_BOT_TURNS) {
+      const wrapMsg: ChatMsg = { from: "bot", text: WRAP_UP_TEXT };
+      pushMsg(wrapMsg);
+      setIsReplying(false);
+
+      setTimeout(async () => {
+        setStep("loading");
+        const summary = await fetchSummary([...conversationAfterUser, wrapMsg]);
+        if (useAppStore.getState().aiStep === "loading") {
+          setSummary(summary);
+          useAppStore.getState().setAIStep("result");
+        }
+      }, 1200);
+      return;
+    }
+
+    const reply = await fetchReply(conversationAfterUser);
     pushMsg({ from: "bot", text: reply });
     setIsReplying(false);
   };
@@ -174,7 +192,6 @@ function Chat() {
     void sendUserMessage(text);
   };
 
-  // Whether the user has spoken at least once — only then can we summarize
   const hasUserTurn = messages.some((m) => m.from === "user");
 
   const onFinish = async () => {
