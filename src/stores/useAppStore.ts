@@ -105,6 +105,8 @@ type State = {
     bubble: string;
   };
   studioRecordIdx: number;
+  studioRecordPickerOpen: boolean;
+  studioStatsOffset: { x: number; y: number };
   studioHistory: StudioSnapshot[];
   studioFuture: StudioSnapshot[];
   bgPickerTab: "mine" | "ai";
@@ -151,6 +153,10 @@ type State = {
   setStudioEyedropperActive: (on: boolean) => void;
   setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
   loadNextStudioRecord: () => string | null;
+  loadStudioRecord: (date: string) => void;
+  setStudioRecordPickerOpen: (open: boolean) => void;
+  updatePlacedSticker: (id: number, patch: { x?: number; y?: number }) => void;
+  setStudioStatsOffset: (x: number, y: number) => void;
   pushStudioHistory: () => void;
   studioUndo: () => void;
   studioRedo: () => void;
@@ -204,9 +210,11 @@ export const useAppStore = create<State>((set, get) => ({
     time: "00:32:45",
     pace: "6'12\"",
     calories: "368",
-    bubble: "처음 발걸음이\n큰 변화를 만들어요!",
+    bubble: "처음 발걸음이\n큰 변화를 만들어요! 💜",
   },
   studioRecordIdx: -1,
+  studioRecordPickerOpen: false,
+  studioStatsOffset: { x: 0, y: 0 },
   studioHistory: [],
   studioFuture: [],
   bgPickerTab: "mine",
@@ -335,6 +343,26 @@ export const useAppStore = create<State>((set, get) => ({
     }));
     return date;
   },
+  loadStudioRecord: (date) => {
+    const rec = archiveRecords[date];
+    if (!rec) return;
+    get().pushStudioHistory();
+    set((s) => ({
+      studioCardData: {
+        ...s.studioCardData,
+        distance: rec.dist,
+        pace: rec.pace,
+      },
+    }));
+  },
+  setStudioRecordPickerOpen: (open) => set({ studioRecordPickerOpen: open }),
+  updatePlacedSticker: (id, patch) =>
+    set((s) => ({
+      placedStickers: s.placedStickers.map((p) =>
+        p.id === id ? { ...p, ...patch } : p,
+      ),
+    })),
+  setStudioStatsOffset: (x, y) => set({ studioStatsOffset: { x, y } }),
   pushStudioHistory: () =>
     set((s) => {
       const snap: StudioSnapshot = {

@@ -54,7 +54,10 @@ function EditableText({
       contentEditable
       suppressContentEditableWarning
       spellCheck={false}
-      onPointerDown={(e) => e.stopPropagation()}
+      // Intentionally DO NOT stopPropagation here — let the parent drag
+      // handler (in RunningCard's stats-group) track the pointer too.
+      // Single tap (no movement) still focuses for editing; drag past the
+      // threshold takes over and blurs.
       onInput={(e) => {
         if (!editedRef.current) {
           pushHistory();
@@ -78,6 +81,28 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
   const ratio = useAppStore((s) => s.studioRatio);
   const card = useAppStore((s) => s.studioCardData);
   const setCard = useAppStore((s) => s.setStudioCardData);
+  const statsOffset = useAppStore((s) => s.studioStatsOffset);
+  const setStatsOffset = useAppStore((s) => s.setStudioStatsOffset);
+  const pushHistory = useAppStore((s) => s.pushStudioHistory);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    startOffX: number;
+    startOffY: number;
+    captured: boolean;
+    pushed: boolean;
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startOffX: 0,
+    startOffY: 0,
+    captured: false,
+    pushed: false,
+  });
+  const DRAG_THRESHOLD = 4; // px
 
   const transforms: string[] = [];
   if (rotate) transforms.push(`rotate(${rotate}deg)`);
@@ -103,62 +128,143 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
   // the component re-renders when ratio changes (no-op on small preview).
   void ratio;
 
+  const onStatsPointerDown = (e: React.PointerEvent) => {
+    if (small) return;
+    // Don't capture yet — let the click reach the editable text so a
+    // simple tap focuses it for editing. We only take over when the
+    // pointer actually moves past the drag threshold.
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffX: statsOffset.x,
+      startOffY: statsOffset.y,
+      captured: false,
+      pushed: false,
+    };
+  };
+
+  const onStatsPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (d.pointerId !== e.pointerId) return;
+    const dxPx = e.clientX - d.startX;
+    const dyPx = e.clientY - d.startY;
+
+    if (!d.captured) {
+      if (Math.abs(dxPx) < DRAG_THRESHOLD && Math.abs(dyPx) < DRAG_THRESHOLD) {
+        return;
+      }
+      // threshold passed → start real drag
+      d.captured = true;
+      try {
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      // blur whatever editable was focused so we can drag freely
+      const ae = document.activeElement;
+      if (ae instanceof HTMLElement && ae.isContentEditable) ae.blur();
+      // try to clear any text selection started by the original mousedown
+      window.getSelection?.()?.removeAllRanges?.();
+      pushHistory();
+      d.pushed = true;
+      // Reset the reference point to here so movement from this frame
+      // onward is smooth (no initial jump equal to the threshold).
+      d.startX = e.clientX;
+      d.startY = e.clientY;
+      return;
+    }
+
+    // Pixel-based offset so 1px of cursor movement = 1px of group movement,
+    // both horizontally and vertically.
+    setStatsOffset(d.startOffX + dxPx, d.startOffY + dyPx);
+  };
+
+  const onStatsPointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (d.pointerId !== e.pointerId) return;
+    if (d.captured) {
+      try {
+        (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+    }
+    d.pointerId = null;
+    d.captured = false;
+  };
+
   return (
-    <div className={`running-card${small ? " small" : ""}`}>
+    <div ref={cardRef} className={`running-card${small ? " small" : ""}`}>
       <div className="rc-photo" style={photoStyle} />
       <div className="rc-grad" />
       {!bg && <div className="rc-runner" />}
 
-      <div className="rc-week">
-        <EditableText
-          small={small}
-          value={card.weekTitle}
-          onChange={(v) => setCard({ weekTitle: v })}
-        />{" "}
-        <span>🏃</span>
-      </div>
-      <div className="rc-distance">
-        <EditableText
-          small={small}
-          value={card.distance}
-          onChange={(v) => setCard({ distance: v })}
-        />
-        <small>km</small>
-      </div>
+      <div
+        className="rc-stats-group"
+        style={
+          small
+            ? undefined
+            : {
+                transform: `translate(${statsOffset.x}px, ${statsOffset.y}px)`,
+              }
+        }
+        onPointerDown={onStatsPointerDown}
+        onPointerMove={onStatsPointerMove}
+        onPointerUp={onStatsPointerUp}
+        onPointerCancel={onStatsPointerUp}
+      >
+        <div className="rc-week">
+          <EditableText
+            small={small}
+            value={card.weekTitle}
+            onChange={(v) => setCard({ weekTitle: v })}
+          />{" "}
+          <span>🏃</span>
+        </div>
+        <div className="rc-distance">
+          <EditableText
+            small={small}
+            value={card.distance}
+            onChange={(v) => setCard({ distance: v })}
+          />
+          <small>km</small>
+        </div>
 
-      <div className="rc-stats">
-        <div className="rc-stat">
-          <span className="rc-ic">⏱</span>
-          <b>
-            <EditableText
-              small={small}
-              value={card.time}
-              onChange={(v) => setCard({ time: v })}
-            />
-          </b>
-          <i>운동 시간</i>
-        </div>
-        <div className="rc-stat">
-          <span className="rc-ic">⚡</span>
-          <b>
-            <EditableText
-              small={small}
-              value={card.pace}
-              onChange={(v) => setCard({ pace: v })}
-            />
-          </b>
-          <i>평균 페이스</i>
-        </div>
-        <div className="rc-stat">
-          <span className="rc-ic">🔥</span>
-          <b>
-            <EditableText
-              small={small}
-              value={card.calories}
-              onChange={(v) => setCard({ calories: v })}
-            />
-          </b>
-          <i>kcal</i>
+        <div className="rc-stats">
+          <div className="rc-stat">
+            <span className="rc-ic">⏱</span>
+            <b>
+              <EditableText
+                small={small}
+                value={card.time}
+                onChange={(v) => setCard({ time: v })}
+              />
+            </b>
+            <i>운동 시간</i>
+          </div>
+          <div className="rc-stat">
+            <span className="rc-ic">⚡</span>
+            <b>
+              <EditableText
+                small={small}
+                value={card.pace}
+                onChange={(v) => setCard({ pace: v })}
+              />
+            </b>
+            <i>평균 페이스</i>
+          </div>
+          <div className="rc-stat">
+            <span className="rc-ic">🔥</span>
+            <b>
+              <EditableText
+                small={small}
+                value={card.calories}
+                onChange={(v) => setCard({ calories: v })}
+              />
+            </b>
+            <i>kcal</i>
+          </div>
         </div>
       </div>
 
@@ -169,8 +275,7 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
             multiline
             value={card.bubble}
             onChange={(v) => setCard({ bubble: v })}
-          />{" "}
-          <span>💜</span>
+          />
         </div>
         <div className="rc-mascot">
           <Mascot />

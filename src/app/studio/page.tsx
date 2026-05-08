@@ -9,6 +9,8 @@ import CropOverlay from "@/features/studio/CropOverlay";
 import TextOverlay from "@/features/studio/TextOverlay";
 import TextSubmenu from "@/features/studio/TextSubmenu";
 import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
+import RecordPicker from "@/features/studio/RecordPicker";
+import PlacedStickers from "@/features/studio/PlacedStickers";
 import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
@@ -16,8 +18,6 @@ export default function StudioPage() {
   const router = useRouter();
   const tab = useAppStore((s) => s.studioTab);
   const setTab = useAppStore((s) => s.setStudioTab);
-  const placedStickers = useAppStore((s) => s.placedStickers);
-  const removeSticker = useAppStore((s) => s.removeSticker);
   const setBackground = useAppStore((s) => s.setStudioBackground);
   const showToast = useAppStore((s) => s.showToast);
   const cropMode = useAppStore((s) => s.studioCropMode);
@@ -26,13 +26,11 @@ export default function StudioPage() {
   const redo = useAppStore((s) => s.studioRedo);
   const canUndo = useAppStore((s) => s.studioHistory.length > 0);
   const canRedo = useAppStore((s) => s.studioFuture.length > 0);
-  const loadNextRecord = useAppStore((s) => s.loadNextStudioRecord);
+  const setRecordPickerOpen = useAppStore((s) => s.setStudioRecordPickerOpen);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onLoadRecord = () => {
-    const date = loadNextRecord();
-    if (date) showToast(`${date} 기록 불러옴`);
-    else showToast("불러올 기록이 없어요");
+    setRecordPickerOpen(true);
   };
 
   const back = () => {
@@ -101,7 +99,12 @@ export default function StudioPage() {
           </svg>
         </button>
         <span style={{ flex: 1 }} />
-        <Link href="/studio/export" className="st-export" style={{ textDecoration: "none" }}>
+        <Link
+          href="/studio/export"
+          className="st-export"
+          style={{ textDecoration: "none" }}
+          onClick={() => showToast("갤러리 보관소에 저장되었습니다")}
+        >
           저장하기
         </Link>
       </div>
@@ -111,20 +114,7 @@ export default function StudioPage() {
           <div className="card-stage" style={{ aspectRatio: ratio.replace("/", " / ") }}>
             <RunningCard />
             <TextOverlay />
-            <div className="placed-stickers">
-              {placedStickers.map((p) => (
-                <button
-                  key={p.id}
-                  className="placed-sticker"
-                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                  onClick={() => removeSticker(p.id)}
-                  aria-label={`${p.emoji} 제거`}
-                  title="클릭하여 제거"
-                >
-                  {p.emoji}
-                </button>
-              ))}
-            </div>
+            <PlacedStickers />
             {cropMode && <CropOverlay />}
             {tab === "text" && <TextSubmenu />}
             <EyedropperLoupe />
@@ -152,6 +142,7 @@ export default function StudioPage() {
               <path d="M5 7h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
               <path d="M9 13l2 2 4-4" />
             </svg>
+            <span className="st-fab-plus" aria-hidden>+</span>
           </button>
           <input
             ref={fileInputRef}
@@ -162,6 +153,8 @@ export default function StudioPage() {
           />
         </div>
       </div>
+
+      <RecordPicker />
 
       <div className="studio-panel">
         <StudioPanel tab={tab} />

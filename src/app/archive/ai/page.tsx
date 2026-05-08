@@ -101,6 +101,7 @@ function Chat() {
   const pushMsg = useAppStore((s) => s.pushAIMessage);
   const setStep = useAppStore((s) => s.setAIStep);
   const setSummary = useAppStore((s) => s.setAISummary);
+  const setStudioCardData = useAppStore((s) => s.setStudioCardData);
   const showToast = useAppStore((s) => s.showToast);
 
   const [input, setInput] = useState("");
@@ -112,10 +113,21 @@ function Chat() {
     if (a) a.scrollTop = a.scrollHeight;
   }, [messages]);
 
+  // Convert AI summary HTML (with <br/>) into plain text suitable for the
+  // studio card bubble.
+  const toPlainBubble = (s: string) =>
+    s
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+
   const triggerLoading = (summary: string) => {
     if (triggeredRef.current) return;
     triggeredRef.current = true;
     setSummary(summary);
+    // Mirror the AI summary into the studio card's bubble so when the user
+    // returns to the studio the card shows their personalized line.
+    setStudioCardData({ bubble: toPlainBubble(summary) });
     setStep("loading");
     setTimeout(() => {
       const cur = useAppStore.getState().aiStep;

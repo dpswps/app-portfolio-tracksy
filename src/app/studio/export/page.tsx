@@ -20,7 +20,7 @@ export default function StudioExportPage() {
           ‹
         </button>
         <div className="title" style={{ color: "#fff" }}>
-          저장하기
+          갤러리 보관소에 저장 완료
         </div>
       </div>
       <section className="export-screen">
@@ -52,7 +52,7 @@ export default function StudioExportPage() {
             <span>공유 링크 복사</span>
             <span className="er-arrow">›</span>
           </button>
-          <button className="export-row" onClick={() => showToast("갤러리 보관소에 저장되었습니다")}>
+          <button className="export-row" onClick={() => showToast("내 사진첩에 보관되었습니다")}>
             <span className="er-ic">🖼</span>
             <span>내 휴대폰 갤러리 저장</span>
             <span className="er-arrow">›</span>
