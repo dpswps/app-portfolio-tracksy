@@ -50,10 +50,13 @@ export default function CommunityPostPage() {
         <div className="post-card">
           <div
             className="post-card-photo"
-            style={{ background: p.bg || "linear-gradient(180deg,#7DC8E8 0%,#A8D08D 80%)" }}
+            style={{
+              background: p.image
+                ? `url(${p.image}) center/cover no-repeat`
+                : p.bg || "linear-gradient(180deg,#7DC8E8 0%,#A8D08D 80%)",
+            }}
           />
           <div className="post-card-overlay">
-            <div className="pc-date">글쓴날 오전 9:41</div>
             <div className="pc-distance">{p.dist || "6.06"}</div>
             <div className="pc-stats-row">
               <div>

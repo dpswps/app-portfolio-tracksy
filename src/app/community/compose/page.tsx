@@ -72,9 +72,26 @@ export default function CommunityComposePage() {
             placeholder="해시태그 추가..."
           />
         </div>
-        <button className="primary-btn compose-template" onClick={() => showToast("저장된 템플릿을 불러왔어요")}>
-          저장된 템플릿 가져오기
-        </button>
+        <div className="compose-actions">
+          <button
+            className="compose-template-btn"
+            onClick={() => showToast("저장된 템플릿을 불러왔어요")}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+              <path d="M6 3h12v18l-6-4-6 4z" />
+            </svg>
+            저장된 템플릿 가져오기
+          </button>
+          <button
+            className="compose-submit-btn"
+            onClick={() => showToast("등록되었어요")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            등록하기
+          </button>
+        </div>
       </section>
     </>
   );
