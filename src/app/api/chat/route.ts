@@ -90,28 +90,22 @@ export async function POST(req: Request) {
   const botUtterances = messages.filter((m) => m.from === "bot").map((m) => m.text);
   const userUtterances = messages.filter((m) => m.from === "user").map((m) => m.text);
 
-  const baseSystem = `너는 트랙시(Tracksy)라는 러닝 기록 앱의 친근한 AI 챗봇이야.
+  const baseSystem = `너는 트랙시(Tracksy)라는 러닝 기록 앱의 친근한 AI 챗봇이야. 친한 러닝 친구처럼 가볍게 대화해.
 
 [말투 규칙]
 - 반드시 자연스러운 한국어 반말로만.
 - 영어 글자(a-z, A-Z) 절대 금지. 라틴 확장(à, æ, é) 절대 금지. 한자 절대 금지.
 - 외래어를 쓸 거면 한글로만 ("페이스" O / "pace" X).
 - 다정하고 가볍게. 기계적/번역체/존댓말 금지.
-- 사용자 러닝을 자연스럽게 칭찬해줘.
-- 한 답변은 2~4문장 안. 이모지는 가끔 (0~1개).
+- 한 답변은 짧게: 1~3문장. 보통은 1~2문장이 가장 자연스러워.
+- 이모지는 거의 안 써 (0개가 기본, 4번 중 1번 정도만 1개).
 
 [문법 규칙 — 매우 중요]
 - 모든 문장은 문법적으로 완전해야 해. 주어/명사 없이 조사로 시작하지 마.
 - ❌ "는 얼마나 뛰었어?" (앞에 명사가 빠짐)
 - ❌ "은 어땠어?"
 - ✅ "거리는 얼마나 됐어?"
-- ✅ "오늘 페이스는 어땠어?"
-- 문장 단위로 점검하고 어색한 부분이 있으면 자연스러운 표현으로 바꿔서 출력해.
-
-[자연스러운 예시]
-- "오 진짜? 멋지다. 어디서 뛰었어?"
-- "와, 그 시간이면 정말 잘 뛴 거야. 다리는 괜찮아?"
-- "비 오는데도 뛰었구나. 대단하네."`;
+- ✅ "오늘 페이스는 어땠어?"`;
 
   let systemPrompt = "";
   let userPrompt = "";
@@ -119,29 +113,48 @@ export async function POST(req: Request) {
   let temperature = 0.85;
 
   if (mode === "summary") {
+    const stats = extractRunStats(userUtterances);
+    const statsLine = describeStats(stats);
+
+    // effort에 따라 톤 가이드를 다르게 줌
+    const toneGuides: Record<RunStats["effortLevel"], string> = {
+      great: "객관적으로 정말 잘 뛴 기록이야 (페이스가 빠르거나, 거리가 충분히 길거나).\n2줄차는 진심 어린 칭찬·감탄. 예: \"오늘 폼 진짜 살아있었네\", \"이 페이스면 진짜 대단한 거야\".\n\"수고했어\" 같은 무난한 멘트 X. 실제로 잘한 점을 짚어줘.",
+      good: "평균 이상의 좋은 러닝이었어. 꾸준함과 결과 둘 다 칭찬할 만함.\n2줄차는 잔잔한 칭찬. 예: \"오늘 페이스 안정적이었어\", \"이 정도면 진짜 잘 뛴 거야\".",
+      ok: "보통 수준의 러닝. 잘했다고 띄우기보다는 \"꾸준함\" 자체를 인정해주는 톤.\n2줄차는 담담한 응원. 예: \"오늘도 한 발 더 디뎠네\", \"이렇게 꾸준히 가는 게 결국 실력이야\".\n\"컨디션 좋았네\" 같은 과한 칭찬은 금지.",
+      tough: "짧거나 힘들었던 러닝. 사용자가 지치거나 만족 못 했을 가능성.\n2줄차는 위로/격려. 예: \"힘든 날에도 일단 신발 신은 너가 멋져\", \"오늘은 이 정도면 충분해, 내일 더 가볍게 뛰자\".\n절대 금지: \"컨디션 좋았네\", \"최고였어\" 같은 과장된 칭찬.",
+    };
+
     systemPrompt = `${baseSystem}
 
 [지금 할 일]
-러너와 나눈 대화를 보고, 오늘의 러닝을 따뜻하게 정리해줘.
+러너와 나눈 대화를 보고, 오늘의 러닝을 두 줄로 정리해줘.
 
 [형식 — 두 줄 구성]
-1줄차: 러너가 실제로 한 일 (장소, 거리, 날씨 등 사실 기반)
-2줄차: 그에 어울리는 응원/감탄/느낌 한마디
+1줄차: 러너가 실제로 한 일 (장소·거리·시간·날씨 중 사실 기반, 사용자가 말한 내용에서 가져와)
+2줄차: 그 기록 수준에 맞는 응원/칭찬/위로 한마디 (톤 가이드 참고)
 - 줄바꿈은 <br/>로 표시
-- 두 줄 합쳐서 25~40자 정도
-- 끝에 어울리는 이모지 1개
+- 두 줄 합쳐서 25~45자 정도
+- 끝에 톤에 어울리는 이모지 1개
 - 라벨/따옴표/설명 없이 결과 텍스트만
 - 문법적으로 완전한 문장이어야 해
 
-[좋은 예시]
-한강에서 5km 좋게 뛰었으면 → "한강에서 5km<br/>오늘 컨디션 진짜 좋았네 💪"
-비 오는데 3km 뛰었으면 → "비 오는데 3km<br/>그 의지가 진짜 멋있어 🌧️"
-야간에 혼자 뛰었으면 → "고요한 밤에 혼자<br/>차분하게 잘 달렸어 🌙"
-힘들었지만 끝까지 뛰었으면 → "힘들어도 끝까지 달린 너<br/>오늘 진짜 잘했어 🔥"
+[톤 가이드 — 오늘은 이렇게]
+${toneGuides[stats.effortLevel]}
 
-[금지 예시]
-- "오늘도 수고했어!" (러너 얘기 무시)
-- "꾸준함이 최고의 재능 💪" (구체적 내용 없음)`;
+[2줄차에서 절대 쓰지 말 것]
+- "오늘 컨디션 좋았네" (분석 없이 자동 칭찬)
+- "오늘도 수고했어" (러너 얘기 무시한 일반 멘트)
+- "꾸준함이 최고의 재능" (구체성 없음)
+
+[좋은 예시 — 결과 수준별]
+잘 뛴 날 (5km, 25분, 페이스 5분/km):
+→ "한강에서 5km를 25분만에<br/>이 페이스 진짜 무시 못해 💪"
+보통 날 (3km, 25분, 페이스 8분/km):
+→ "오늘은 천천히 3km<br/>이런 날도 결국 다 쌓이는 거야 🌿"
+힘든 날 (2km만 뛰고 그만, 사용자 "힘들었어"):
+→ "오늘은 2km로 짧게<br/>그래도 신발 신은 너가 멋져 🌙"
+비 오는 중 무리해서 뛴 날:
+→ "비 오는데도 3km<br/>그 의지 자체가 멋있어 🌧️"`;
 
     userPrompt = `[러너가 한 말]
 ${userUtterances.map((u, i) => `${i + 1}. ${u}`).join("\n") || "(없음)"}
@@ -149,7 +162,13 @@ ${userUtterances.map((u, i) => `${i + 1}. ${u}`).join("\n") || "(없음)"}
 [전체 대화]
 ${transcript}
 
-위 대화에서 러너가 실제로 한 일 + 응원/감탄 한마디를 두 줄로 만들어. 결과 텍스트만 출력. 문법 깨진 문장 절대 금지.`;
+[추출된 객관 데이터]
+${statsLine}
+
+위 데이터의 "종합 평가"에 맞는 톤으로, 두 줄 요약을 만들어.
+1줄차는 사용자가 실제로 말한 내용(장소·거리·시간 등) 중에서 가져와 사실대로.
+2줄차는 톤 가이드대로. 무조건 "컨디션 좋았네" 같은 자동 칭찬 금지.
+결과 텍스트만 출력. 문법 깨진 문장 절대 금지.`;
     maxTokens = 220;
     temperature = 0.85;
   } else {
@@ -161,43 +180,56 @@ ${transcript}
     const usedTopics = detectUsedTopics(botUtterances);
     const remainingTopics = TOPICS.filter((t) => !usedTopics.has(t.key));
     const focusTopic = remainingTopics[0] ?? TOPICS[0];
+    const lastUser = userUtterances[userUtterances.length - 1] ?? "";
 
     systemPrompt = `${baseSystem}
 
 [지금 할 일]
-러너와 자연스럽게 대화 중이야. 코치(=너)의 다음 한 마디를 만들어.
+러너와 카톡으로 수다 떨듯이 자연스럽게 대화 중이야. 너의 다음 한 마디를 만들어.
 
-[형식]
-- 2~4문장 안으로 짧게
-- 러너의 마지막 말에 대한 가벼운 칭찬이나 공감 한마디 + 새로운 질문 한 개
-- 이미 한 질문은 절대 다시 묻지 마
-- 라벨/따옴표 금지
-- 모든 문장이 문법적으로 완전해야 해 (조사로 문장 시작 금지)
+[가장 중요한 원칙 — 메아리(echo) 금지]
+사용자가 방금 말한 정보를 그대로 다시 따라 말하지 마. 친구가 "3km 뛰었어"라고 했을 때 "3km나 뛰었구나"는 이상해.
+- ❌ 러너 "3km" → "3km나 뛰었구나. 그동안 시간은?"   (정보 반복)
+- ❌ 러너 "한강" → "한강에서 뛰었구나. 페이스는?"      (정보 반복)
+- ❌ 러너 "1시간" → "1시간 동안 뛰었네."              (정보 반복)
+- ✅ 러너 "3km" → "오 좋네. 어디서?"
+- ✅ 러너 "한강" → "한강 좋지. 페이스는 어땠어?"
+- ✅ 러너 "1시간" → "꾸준히 잘 뛰었네. 어디서 돌았어?"
 
-[좋은 흐름 예시]
-러너: "5km" → "5km나 뛰었구나. 멋지다. 어디서 뛰었어?"
-러너: "한강" → "한강은 진짜 뛰기 좋지. 페이스는 어땠어?"
-러너: "좋아" → "오 다행이다. 다리는 좀 괜찮아? 무리 안 갔어?"
-러너: "힘들었어" → "힘들었구나. 그래도 끝까지 뛴 거 진짜 대단해. 오늘 몇 km 뛴 거야?"
+[응답 패턴 — 매번 똑같이 하지 마, 다양하게 섞어]
+1) 짧은 리액션 + 다음 질문   (예: "오 좋네. 어디서?")
+2) 너의 의견/맞장구 + 질문    (예: "한강 코스 진짜 좋지. 페이스 어땠어?")
+3) 그냥 짧은 질문만           (예: "혼자 뛴 거야 같이 뛴 거야?")
+4) 가끔은 칭찬·감탄만         (예: "와, 비 오는데도 대단하다.")  ← 이건 가끔만
+패턴 1·2·3을 자주 섞고, 4는 어쩌다 한 번.
 
-[부자연스러운 예시 — 절대 금지]
-- "는 얼마나 뛰었어?" (조사로 시작, 명사 빠짐)
-- "은 어땠어?" (조사로 시작)
-- "거리 얼마나 뛰었어?" (조사 빠짐)`;
+[다음 한 마디 가이드]
+- 매 답변마다 칭찬을 끼얹지 마. 진짜 칭찬할 만한 일에만 자연스럽게.
+- 사용자가 힘들었다고 하면 무리해서 칭찬하지 말고 공감/위로 위주로.
+- 같은 토픽(거리/페이스/장소 등)을 두 번 묻지 마.
+- 기계 톤("정말 대단해요" 같은) 절대 금지. 친구 톤("오", "아", "헐", "와" 같이 자연스럽게).
+- 라벨/따옴표 금지. 한 마디만.`;
 
     userPrompt = `[지금까지 대화]
 ${transcript}
 
-[이미 코치가 한 말 — 절대 또 하지 말 것]
+[러너의 마지막 말]
+"${lastUser}"
+
+[이미 네가 한 말 — 절대 또 하지 말 것]
 ${forbiddenList}
 
-[이번에 자연스럽게 풀어가야 할 화제]
+[다음에 풀어갈 화제]
 "${focusTopic.desc}"
-참고로 이 화제는 다음과 같이 물을 수 있어 (그대로 베끼지 말고 흐름에 맞게 자연스럽게 변형해서 써):
+이 화제를 다음처럼 물을 수 있어 (베끼지 말고 자연스럽게 변형해서):
 - ${focusTopic.examples.join("\n- ")}
 
-코치의 다음 한 마디만 출력. 문법적으로 완전한 문장으로. 영어/한자/라틴확장 글자 금지.`;
-    maxTokens = 220;
+규칙:
+- 러너 마지막 말의 정보(숫자/장소 등)를 따라 말하지 마.
+- 1~2문장이 기본. 길어도 3문장.
+- 영어/한자/라틴확장 글자 금지.
+- 한 마디만 출력. 라벨·따옴표 금지.`;
+    maxTokens = 180;
     temperature = 0.95;
   }
 
@@ -256,6 +288,11 @@ ${forbiddenList}
     if (mode === "reply" && hasOrphanParticleSentence(cleaned)) {
       console.warn(`[chat:reply] response started a sentence with a particle. raw="${raw}"`);
       return NextResponse.json({ reply: pickFallbackReply(botUtterances), error: "broken-grammar" });
+    }
+
+    if (mode === "reply" && isEchoOfUser(cleaned, userUtterances)) {
+      console.warn(`[chat:reply] response echoed user's last message. raw="${raw}"`);
+      return NextResponse.json({ reply: pickFallbackReply(botUtterances), error: "echo" });
     }
 
     if (mode === "summary") {
@@ -325,6 +362,35 @@ function hasOrphanParticleSentence(s: string): boolean {
   return parts.some((p) => orphanRe.test(p));
 }
 
+/**
+ * Echo 검사: 사용자가 방금 말한 정보(숫자+단위 또는 짧은 핵심 단어)를
+ * 봇이 그대로 다시 받아 말했는지 확인.
+ * 친구가 "3km" 했을 때 봇이 "3km나 뛰었구나"라고 따라 말하는 패턴 차단.
+ */
+function isEchoOfUser(botReply: string, userUtterances: string[]): boolean {
+  const last = userUtterances[userUtterances.length - 1];
+  if (!last) return false;
+  const u = last.trim();
+  if (!u) return false;
+
+  // 숫자+단위 echo (예: "3km", "30분", "1시간")
+  const numUnit = u.match(/(\d+(?:\.\d+)?)\s*(km|키로|킬로|분|시간)/i);
+  if (numUnit) {
+    const num = numUnit[1];
+    const unit = numUnit[2];
+    const re = new RegExp(`${num}\\s*${unit}`, "i");
+    if (re.test(botReply)) return true;
+  }
+
+  // 짧은 단답(장소/단어)을 그대로 받아치기
+  const trimmed = u.replace(/[\s.!?…]/g, "");
+  if (trimmed.length >= 2 && trimmed.length <= 6) {
+    if (botReply.includes(trimmed)) return true;
+  }
+
+  return false;
+}
+
 function detectUsedTopics(botUtterances: string[]): Set<string> {
   const used = new Set<string>();
   const text = botUtterances.join(" ");
@@ -360,13 +426,95 @@ function isTooSimilarToPrevious(candidate: string, prev: string[]): boolean {
   return false;
 }
 
+/* 러닝 데이터 추출 + 객관적 평가
+ * 일반 러너 기준: 페이스 ≤5.5분/km = great, 5.5~6.5 = good, 6.5~8 = ok, 8< = tough
+ * 거리 기준: 10km+ = great, 5~10 = good, 3~5 = ok, ~3 = tough
+ */
+type RunStats = {
+  distanceKm?: number;
+  timeMinutes?: number;
+  paceMinPerKm?: number;
+  mood?: "good" | "ok" | "bad";
+  hadComplaint?: boolean;
+  effortLevel: "great" | "good" | "ok" | "tough";
+};
+
+function extractRunStats(userUtterances: string[]): RunStats {
+  const text = userUtterances.join(" ");
+
+  let distanceKm: number | undefined;
+  const distMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:km|키로|킬로|키로미터|킬로미터)/i);
+  if (distMatch) distanceKm = parseFloat(distMatch[1]);
+
+  let timeMinutes: number | undefined;
+  const hmMatch = text.match(/(\d+)\s*시간\s*(\d+)\s*분/);
+  const hMatch = text.match(/(\d+)\s*시간/);
+  const mMatch = text.match(/(\d+)\s*분/);
+  if (hmMatch) {
+    timeMinutes = parseInt(hmMatch[1], 10) * 60 + parseInt(hmMatch[2], 10);
+  } else if (hMatch && /시간/.test(text)) {
+    timeMinutes = parseInt(hMatch[1], 10) * 60;
+  } else if (mMatch) {
+    timeMinutes = parseInt(mMatch[1], 10);
+  }
+
+  let paceMinPerKm: number | undefined;
+  if (distanceKm && timeMinutes && distanceKm > 0) {
+    paceMinPerKm = timeMinutes / distanceKm;
+  }
+
+  let mood: RunStats["mood"];
+  if (/좋아|좋았|굿|최고|개운|상쾌|컨디션\s*좋/.test(text)) mood = "good";
+  else if (/그냥그래|보통|그저그|쏘쏘/.test(text)) mood = "ok";
+  else if (/힘들|지침|피곤|버거|무리|안좋|별로|못뛰|헐떡/.test(text)) mood = "bad";
+
+  const hadComplaint = /힘들|아파|아프|다리|무릎|숨|지침|피곤|무리|버거/.test(text);
+
+  let effortLevel: RunStats["effortLevel"] = "ok";
+
+  if (paceMinPerKm !== undefined) {
+    if (paceMinPerKm <= 5.5) effortLevel = "great";
+    else if (paceMinPerKm <= 6.5) effortLevel = "good";
+    else if (paceMinPerKm <= 8) effortLevel = "ok";
+    else effortLevel = "tough";
+  } else if (distanceKm !== undefined) {
+    if (distanceKm >= 10) effortLevel = "great";
+    else if (distanceKm >= 5) effortLevel = "good";
+    else if (distanceKm >= 3) effortLevel = "ok";
+    else effortLevel = "tough";
+  }
+
+  if (mood === "bad" || hadComplaint) {
+    if (effortLevel === "great") effortLevel = "good";
+    else if (effortLevel === "good") effortLevel = "ok";
+    else effortLevel = "tough";
+  }
+  if (mood === "good" && effortLevel === "ok") {
+    effortLevel = "good";
+  }
+
+  return { distanceKm, timeMinutes, paceMinPerKm, mood, hadComplaint, effortLevel };
+}
+
+function describeStats(s: RunStats): string {
+  const parts: string[] = [];
+  if (s.distanceKm !== undefined) parts.push(`거리: ${s.distanceKm}km`);
+  if (s.timeMinutes !== undefined) parts.push(`시간: ${s.timeMinutes}분`);
+  if (s.paceMinPerKm !== undefined)
+    parts.push(`페이스: 약 ${s.paceMinPerKm.toFixed(1)}분/km`);
+  if (s.mood) parts.push(`사용자 기분: ${s.mood}`);
+  if (s.hadComplaint) parts.push(`힘들어함: 예`);
+  parts.push(`종합 평가: ${s.effortLevel}`);
+  return parts.join(" / ");
+}
+
 const FALLBACK_REPLIES = [
-  "오 멋지다. 오늘 어디서 뛰었어?",
-  "잘했네. 거리는 얼마나 됐어?",
-  "그렇구나. 페이스는 어땠어?",
+  "오 좋네. 어디서 뛰었어?",
+  "거리는 얼마나 됐어?",
+  "페이스는 어땠어?",
   "오늘 날씨는 어땠어?",
-  "혼자 뛰었어 아니면 같이 뛰었어?",
-  "음악 들으면서 뛰었어?",
+  "혼자 뛰었어, 아니면 같이?",
+  "뭐 들으면서 뛰었어?",
   "다음엔 뭐 해보고 싶어?",
 ];
 
@@ -379,18 +527,32 @@ function pickFallbackReply(prev: string[]): string {
   return FALLBACK_REPLIES[prev.length % FALLBACK_REPLIES.length];
 }
 
-const FALLBACK_SUMMARIES = [
-  "오늘도 한 걸음 더<br/>꾸준한 너 진짜 멋져 🌟",
-  "달리는 그 순간이<br/>오늘도 빛났어",
-  "오늘의 너,<br/>충분히 멋졌어 💜",
-  "한 발 한 발이<br/>내일을 만들어 가는 중",
-  "달리는 사람,<br/>오늘도 너가 자랑스러워",
-  "꾸준함이 최고의 재능<br/>오늘도 정말 잘했어",
-  "달림으로 채운 하루<br/>오늘 너 진짜 좋았어 🌈",
-];
+const FALLBACK_SUMMARIES_BY_TONE: Record<RunStats["effortLevel"], string[]> = {
+  great: [
+    "오늘 진짜 잘 달렸네<br/>이 페이스면 진짜 대단해 💪",
+    "오늘의 러닝, 폼이 살아있었어<br/>이 컨디션 계속 가자 🔥",
+  ],
+  good: [
+    "오늘도 안정적으로 한 바퀴<br/>이 정도면 진짜 잘한 거야 🌟",
+    "꾸준한 페이스로 잘 마쳤네<br/>오늘 너 충분히 멋졌어 💜",
+  ],
+  ok: [
+    "오늘은 가볍게 한 걸음 더<br/>이렇게 쌓이는 게 결국 실력이야 🌿",
+    "무리 없이 마친 오늘<br/>이런 날도 분명 도움이 돼 🌤️",
+  ],
+  tough: [
+    "쉽지 않은 날에도 일단 뛴 너<br/>그게 제일 멋져 🌙",
+    "오늘은 짧게, 그래도 충분해<br/>내일 더 가볍게 뛰어보자 🌧️",
+  ],
+};
 
 function pickFallbackSummary(messages: ChatMessage[]): string {
+  const userTexts = messages.filter((m) => m.from === "user").map((m) => m.text);
+  const stats = extractRunStats(userTexts);
+  const pool = FALLBACK_SUMMARIES_BY_TONE[stats.effortLevel];
   const seed =
     messages.reduce((s, m) => s + m.text.length, 0) + new Date().getMinutes();
-  return FALLBACK_SUMMARIES[seed % FALLBACK_SUMMARIES.length];
+  return pool[seed % pool.length];
 }
+
+
