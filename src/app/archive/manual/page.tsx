@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { archiveRecords } from "@/data/archiveRecords";
 import { KO_DOW, dateKey, pad2 } from "@/lib/date";
 
 function formatDateInput(y: number, m: number, d: number) {
@@ -18,6 +19,85 @@ function inputToKey(input: string): string | null {
 function keyToInput(key: string): string {
   const [y, mm, dd] = key.split("-");
   return `${y}.${mm}.${dd}`;
+}
+
+/* ──────────────────────────────────────────────────────────
+ * 시간/페이스 변환 헬퍼
+ * 사용자 입력은 자유 형식("30:05" / "1:30:05" / "30분 5초" / "30'05\"" / "30")
+ * 을 모두 받아 초 단위로 정규화한다.
+ * ────────────────────────────────────────────────────────── */
+function timeToSeconds(s: string): number | null {
+  if (!s) return null;
+  const t = s.trim();
+  if (!t) return null;
+
+  // "1:30:05" / "30:05" / "30:5"
+  let m = t.match(/^(\d+):(\d{1,2}):(\d{1,2})$/);
+  if (m) return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  m = t.match(/^(\d+):(\d{1,2})$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+
+  // "1시간 30분 5초" / "30분 05초" / "30분"
+  let h = 0,
+    mm = 0,
+    ss = 0;
+  let matched = false;
+  const hm = t.match(/(\d+)\s*시간/);
+  if (hm) {
+    h = Number(hm[1]);
+    matched = true;
+  }
+  const mm2 = t.match(/(\d+)\s*분/);
+  if (mm2) {
+    mm = Number(mm2[1]);
+    matched = true;
+  }
+  const sm = t.match(/(\d+)\s*초/);
+  if (sm) {
+    ss = Number(sm[1]);
+    matched = true;
+  }
+  if (matched) return h * 3600 + mm * 60 + ss;
+
+  // "30'05\"" / "30'5"
+  m = t.match(/^(\d+)['′](\d{1,2})(?:["″])?$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+
+  // 단순 숫자 → 분으로 가정 ("30" → 30분)
+  m = t.match(/^(\d+)$/);
+  if (m) return Number(m[1]) * 60;
+
+  return null;
+}
+
+/** 초 → "MM:SS" 또는 "H:MM:SS" 형식 (저장·표시용 표준형) */
+function secondsToTimeString(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${pad2(m)}:${pad2(s)}`;
+  return `${m}:${pad2(s)}`;
+}
+
+/** 페이스: 초/km → "M'SS\"" (러닝 관례 형식) */
+function secondsToPaceString(secPerKm: number): string {
+  if (!isFinite(secPerKm) || secPerKm <= 0) return "";
+  let m = Math.floor(secPerKm / 60);
+  let s = Math.round(secPerKm - m * 60);
+  if (s === 60) {
+    m += 1;
+    s = 0;
+  }
+  return `${m}'${pad2(s)}"`;
+}
+
+/** "5.21" / "5.21 km" / "5km" → 5.21 (양수일 때만) */
+function distToKm(s: string): number | null {
+  const t = s.replace(/[^\d.]/g, "");
+  if (!t) return null;
+  const n = parseFloat(t);
+  if (isNaN(n) || n <= 0) return null;
+  return n;
 }
 
 export default function ArchiveManualPage() {
@@ -36,13 +116,50 @@ function ManualForm() {
   const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
   const pickDate = useAppStore((s) => s.pickDate);
   const archiveSelected = useAppStore((s) => s.archiveSelected);
+  const userRecords = useAppStore((s) => s.userRecords);
 
   const initialDateKey = search?.get("date") || null;
+
+  /* ── 기존 기록 prefill ─────────────────────────────
+   * URL에 ?date=YYYY-MM-DD 가 있으면 그 날짜의 기록을 form에 미리 채움.
+   * userRecords(사용자 추가)가 archiveRecords(시드)보다 우선.
+   * ──────────────────────────────────────────── */
+  const initialRec = initialDateKey
+    ? userRecords[initialDateKey] || archiveRecords[initialDateKey] || null
+    : null;
+
   const [date, setDate] = useState(initialDateKey ? keyToInput(initialDateKey) : "");
-  const [dist, setDist] = useState("");
-  const [time, setTime] = useState("");
-  const [pace, setPace] = useState("");
-  const [note, setNote] = useState("");
+  const [dist, setDist] = useState(initialRec?.dist ?? "");
+  const [time, setTime] = useState(initialRec?.time ?? "");
+
+  /**
+   * 사용자가 페이스를 직접 override 했을 때 사용. 보통은 자동 계산값 사용.
+   * 단, prefill 시 기존 기록에 페이스는 있지만 시간이 없어 자동 계산이 불가능한 경우,
+   * 기존 페이스를 override로 채워서 사용자에게 보존된 값을 보여줌.
+   */
+  const initialPaceOverride = (() => {
+    if (!initialRec) return "";
+    const km = distToKm(initialRec.dist ?? "");
+    const sec = timeToSeconds(initialRec.time ?? "");
+    // 자동 계산 가능 → override 비워둠 (자동 계산값 우선)
+    if (km && sec) return "";
+    // 자동 계산 불가능하지만 기존 페이스가 있으면 그걸 보존
+    return initialRec.pace ?? "";
+  })();
+  const [paceOverride, setPaceOverride] = useState<string>(initialPaceOverride);
+
+  const [note, setNote] = useState(initialRec?.note ?? "");
+
+  /* 거리·시간으로 자동 계산되는 페이스 */
+  const computedPace = useMemo(() => {
+    const km = distToKm(dist);
+    const sec = timeToSeconds(time);
+    if (!km || !sec) return "";
+    return secondsToPaceString(sec / km);
+  }, [dist, time]);
+
+  /** 화면에 보여줄 페이스. override 있으면 그걸, 없으면 자동 계산값. */
+  const paceDisplay = paceOverride || computedPace;
 
   const today = new Date();
   const initialPickerYM = (() => {
@@ -82,10 +199,26 @@ function ManualForm() {
       showToast("날짜 형식이 올바르지 않아요 (예: 2026.05.04)");
       return;
     }
+
+    // 거리 정규화: "5" → "5", "5.21" → "5.21" (단위 떼고 저장)
+    const km = distToKm(dist);
+    const distSave = km != null ? String(km) : dist.trim();
+
+    // 시간 정규화: 저장 시 "MM:SS" / "H:MM:SS"로 통일
+    const sec = timeToSeconds(time);
+    const timeSave = sec != null ? secondsToTimeString(sec) : time.trim() || undefined;
+
+    // 페이스: 자동 계산값이 있으면 그걸, 없으면 사용자 override
+    const paceSave = (computedPace || paceOverride).trim();
+
+    // 기존 기록의 다른 필드(bpm/elev/cadence/kcal)는 보존
+    const preserved = userRecords[key] || archiveRecords[key];
+
     addRecord(key, {
-      dist: dist.trim(),
-      pace: pace.trim(),
-      time: time.trim() || undefined,
+      ...preserved,
+      dist: distSave,
+      pace: paceSave,
+      time: timeSave,
       note: note.trim() || undefined,
     });
     const [yy, mm] = key.split("-").map(Number);
@@ -217,18 +350,66 @@ function ManualForm() {
             )}
           </div>
         </div>
+
+        {/* 거리 — 우측에 km 자동 표시 */}
         <div className="am-field">
           <label>거리</label>
-          <input type="text" value={dist} onChange={(e) => setDist(e.target.value)} placeholder="입력하기" />
+          <div className="am-input-wrap">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={dist}
+              onChange={(e) => setDist(e.target.value)}
+              placeholder="입력하기"
+            />
+            {dist.trim() && <span className="am-suffix">km</span>}
+          </div>
         </div>
+
+        {/* 시간 — placeholder로 형식 안내, 우측에 작은 헬퍼 */}
         <div className="am-field">
           <label>시간</label>
-          <input type="text" value={time} onChange={(e) => setTime(e.target.value)} placeholder="입력하기" />
+          <div className="am-input-wrap">
+            <input
+              type="text"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              placeholder="입력하기 (예: 30:05)"
+            />
+            {time.trim() && timeToSeconds(time) != null && (
+              <span className="am-suffix">
+                {(() => {
+                  const sec = timeToSeconds(time)!;
+                  return sec >= 3600 ? "시:분:초" : "분:초";
+                })()}
+              </span>
+            )}
+          </div>
+          <div className="am-helper">분:초 또는 시:분:초 (예: 30:05, 1:30:05)</div>
         </div>
+
+        {/* 평균 페이스 — 자동 계산. 사용자가 클릭해서 직접 입력도 가능 */}
         <div className="am-field">
-          <label>평균 페이스</label>
-          <input type="text" value={pace} onChange={(e) => setPace(e.target.value)} placeholder="입력하기" />
+          <label>
+            평균 페이스
+            <span className="am-auto-tag">자동 계산</span>
+          </label>
+          <div className="am-input-wrap">
+            <input
+              type="text"
+              value={paceDisplay}
+              onChange={(e) => setPaceOverride(e.target.value)}
+              placeholder={
+                computedPace
+                  ? ""
+                  : "거리·시간을 입력하면 자동으로 계산돼요"
+              }
+              className={computedPace && !paceOverride ? "am-pace-auto" : ""}
+            />
+            {paceDisplay && <span className="am-suffix">/km</span>}
+          </div>
         </div>
+
         <div className="am-field">
           <label>러닝 메모(선택)</label>
           <textarea

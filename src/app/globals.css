@@ -2524,6 +2524,55 @@ textarea:focus { border-color: var(--primary); }
   background: var(--primary);
   color: #fff !important;
 }
+/* 거리/시간/페이스 input의 단위 suffix를 우측에 띄움 */
+.am-input-wrap {
+  position: relative;
+  display: block;
+}
+.am-input-wrap input {
+  padding-right: 56px;
+}
+.am-suffix {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  pointer-events: none;
+  letter-spacing: -0.01em;
+}
+
+/* 시간 input 아래 형식 안내 */
+.am-helper {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* 평균 페이스 라벨 옆의 "자동 계산" 작은 태그 */
+.am-auto-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--primary-soft);
+  color: var(--primary);
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+/* 자동 계산된 페이스 input (사용자 override 안 한 상태) — 옅은 회색 톤으로 구분 */
+.am-field input.am-pace-auto {
+  background: var(--primary-softer);
+  color: var(--primary);
+  font-weight: 700;
+}
+
 .am-counter {
   text-align: right;
   font-size: 11px;
@@ -3914,3 +3963,275 @@ textarea:focus { border-color: var(--primary); }
 }
 .placed-sticker:hover { transform: scale(1.15); }
 .placed-sticker:active { transform: scale(0.95); }
+
+/* ──────────────────────────────────────────────────────────
+ * 러닝 기록 상세 페이지 (/archive/records/[date])
+ * ────────────────────────────────────────────────────────── */
+
+/* 캘린더의 sel-record가 링크가 됐을 때 스타일 보전 */
+.sel-record-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.sel-record-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.10);
+}
+.sel-record-link:active {
+  transform: translateY(0);
+}
+.sr-detail-hint {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
+
+/* 리스트의 펼쳐진 카드 본문이 링크가 됐을 때 */
+.lr-rec-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.lr-rec-link:hover {
+  background: rgba(139, 92, 246, 0.04);
+}
+.lr-rec-hint {
+  padding: 6px 14px 12px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* 헤더 */
+.rd-header {
+  position: relative;
+  padding: 8px 20px 14px;
+}
+.rd-header-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+.rd-header-spacer {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+}
+
+/* 본문 컨테이너 */
+.rd-screen {
+  padding: 0 20px 32px;
+}
+
+/* 히어로 카드 */
+.rd-hero {
+  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+  border: 1px solid var(--primary-soft);
+  border-radius: 18px;
+  padding: 22px 22px 24px;
+  text-align: center;
+}
+.rd-hero-date {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.rd-hero-distance {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 12px;
+}
+.rd-hero-distance b {
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-style: normal;
+}
+.rd-hero-distance small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.rd-hero-tag {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fff;
+  color: var(--primary);
+  border: 1px solid var(--primary-soft);
+}
+.rd-hero-tag.tone-great {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.rd-hero-tag.tone-good {
+  background: #fff;
+  color: var(--primary);
+}
+.rd-hero-tag.tone-ok {
+  background: #fff;
+  color: var(--text-soft);
+}
+.rd-hero-tag.tone-tough {
+  background: #FFF7ED;
+  color: #C2410C;
+  border-color: #FED7AA;
+}
+
+/* 통계 6칸 그리드 */
+.rd-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: #fff;
+  border: 1px solid var(--primary-soft);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.rd-cell {
+  padding: 14px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-right: 1px solid var(--primary-soft);
+  border-bottom: 1px solid var(--primary-soft);
+}
+.rd-cell:nth-child(3n) {
+  border-right: none;
+}
+.rd-cell:nth-child(n+4) {
+  border-bottom: none;
+}
+.rd-cell b {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-style: normal;
+}
+.rd-cell i {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  font-style: normal;
+}
+.rd-cell small {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 메모 */
+.rd-note {
+  margin-top: 16px;
+  background: #fff;
+  border: 1px solid var(--primary-soft);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.rd-note-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.rd-note-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.rd-note-text.muted {
+  color: var(--text-muted);
+}
+
+/* 액션 버튼 영역 */
+.rd-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+.rd-edit-btn {
+  flex: 1;
+  height: 46px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.rd-edit-btn:hover {
+  background: #7C3AED;
+}
+.rd-edit-btn:active {
+  background: #6D28D9;
+}
+.rd-delete-btn {
+  width: 84px;
+  height: 46px;
+  border: 1px solid #FCA5A5;
+  border-radius: 12px;
+  background: #fff;
+  color: #DC2626;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.rd-delete-btn:hover {
+  background: #FEF2F2;
+}
+.rd-delete-btn[aria-disabled="true"] {
+  border-color: #E5E7EB;
+  color: var(--text-muted);
+  background: #F9FAFB;
+}
+
+/* 기록을 못 찾는 경우 */
+.rd-empty {
+  padding: 60px 24px;
+  text-align: center;
+}
+.rd-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.rd-empty-sub {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 22px;
+}
+.rd-empty-cta {
+  display: inline-block;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 12px;
+}

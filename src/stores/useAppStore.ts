@@ -111,6 +111,8 @@ type State = {
   bumpListCount: () => void;
   resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
+  /** 사용자가 추가한 기록 삭제 (시드 archiveRecords는 보호) */
+  deleteUserRecord: (key: string) => void;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -265,6 +267,14 @@ export const useAppStore = create<State>()(
         set((s) => ({
           userRecords: { ...s.userRecords, [key]: rec },
         })),
+
+      deleteUserRecord: (key) =>
+        set((s) => {
+          if (!(key in s.userRecords)) return s;
+          const next = { ...s.userRecords };
+          delete next[key];
+          return { userRecords: next };
+        }),
 
       setGalleryFilter: (p) =>
         set((s) => ({

@@ -6,6 +6,12 @@ export type RunningRecord = {
   bpm?: number;
   time?: string;
   note?: string;
+  /** 누적 상승 (예: "12 m") */
+  elev?: string;
+  /** 케이던스 (spm) */
+  cadence?: number;
+  /** 칼로리 */
+  kcal?: number;
 };
 
 export type ArchiveRecords = Record<DateKey, RunningRecord>;
