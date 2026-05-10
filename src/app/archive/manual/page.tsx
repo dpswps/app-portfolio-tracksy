@@ -120,59 +120,164 @@ function ManualForm() {
 
   const initialDateKey = search?.get("date") || null;
 
-  /* ── 기존 기록 prefill ─────────────────────────────
-   * URL에 ?date=YYYY-MM-DD 가 있으면 그 날짜의 기록을 form에 미리 채움.
-   * userRecords(사용자 추가)가 archiveRecords(시드)보다 우선.
+  /* ── prefill 우선순위 ──────────────────────────────
+   * 1) OCR로 막 추출된 pendingScanData (scan 페이지 → manual로 전달)
+   * 2) URL ?date=YYYY-MM-DD 로 들어온 기존 기록 수정
+   * 3) 빈 form (새 입력)
+   * pendingScanData는 mount 시점에 한 번만 consume.
    * ──────────────────────────────────────────── */
+  // mount 시 한 번만 consume (useState lazy initializer로 사이드이펙트 1회 보장)
+  const [scanData] = useState(() =>
+    useAppStore.getState().consumePendingScanData(),
+  );
+
   const initialRec = initialDateKey
     ? userRecords[initialDateKey] || archiveRecords[initialDateKey] || null
     : null;
 
-  const [date, setDate] = useState(initialDateKey ? keyToInput(initialDateKey) : "");
-  const [dist, setDist] = useState(initialRec?.dist ?? "");
-  const [time, setTime] = useState(initialRec?.time ?? "");
+  // OCR이 날짜를 추출했으면 그걸로, 아니면 URL 파라미터로
+  const effectiveDateKey = scanData?.date || initialDateKey;
+
+  const [date, setDate] = useState(
+    effectiveDateKey ? keyToInput(effectiveDateKey) : "",
+  );
+  const [dist, setDist] = useState(scanData?.dist ?? initialRec?.dist ?? "");
+
+  /* 시간을 시/분/초 3개 input으로 분리. prefill source 우선순위에 따라 분해. */
+  const initialHMS = (() => {
+    const timeStr = scanData?.time ?? initialRec?.time;
+    if (!timeStr) return { h: "", m: "", s: "" };
+    const sec = timeToSeconds(timeStr);
+    if (sec == null) return { h: "", m: "", s: "" };
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return {
+      h: h > 0 ? String(h) : "",
+      m: String(m),
+      s: pad2(s),
+    };
+  })();
+  const [hour, setHour] = useState<string>(initialHMS.h);
+  const [minute, setMinute] = useState<string>(initialHMS.m);
+  const [second, setSecond] = useState<string>(initialHMS.s);
+
+  /** 시·분·초 state → 총 초. 비어있는 칸은 0으로 간주. 모두 비면 null. */
+  const totalSeconds = useMemo(() => {
+    const h = parseInt(hour, 10) || 0;
+    const m = parseInt(minute, 10) || 0;
+    const s = parseInt(second, 10) || 0;
+    if (h === 0 && m === 0 && s === 0) return null;
+    return h * 3600 + m * 60 + s;
+  }, [hour, minute, second]);
 
   /**
    * 사용자가 페이스를 직접 override 했을 때 사용. 보통은 자동 계산값 사용.
-   * 단, prefill 시 기존 기록에 페이스는 있지만 시간이 없어 자동 계산이 불가능한 경우,
-   * 기존 페이스를 override로 채워서 사용자에게 보존된 값을 보여줌.
+   * prefill 시 거리·시간이 있어 자동 계산 가능하면 override 비워둠.
+   * 그렇지 않은데 기존/스캔 페이스가 있으면 그걸 보존.
    */
   const initialPaceOverride = (() => {
-    if (!initialRec) return "";
-    const km = distToKm(initialRec.dist ?? "");
-    const sec = timeToSeconds(initialRec.time ?? "");
-    // 자동 계산 가능 → override 비워둠 (자동 계산값 우선)
-    if (km && sec) return "";
-    // 자동 계산 불가능하지만 기존 페이스가 있으면 그걸 보존
-    return initialRec.pace ?? "";
+    const distSrc = scanData?.dist ?? initialRec?.dist;
+    const timeSrc = scanData?.time ?? initialRec?.time;
+    const km = distToKm(distSrc ?? "");
+    const sec = timeToSeconds(timeSrc ?? "");
+    if (km && sec) return ""; // 자동 계산 가능
+    return scanData?.pace ?? initialRec?.pace ?? "";
   })();
   const [paceOverride, setPaceOverride] = useState<string>(initialPaceOverride);
+
+  /* 추가 정보 (선택 사항) — OCR로 인식되거나 사용자가 직접 입력
+   * scanData → initialRec → 빈 값 우선순위 */
+  const [bpm, setBpm] = useState<string>(
+    scanData?.bpm != null
+      ? String(scanData.bpm)
+      : initialRec?.bpm != null
+        ? String(initialRec.bpm)
+        : "",
+  );
+  const [cadence, setCadence] = useState<string>(
+    scanData?.cadence != null
+      ? String(scanData.cadence)
+      : initialRec?.cadence != null
+        ? String(initialRec.cadence)
+        : "",
+  );
+  const [kcal, setKcal] = useState<string>(
+    scanData?.kcal != null
+      ? String(scanData.kcal)
+      : initialRec?.kcal != null
+        ? String(initialRec.kcal)
+        : "",
+  );
+  // 고도는 단위 포함 문자열("11 m"). 사용자가 숫자만 입력하면 저장 시 "m" 붙임.
+  const [elev, setElev] = useState<string>(
+    scanData?.elev ?? initialRec?.elev ?? "",
+  );
 
   const [note, setNote] = useState(initialRec?.note ?? "");
 
   /* 거리·시간으로 자동 계산되는 페이스 */
   const computedPace = useMemo(() => {
     const km = distToKm(dist);
-    const sec = timeToSeconds(time);
-    if (!km || !sec) return "";
-    return secondsToPaceString(sec / km);
-  }, [dist, time]);
+    if (!km || !totalSeconds) return "";
+    return secondsToPaceString(totalSeconds / km);
+  }, [dist, totalSeconds]);
 
   /** 화면에 보여줄 페이스. override 있으면 그걸, 없으면 자동 계산값. */
   const paceDisplay = paceOverride || computedPace;
 
   const today = new Date();
   const initialPickerYM = (() => {
-    if (initialDateKey) {
-      const [yy, mm] = initialDateKey.split("-").map(Number);
+    if (effectiveDateKey) {
+      const [yy, mm] = effectiveDateKey.split("-").map(Number);
       return { y: yy, m: mm };
     }
     return { y: today.getFullYear(), m: today.getMonth() + 1 };
   })();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerYM, setPickerYM] = useState<{ y: number; m: number }>(initialPickerYM);
-  const [pickedKey, setPickedKey] = useState<string | null>(initialDateKey);
+  const [pickedKey, setPickedKey] = useState<string | null>(effectiveDateKey);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  /* ── 시간 input refs (자동 포커스 이동용) ────────────── */
+  const hourRef = useRef<HTMLInputElement | null>(null);
+  const minuteRef = useRef<HTMLInputElement | null>(null);
+  const secondRef = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * 숫자 input 변경 처리.
+   *  - 숫자 외 문자 제거
+   *  - max 자릿수 초과 방지
+   *  - max 자릿수 채우면 자동으로 다음 input에 포커스
+   */
+  const handleTimeChange = (
+    raw: string,
+    maxDigits: number,
+    setter: (v: string) => void,
+    nextRef?: React.RefObject<HTMLInputElement | null>,
+  ) => {
+    const cleaned = raw.replace(/\D/g, "").slice(0, maxDigits);
+    setter(cleaned);
+    if (cleaned.length === maxDigits && nextRef?.current) {
+      nextRef.current.focus();
+      nextRef.current.select();
+    }
+  };
+
+  /** 빈 input에서 백스페이스 누르면 이전 input 끝으로 포커스 이동 */
+  const handleTimeKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    currentValue: string,
+    prevRef?: React.RefObject<HTMLInputElement | null>,
+  ) => {
+    if (e.key === "Backspace" && currentValue === "" && prevRef?.current) {
+      e.preventDefault();
+      prevRef.current.focus();
+      // 커서를 끝으로
+      const len = prevRef.current.value.length;
+      prevRef.current.setSelectionRange(len, len);
+    }
+  };
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -205,17 +310,41 @@ function ManualForm() {
     const distSave = km != null ? String(km) : dist.trim();
 
     // 시간 정규화: 저장 시 "MM:SS" / "H:MM:SS"로 통일
-    const sec = timeToSeconds(time);
-    const timeSave = sec != null ? secondsToTimeString(sec) : time.trim() || undefined;
+    const timeSave = totalSeconds != null ? secondsToTimeString(totalSeconds) : undefined;
 
     // 페이스: 자동 계산값이 있으면 그걸, 없으면 사용자 override
     const paceSave = (computedPace || paceOverride).trim();
 
-    // 기존 기록의 다른 필드(bpm/elev/cadence/kcal)는 보존
+    // 추가 필드(bpm/cadence/kcal/elev)는 form state 기준으로 정규화
+    const bpmNum = bpm.trim() ? parseInt(bpm.replace(/\D/g, ""), 10) : NaN;
+    const cadenceNum = cadence.trim()
+      ? parseInt(cadence.replace(/\D/g, ""), 10)
+      : NaN;
+    const kcalNum = kcal.trim() ? parseInt(kcal.replace(/\D/g, ""), 10) : NaN;
+    const elevTrim = elev.trim();
+    // 고도: 사용자가 숫자만 입력했으면 자동으로 " m" 붙임
+    const elevSave = elevTrim
+      ? /\d\s*[a-zA-Z가-힣]/.test(elevTrim)
+        ? elevTrim
+        : `${elevTrim} m`
+      : undefined;
+
+    // 기존 기록의 splits/screenshot은 보존, 다른 필드는 form 기준
     const preserved = userRecords[key] || archiveRecords[key];
 
     addRecord(key, {
       ...preserved,
+      ...(isFinite(bpmNum) ? { bpm: bpmNum } : { bpm: undefined }),
+      ...(isFinite(cadenceNum)
+        ? { cadence: cadenceNum }
+        : { cadence: undefined }),
+      ...(isFinite(kcalNum) ? { kcal: kcalNum } : { kcal: undefined }),
+      ...(elevSave ? { elev: elevSave } : { elev: undefined }),
+      // splits/screenshot은 OCR로만 들어옴 (form에 없음)
+      ...(scanData?.splits && scanData.splits.length > 0
+        ? { splits: scanData.splits }
+        : {}),
+      ...(scanData?.screenshot ? { screenshot: scanData.screenshot } : {}),
       dist: distSave,
       pace: paceSave,
       time: timeSave,
@@ -366,26 +495,60 @@ function ManualForm() {
           </div>
         </div>
 
-        {/* 시간 — placeholder로 형식 안내, 우측에 작은 헬퍼 */}
+        {/* 시간 — 시/분/초 분리 input. 자동 포커스 이동. */}
         <div className="am-field">
           <label>시간</label>
-          <div className="am-input-wrap">
-            <input
-              type="text"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              placeholder="입력하기 (예: 30:05)"
-            />
-            {time.trim() && timeToSeconds(time) != null && (
-              <span className="am-suffix">
-                {(() => {
-                  const sec = timeToSeconds(time)!;
-                  return sec >= 3600 ? "시:분:초" : "분:초";
-                })()}
-              </span>
-            )}
+          <div className="am-time-row" role="group" aria-label="시간 입력">
+            <div className="am-time-cell">
+              <input
+                ref={hourRef}
+                type="text"
+                inputMode="numeric"
+                value={hour}
+                onChange={(e) =>
+                  handleTimeChange(e.target.value, 2, setHour, minuteRef)
+                }
+                onFocus={(e) => e.target.select()}
+                placeholder="00"
+                aria-label="시간"
+              />
+              <span className="am-time-unit">시</span>
+            </div>
+            <span className="am-time-sep">:</span>
+            <div className="am-time-cell">
+              <input
+                ref={minuteRef}
+                type="text"
+                inputMode="numeric"
+                value={minute}
+                onChange={(e) =>
+                  handleTimeChange(e.target.value, 2, setMinute, secondRef)
+                }
+                onKeyDown={(e) => handleTimeKeyDown(e, minute, hourRef)}
+                onFocus={(e) => e.target.select()}
+                placeholder="00"
+                aria-label="분"
+              />
+              <span className="am-time-unit">분</span>
+            </div>
+            <span className="am-time-sep">:</span>
+            <div className="am-time-cell">
+              <input
+                ref={secondRef}
+                type="text"
+                inputMode="numeric"
+                value={second}
+                onChange={(e) =>
+                  handleTimeChange(e.target.value, 2, setSecond)
+                }
+                onKeyDown={(e) => handleTimeKeyDown(e, second, minuteRef)}
+                onFocus={(e) => e.target.select()}
+                placeholder="00"
+                aria-label="초"
+              />
+              <span className="am-time-unit">초</span>
+            </div>
           </div>
-          <div className="am-helper">분:초 또는 시:분:초 (예: 30:05, 1:30:05)</div>
         </div>
 
         {/* 평균 페이스 — 자동 계산. 사용자가 클릭해서 직접 입력도 가능 */}
@@ -407,6 +570,64 @@ function ManualForm() {
               className={computedPace && !paceOverride ? "am-pace-auto" : ""}
             />
             {paceDisplay && <span className="am-suffix">/km</span>}
+          </div>
+        </div>
+
+        {/* 추가 정보 (선택사항) — 캡쳐 사진에서 자동 인식되거나 직접 입력 */}
+        <div className="am-section-label">추가 정보 (선택)</div>
+        <div className="am-grid-2">
+          <div className="am-field">
+            <label>평균 심박수</label>
+            <div className="am-input-wrap">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bpm}
+                onChange={(e) => setBpm(e.target.value.replace(/\D/g, ""))}
+                placeholder="입력하기"
+              />
+              {bpm.trim() && <span className="am-suffix">bpm</span>}
+            </div>
+          </div>
+          <div className="am-field">
+            <label>케이던스</label>
+            <div className="am-input-wrap">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={cadence}
+                onChange={(e) => setCadence(e.target.value.replace(/\D/g, ""))}
+                placeholder="입력하기"
+              />
+              {cadence.trim() && <span className="am-suffix">spm</span>}
+            </div>
+          </div>
+          <div className="am-field">
+            <label>칼로리</label>
+            <div className="am-input-wrap">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={kcal}
+                onChange={(e) => setKcal(e.target.value.replace(/\D/g, ""))}
+                placeholder="입력하기"
+              />
+              {kcal.trim() && <span className="am-suffix">kcal</span>}
+            </div>
+          </div>
+          <div className="am-field">
+            <label>누적 상승</label>
+            <div className="am-input-wrap">
+              <input
+                type="text"
+                value={elev}
+                onChange={(e) => setElev(e.target.value)}
+                placeholder="예: 11 m"
+              />
+              {elev.trim() && !/[a-zA-Z가-힣]/.test(elev) && (
+                <span className="am-suffix">m</span>
+              )}
+            </div>
           </div>
         </div>
 

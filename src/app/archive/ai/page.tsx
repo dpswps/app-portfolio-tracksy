@@ -53,6 +53,17 @@ async function fetchSummary(messages: ChatMsg[]): Promise<string> {
 export default function AIJournalPage() {
   const step = useAppStore((s) => s.aiStep);
 
+  // 페이지에 새로 진입했을 때 stale step(skip/loading/result)이 store에 남아있으면
+  // intro로 reset. chat은 진행 중일 수 있으니 보존.
+  useEffect(() => {
+    const current = useAppStore.getState().aiStep;
+    if (current === "skip" || current === "loading" || current === "result") {
+      useAppStore.getState().setAIStep("intro");
+    }
+    // mount 시 한 번만 확인
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (step === "intro") return <Intro />;
   if (step === "chat") return <Chat />;
   if (step === "loading") return <Loading />;

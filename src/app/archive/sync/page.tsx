@@ -1,12 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { partners } from "@/data/partners";
-import { useAppStore } from "@/stores/useAppStore";
 
 export default function ArchiveSyncPage() {
   const router = useRouter();
-  const showToast = useAppStore((s) => s.showToast);
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -26,15 +25,16 @@ export default function ArchiveSyncPage() {
       </div>
       <div className="sync-app-list">
         {partners.map((p) => (
-          <div
+          <Link
             key={p.id}
+            href={`/archive/sync/${encodeURIComponent(p.id)}`}
             className="sync-app-row"
-            onClick={() => showToast(`${p.name} 연동을 시작했어요`)}
+            style={{ textDecoration: "none", color: "inherit" }}
           >
             <div className={`logo ${p.cls}`}>{p.initial}</div>
             <div className="name">{p.name}</div>
             <div className="ext">↗</div>
-          </div>
+          </Link>
         ))}
       </div>
       <div className="sync-safe">

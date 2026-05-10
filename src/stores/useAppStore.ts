@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ArchiveRecords, Inquiry, RunningRecord, StyleCard } from "@/types";
+import type { ArchiveRecords, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
 type Modal = "gallerySheet" | "monthPicker" | null;
@@ -77,6 +77,12 @@ type State = {
 
   userRecords: ArchiveRecords;
 
+  /**
+   * scan 페이지에서 OCR로 추출한 데이터를 manual 페이지 prefill로 넘기기 위한 임시 state.
+   * manual mount 시 consume → null로 clear (휘발성, localStorage 비저장).
+   */
+  pendingScanData: ScanResult | null;
+
   /** Style cards that the user removed from "저장한 스타일" tab via bookmark click */
   removedSavedStyleIds: string[];
 
@@ -113,6 +119,10 @@ type State = {
   addRecord: (key: string, rec: RunningRecord) => void;
   /** 사용자가 추가한 기록 삭제 (시드 archiveRecords는 보호) */
   deleteUserRecord: (key: string) => void;
+  /** OCR 추출 결과를 manual 페이지로 전달용 임시 저장 */
+  setPendingScanData: (d: ScanResult | null) => void;
+  /** manual 페이지에서 한 번 읽고 비움 */
+  consumePendingScanData: () => ScanResult | null;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
@@ -145,7 +155,7 @@ function stripHtml(s: string): string {
 
 export const useAppStore = create<State>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: {
         name: "김러너",
         birth: "2000.01.01",
@@ -173,6 +183,7 @@ export const useAppStore = create<State>()(
       styleSubTab: "saved",
 
       userRecords: {},
+      pendingScanData: null,
 
       removedSavedStyleIds: [],
       userSavedStyles: [],
@@ -275,6 +286,14 @@ export const useAppStore = create<State>()(
           delete next[key];
           return { userRecords: next };
         }),
+
+      setPendingScanData: (d) => set({ pendingScanData: d }),
+
+      consumePendingScanData: () => {
+        const cur = get().pendingScanData;
+        if (cur) set({ pendingScanData: null });
+        return cur;
+      },
 
       setGalleryFilter: (p) =>
         set((s) => ({

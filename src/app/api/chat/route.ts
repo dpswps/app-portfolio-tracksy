@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 type ChatMessage = { from: "bot" | "user"; text: string };
 type Mode = "reply" | "summary";
 
-// Each topic has both a description AND a few example questions in natural Korean,
-// so the model can pick a natural phrasing instead of awkwardly quoting the label.
 const TOPICS = [
   {
     key: "distance",
@@ -92,20 +90,18 @@ export async function POST(req: Request) {
 
   const baseSystem = `너는 트랙시(Tracksy)라는 러닝 기록 앱의 친근한 AI 챗봇이야. 친한 러닝 친구처럼 가볍게 대화해.
 
-[말투 규칙]
-- 반드시 자연스러운 한국어 반말로만.
-- 영어 글자(a-z, A-Z) 절대 금지. 라틴 확장(à, æ, é) 절대 금지. 한자 절대 금지.
+[언어 규칙 — 가장 중요]
+- 출력은 오직 한국어 한글만. 자연스러운 반말.
+- 영어 알파벳, 라틴 확장(악센트 글자, IPA 음성 기호 등), 키릴, 그리스, 한자, 일본 가나, 아랍, 히브리 등 한글 외 모든 문자 절대 금지.
 - 외래어를 쓸 거면 한글로만 ("페이스" O / "pace" X).
+- 코드 토큰이나 플레이스홀더 (퍼센트 s, 중괄호 0 등) 절대 금지.
 - 다정하고 가볍게. 기계적/번역체/존댓말 금지.
-- 한 답변은 짧게: 1~3문장. 보통은 1~2문장이 가장 자연스러워.
+- 한 답변은 짧게: 1~3문장. 보통은 1~2문장.
 - 이모지는 거의 안 써 (0개가 기본, 4번 중 1번 정도만 1개).
 
 [문법 규칙 — 매우 중요]
 - 모든 문장은 문법적으로 완전해야 해. 주어/명사 없이 조사로 시작하지 마.
-- ❌ "는 얼마나 뛰었어?" (앞에 명사가 빠짐)
-- ❌ "은 어땠어?"
-- ✅ "거리는 얼마나 됐어?"
-- ✅ "오늘 페이스는 어땠어?"`;
+- 예: "거리는 얼마나 됐어?" / "오늘 페이스는 어땠어?"`;
 
   let systemPrompt = "";
   let userPrompt = "";
@@ -116,12 +112,11 @@ export async function POST(req: Request) {
     const stats = extractRunStats(userUtterances);
     const statsLine = describeStats(stats);
 
-    // effort에 따라 톤 가이드를 다르게 줌
     const toneGuides: Record<RunStats["effortLevel"], string> = {
-      great: "객관적으로 정말 잘 뛴 기록이야 (페이스가 빠르거나, 거리가 충분히 길거나).\n2줄차는 진심 어린 칭찬·감탄. 예: \"오늘 폼 진짜 살아있었네\", \"이 페이스면 진짜 대단한 거야\".\n\"수고했어\" 같은 무난한 멘트 X. 실제로 잘한 점을 짚어줘.",
-      good: "평균 이상의 좋은 러닝이었어. 꾸준함과 결과 둘 다 칭찬할 만함.\n2줄차는 잔잔한 칭찬. 예: \"오늘 페이스 안정적이었어\", \"이 정도면 진짜 잘 뛴 거야\".",
-      ok: "보통 수준의 러닝. 잘했다고 띄우기보다는 \"꾸준함\" 자체를 인정해주는 톤.\n2줄차는 담담한 응원. 예: \"오늘도 한 발 더 디뎠네\", \"이렇게 꾸준히 가는 게 결국 실력이야\".\n\"컨디션 좋았네\" 같은 과한 칭찬은 금지.",
-      tough: "짧거나 힘들었던 러닝. 사용자가 지치거나 만족 못 했을 가능성.\n2줄차는 위로/격려. 예: \"힘든 날에도 일단 신발 신은 너가 멋져\", \"오늘은 이 정도면 충분해, 내일 더 가볍게 뛰자\".\n절대 금지: \"컨디션 좋았네\", \"최고였어\" 같은 과장된 칭찬.",
+      great: "객관적으로 정말 잘 뛴 기록이야 (페이스가 빠르거나, 거리가 충분히 길거나).\n2줄차는 진심 어린 칭찬·감탄. 예: 오늘 폼 진짜 살아있었네 / 이 페이스면 진짜 대단한 거야.\n수고했어 같은 무난한 멘트 X. 실제로 잘한 점을 짚어줘.",
+      good: "평균 이상의 좋은 러닝이었어. 꾸준함과 결과 둘 다 칭찬할 만함.\n2줄차는 잔잔한 칭찬. 예: 오늘 페이스 안정적이었어 / 이 정도면 진짜 잘 뛴 거야.",
+      ok: "보통 수준의 러닝. 잘했다고 띄우기보다는 꾸준함 자체를 인정해주는 톤.\n2줄차는 담담한 응원. 예: 오늘도 한 발 더 디뎠네 / 이렇게 꾸준히 가는 게 결국 실력이야.\n컨디션 좋았네 같은 과한 칭찬은 금지.",
+      tough: "짧거나 힘들었던 러닝. 사용자가 지치거나 만족 못 했을 가능성.\n2줄차는 위로/격려. 예: 힘든 날에도 일단 신발 신은 너가 멋져 / 오늘은 이 정도면 충분해, 내일 더 가볍게 뛰자.\n절대 금지: 컨디션 좋았네, 최고였어 같은 과장된 칭찬.",
     };
 
     systemPrompt = `${baseSystem}
@@ -142,19 +137,19 @@ export async function POST(req: Request) {
 ${toneGuides[stats.effortLevel]}
 
 [2줄차에서 절대 쓰지 말 것]
-- "오늘 컨디션 좋았네" (분석 없이 자동 칭찬)
-- "오늘도 수고했어" (러너 얘기 무시한 일반 멘트)
-- "꾸준함이 최고의 재능" (구체성 없음)
+- 오늘 컨디션 좋았네 (분석 없이 자동 칭찬)
+- 오늘도 수고했어 (러너 얘기 무시한 일반 멘트)
+- 꾸준함이 최고의 재능 (구체성 없음)
 
 [좋은 예시 — 결과 수준별]
 잘 뛴 날 (5km, 25분, 페이스 5분/km):
-→ "한강에서 5km를 25분만에<br/>이 페이스 진짜 무시 못해 💪"
+한강에서 5km를 25분만에<br/>이 페이스 진짜 무시 못해 💪
 보통 날 (3km, 25분, 페이스 8분/km):
-→ "오늘은 천천히 3km<br/>이런 날도 결국 다 쌓이는 거야 🌿"
-힘든 날 (2km만 뛰고 그만, 사용자 "힘들었어"):
-→ "오늘은 2km로 짧게<br/>그래도 신발 신은 너가 멋져 🌙"
+오늘은 천천히 3km<br/>이런 날도 결국 다 쌓이는 거야 🌿
+힘든 날 (2km만 뛰고 그만, 사용자 힘들었어):
+오늘은 2km로 짧게<br/>그래도 신발 신은 너가 멋져 🌙
 비 오는 중 무리해서 뛴 날:
-→ "비 오는데도 3km<br/>그 의지 자체가 멋있어 🌧️"`;
+비 오는데도 3km<br/>그 의지 자체가 멋있어 🌧️`;
 
     userPrompt = `[러너가 한 말]
 ${userUtterances.map((u, i) => `${i + 1}. ${u}`).join("\n") || "(없음)"}
@@ -165,10 +160,10 @@ ${transcript}
 [추출된 객관 데이터]
 ${statsLine}
 
-위 데이터의 "종합 평가"에 맞는 톤으로, 두 줄 요약을 만들어.
+위 데이터의 종합 평가에 맞는 톤으로, 두 줄 요약을 만들어.
 1줄차는 사용자가 실제로 말한 내용(장소·거리·시간 등) 중에서 가져와 사실대로.
-2줄차는 톤 가이드대로. 무조건 "컨디션 좋았네" 같은 자동 칭찬 금지.
-결과 텍스트만 출력. 문법 깨진 문장 절대 금지.`;
+2줄차는 톤 가이드대로. 무조건 컨디션 좋았네 같은 자동 칭찬 금지.
+결과 텍스트만 출력. 한글 외 글자 절대 금지.`;
     maxTokens = 220;
     temperature = 0.85;
   } else {
@@ -187,47 +182,65 @@ ${statsLine}
 [지금 할 일]
 러너와 카톡으로 수다 떨듯이 자연스럽게 대화 중이야. 너의 다음 한 마디를 만들어.
 
+[필수 — 매 답변은 리액션부터 시작]
+사용자가 방금 한 말에 자연스럽게 반응하는 한 마디로 시작해. 그다음 (필요하면) 가벼운 의견이나 새 질문을 붙여.
+- 사용자: 별이 예뻤어 → 와 그 순간 좋았겠다. 음악 같이 들었어?
+- 사용자: 한강 → 아 한강 좋지. 페이스는 어땠어?
+- 사용자: 힘들었어 → 오늘 좀 힘드셨구나. 다리는 괜찮아?
+- 사용자: 혼자 → 혼자 달리는 맛도 있지. 다음엔 뭐 해보고 싶어?
+
+리액션 단어 풀 (자유롭게 변형):
+와 / 오 / 아 / 오 진짜? / 헐 / 대박 / 와 진짜? / 음 그렇구나 / 아 그래? / 오 좋네 / 그랬구나 / 운치있네 / 재밌네 / 그 기분 알지 / 괜찮았어? / 오 멋지다
+
 [가장 중요한 원칙 — 메아리(echo) 금지]
-사용자가 방금 말한 정보를 그대로 다시 따라 말하지 마. 친구가 "3km 뛰었어"라고 했을 때 "3km나 뛰었구나"는 이상해.
-- ❌ 러너 "3km" → "3km나 뛰었구나. 그동안 시간은?"   (정보 반복)
-- ❌ 러너 "한강" → "한강에서 뛰었구나. 페이스는?"      (정보 반복)
-- ❌ 러너 "1시간" → "1시간 동안 뛰었네."              (정보 반복)
-- ✅ 러너 "3km" → "오 좋네. 어디서?"
-- ✅ 러너 "한강" → "한강 좋지. 페이스는 어땠어?"
-- ✅ 러너 "1시간" → "꾸준히 잘 뛰었네. 어디서 돌았어?"
+사용자가 방금 말한 정보를 그대로 다시 따라 말하지 마.
+- ❌ 러너 3km → 3km나 뛰었구나 (정보 반복)
+- ❌ 러너 한강 → 한강에서 뛰었구나 (정보 반복)
+- ✅ 러너 3km → 오 좋네. 어디서?
+- ✅ 러너 한강 → 한강 좋지. 페이스 어땠어?
+
+[추측·예측·단정 질문 금지]
+사용자가 말 안 한 정보를 미리 단정해서 묻지 마. 부정 의문 금지.
+- ❌ 오늘은 비도 오지 않았어? (사용자가 비 얘기 안 했는데 단정)
+- ❌ 혼자 갔지? (단정)
+- ❌ 아침에 뛴 거야? (사용자가 시간 얘기 안 했을 때 단정)
+- ✅ 오늘 날씨는 어땠어?
+- ✅ 혼자 뛴 거야 아니면 같이?
+- ✅ 오늘 언제 뛰었어?
 
 [응답 패턴 — 매번 똑같이 하지 마, 다양하게 섞어]
-1) 짧은 리액션 + 다음 질문   (예: "오 좋네. 어디서?")
-2) 너의 의견/맞장구 + 질문    (예: "한강 코스 진짜 좋지. 페이스 어땠어?")
-3) 그냥 짧은 질문만           (예: "혼자 뛴 거야 같이 뛴 거야?")
-4) 가끔은 칭찬·감탄만         (예: "와, 비 오는데도 대단하다.")  ← 이건 가끔만
-패턴 1·2·3을 자주 섞고, 4는 어쩌다 한 번.
+1) 짧은 리액션 + 다음 질문   (예: 와 좋네. 어디서?)
+2) 너의 의견/맞장구 + 질문    (예: 한강 코스 진짜 좋지. 페이스 어땠어?)
+3) 공감 + 짧은 follow-up      (예: 그 기분 알지. 다리는 괜찮아?)
+4) 가끔은 칭찬·감탄만         (예: 와, 비 오는데도 대단하다.)  ← 이건 어쩌다 한 번
 
-[다음 한 마디 가이드]
+[가이드]
 - 매 답변마다 칭찬을 끼얹지 마. 진짜 칭찬할 만한 일에만 자연스럽게.
 - 사용자가 힘들었다고 하면 무리해서 칭찬하지 말고 공감/위로 위주로.
 - 같은 토픽(거리/페이스/장소 등)을 두 번 묻지 마.
-- 기계 톤("정말 대단해요" 같은) 절대 금지. 친구 톤("오", "아", "헐", "와" 같이 자연스럽게).
+- 기계 톤(정말 대단해요 같은) 절대 금지. 친구 톤만.
 - 라벨/따옴표 금지. 한 마디만.`;
 
     userPrompt = `[지금까지 대화]
 ${transcript}
 
 [러너의 마지막 말]
-"${lastUser}"
+${lastUser}
 
 [이미 네가 한 말 — 절대 또 하지 말 것]
 ${forbiddenList}
 
 [다음에 풀어갈 화제]
-"${focusTopic.desc}"
+${focusTopic.desc}
 이 화제를 다음처럼 물을 수 있어 (베끼지 말고 자연스럽게 변형해서):
 - ${focusTopic.examples.join("\n- ")}
 
 규칙:
+- 반드시 짧은 리액션으로 시작 (와, 오, 아, 헐 등).
+- 사용자가 말 안 한 정보를 단정해서 묻지 마.
 - 러너 마지막 말의 정보(숫자/장소 등)를 따라 말하지 마.
 - 1~2문장이 기본. 길어도 3문장.
-- 영어/한자/라틴확장 글자 금지.
+- 한국어 한글만. 영어/한자/아랍/IPA/플레이스홀더 절대 금지.
 - 한 마디만 출력. 라벨·따옴표 금지.`;
     maxTokens = 180;
     temperature = 0.95;
@@ -275,12 +288,22 @@ ${forbiddenList}
 
     const cleaned = sanitize(raw);
 
-    if (containsLatinScript(cleaned)) {
+    if (containsNonKoreanLetter(cleaned)) {
       console.warn(`[chat:${mode}] response had non-Korean letters, falling back. raw="${raw}"`);
       return NextResponse.json(
         mode === "summary"
           ? { summary: pickFallbackSummary(messages), error: "non-korean" }
           : { reply: pickFallbackReply(botUtterances), error: "non-korean" },
+        { status: 200 },
+      );
+    }
+
+    if (isTooShort(cleaned)) {
+      console.warn(`[chat:${mode}] response too short after sanitize. raw="${raw}"`);
+      return NextResponse.json(
+        mode === "summary"
+          ? { summary: pickFallbackSummary(messages), error: "too-short" }
+          : { reply: pickFallbackReply(botUtterances), error: "too-short" },
         { status: 200 },
       );
     }
@@ -320,60 +343,78 @@ ${forbiddenList}
   }
 }
 
+/**
+ * 모델 응답에서 한글 외 모든 letter + placeholder 토큰을 제거.
+ * IPA, 아랍, 한자, 일본 가나 등 비-한글 letter를 일괄 차단.
+ */
 function sanitize(raw: string): string {
   let s = String(raw).trim();
   if (!s) return "";
 
+  // 라벨 prefix 제거
   s = s.replace(/^(?:한 ?줄 ?요약|요약|코치|답변)\s*[:：]\s*/i, "");
 
-  if (/^["'“”].*["'“”]$/.test(s)) {
-    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
+  // 양 끝 직선 따옴표 제거
+  if (/^["'].*["']$/.test(s)) {
+    s = s.replace(/^["']+|["']+$/g, "");
   }
 
-  const SENTINEL = "BR";
+  // <br/> 태그를 sentinel로 보존
+  const SENTINEL = "줄바꿈자리표시자";
   s = s.replace(/<br\s*\/?>/gi, SENTINEL);
-  s = s.replace(/[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Han}]/gu, "");
+
+  // placeholder/포맷 토큰 제거 (예: %s, %d, {0}, {name}, <foo>)
+  s = s.replace(/%[a-zA-Z]/g, "");
+  s = s.replace(/\{[a-zA-Z0-9_]*\}/g, "");
+  s = s.replace(/<[a-zA-Z][^>]*>/g, "");
+
+  // 모든 Letter 중 한글이 아닌 것은 모두 제거 (IPA, 라틴, 아랍 등 일괄 차단)
+  s = s.replace(/\p{L}/gu, (ch) => (/\p{Script=Hangul}/u.test(ch) ? ch : ""));
+
+  // sentinel 복원
   s = s.replace(new RegExp(SENTINEL, "g"), "<br/>");
 
+  // 공백 정리
+  s = s.replace(/\s+([,.!?…])/g, "$1");
   s = s.replace(/\s{2,}/g, " ").trim();
+
   return s;
 }
 
-function containsLatinScript(s: string): boolean {
+/** sanitize 후에도 한글이 아닌 letter가 남아있는지 (이중 안전망) */
+function containsNonKoreanLetter(s: string): boolean {
   const stripped = s.replace(/<br\s*\/?>/gi, " ");
-  return /\p{Script=Latin}/u.test(stripped);
+  for (const ch of stripped) {
+    if (/\p{L}/u.test(ch) && !/\p{Script=Hangul}/u.test(ch)) return true;
+  }
+  return false;
 }
 
-/**
- * Detect "broken grammar" — a sentence that starts with a particle like
- * "는", "은", "을", "를", "이", "가", "과", "와" (which only attach to a noun).
- * Splits the reply into sentences first.
- */
+/** sanitize 후 한글 글자 수가 너무 적으면 (잡문자 응답) */
+function isTooShort(s: string): boolean {
+  const koreanChars = s.replace(/<br\s*\/?>/gi, " ").match(/\p{Script=Hangul}/gu);
+  return !koreanChars || koreanChars.length < 2;
+}
+
+/** 조사로 문장 시작했는지 검사 */
 function hasOrphanParticleSentence(s: string): boolean {
   if (!s) return false;
-  // Split on sentence-final punctuation OR <br/> tags.
   const parts = s
     .replace(/<br\s*\/?>/gi, ".")
     .split(/(?<=[.!?。…])\s+|\.\s*/)
     .map((p) => p.trim())
     .filter(Boolean);
-  // Korean particles that should never start a clause/sentence.
   const orphanRe = /^(?:는|은|을|를|이|가|과|와|도|만|에|의|로|으로)(?:\s|$)/;
   return parts.some((p) => orphanRe.test(p));
 }
 
-/**
- * Echo 검사: 사용자가 방금 말한 정보(숫자+단위 또는 짧은 핵심 단어)를
- * 봇이 그대로 다시 받아 말했는지 확인.
- * 친구가 "3km" 했을 때 봇이 "3km나 뛰었구나"라고 따라 말하는 패턴 차단.
- */
+/** 사용자 마지막 발언을 봇이 그대로 따라 말했는지 (echo) */
 function isEchoOfUser(botReply: string, userUtterances: string[]): boolean {
   const last = userUtterances[userUtterances.length - 1];
   if (!last) return false;
   const u = last.trim();
   if (!u) return false;
 
-  // 숫자+단위 echo (예: "3km", "30분", "1시간")
   const numUnit = u.match(/(\d+(?:\.\d+)?)\s*(km|키로|킬로|분|시간)/i);
   if (numUnit) {
     const num = numUnit[1];
@@ -382,7 +423,6 @@ function isEchoOfUser(botReply: string, userUtterances: string[]): boolean {
     if (re.test(botReply)) return true;
   }
 
-  // 짧은 단답(장소/단어)을 그대로 받아치기
   const trimmed = u.replace(/[\s.!?…]/g, "");
   if (trimmed.length >= 2 && trimmed.length <= 6) {
     if (botReply.includes(trimmed)) return true;
@@ -426,10 +466,6 @@ function isTooSimilarToPrevious(candidate: string, prev: string[]): boolean {
   return false;
 }
 
-/* 러닝 데이터 추출 + 객관적 평가
- * 일반 러너 기준: 페이스 ≤5.5분/km = great, 5.5~6.5 = good, 6.5~8 = ok, 8< = tough
- * 거리 기준: 10km+ = great, 5~10 = good, 3~5 = ok, ~3 = tough
- */
 type RunStats = {
   distanceKm?: number;
   timeMinutes?: number;
@@ -510,11 +546,11 @@ function describeStats(s: RunStats): string {
 
 const FALLBACK_REPLIES = [
   "오 좋네. 어디서 뛰었어?",
-  "거리는 얼마나 됐어?",
-  "페이스는 어땠어?",
+  "와 잘했네. 거리는 얼마나 됐어?",
+  "오 그랬구나. 페이스는 어땠어?",
   "오늘 날씨는 어땠어?",
-  "혼자 뛰었어, 아니면 같이?",
-  "뭐 들으면서 뛰었어?",
+  "혼자 뛴 거야 아니면 같이?",
+  "와 멋지다. 뭐 들으면서 뛰었어?",
   "다음엔 뭐 해보고 싶어?",
 ];
 
@@ -554,5 +590,3 @@ function pickFallbackSummary(messages: ChatMessage[]): string {
     messages.reduce((s, m) => s + m.text.length, 0) + new Date().getMinutes();
   return pool[seed % pool.length];
 }
-
-

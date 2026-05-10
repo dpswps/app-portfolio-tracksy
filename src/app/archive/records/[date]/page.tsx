@@ -149,6 +149,44 @@ export default function RecordDetailPage() {
           </div>
         </div>
 
+        {/* 지도 (캡쳐 사진) — 있을 때만 */}
+        {rec.screenshot && (
+          <div className="rd-map">
+            <div className="rd-section-label">지도</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={rec.screenshot}
+              alt="러닝 캡쳐 사진"
+              className="rd-map-img"
+            />
+          </div>
+        )}
+
+        {/* 구간(splits) — 있을 때만 */}
+        {rec.splits && rec.splits.length > 0 && (
+          <div className="rd-splits">
+            <div className="rd-section-label">구간</div>
+            <div className="rd-splits-table">
+              <div className="rd-splits-head">
+                <span>구간</span>
+                <span>시간</span>
+                <span>페이스</span>
+                <span>심박</span>
+              </div>
+              {rec.splits.map((sp, i) => (
+                <div className="rd-splits-row" key={`${sp.km}-${i}`}>
+                  <span className="rs-km">
+                    {Number.isInteger(sp.km) ? `${sp.km}km` : `${sp.km}km`}
+                  </span>
+                  <span>{sp.time ?? "—"}</span>
+                  <span>{sp.pace ?? "—"}</span>
+                  <span>{sp.bpm != null ? `${sp.bpm}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 메모 */}
         {rec.note ? (
           <div className="rd-note">
