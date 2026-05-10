@@ -90,7 +90,6 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
   const bg = useAppStore((s) => s.studioBackground);
   const cycleRatio = useAppStore((s) => s.cycleRatio);
   const ratio = useAppStore((s) => s.studioRatio);
-  const t = (msg: string) => () => showToast(msg);
 
   const ratioLabel = (r: string) => r.replace("/", ":");
 
@@ -170,7 +169,6 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
             className="sp-tool"
             onClick={() => {
               cycleRatio();
-              // showToast on the next tick so it reads the updated ratio from store
               setTimeout(() => {
                 const nextRatio = useAppStore.getState().studioRatio;
                 showToast(`비율 ${ratioLabel(nextRatio)}`);
@@ -200,38 +198,48 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
   }
 
   if (tab === "design") {
-    return (
-      <div className="sp-tools sp-design">
-        <button className="sp-tool" onClick={t("테마컬러")}>
-          <span className="sp-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M3 17l5-5 4 4 4-4 5 5" />
-            </svg>
-          </span>
-          <i>테마컬러</i>
-        </button>
-        <button className="sp-tool" onClick={t("스타일")}>
-          <span className="sp-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 3l9 9-9 9-9-9z" />
-            </svg>
-          </span>
-          <i>스타일</i>
-        </button>
-        <a href="/studio/background" className="sp-tool" style={{ textDecoration: "none" }}>
-          <span className="sp-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="M3 14l4-3 4 3 4-4 6 5" />
-            </svg>
-          </span>
-          <i>배경</i>
-        </a>
-      </div>
-    );
+    return <DesignTab />;
   }
 
   return null;
+}
+
+function DesignTab() {
+  const submenu = useAppStore((s) => s.studioDesignSubmenu);
+  const setSubmenu = useAppStore((s) => s.setStudioDesignSubmenu);
+  const showToast = useAppStore((s) => s.showToast);
+  const toggle = (m: "theme" | "style") => {
+    setSubmenu(submenu === m ? "none" : m);
+  };
+  return (
+    <div className="sp-tools sp-design">
+      <button
+        className={`sp-tool${submenu === "theme" ? " active" : ""}`}
+        onClick={() => toggle("theme")}
+      >
+        <span className="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M3 17l5-5 4 4 4-4 5 5" />
+          </svg>
+        </span>
+        <i>테마</i>
+      </button>
+      <button
+        className={`sp-tool${submenu === "style" ? " active" : ""}`}
+        onClick={() => {
+          toggle("style");
+          if (submenu !== "style") showToast("스타일");
+        }}
+      >
+        <span className="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 3l9 9-9 9-9-9z" />
+          </svg>
+        </span>
+        <i>스타일</i>
+      </button>
+    </div>
+  );
 }

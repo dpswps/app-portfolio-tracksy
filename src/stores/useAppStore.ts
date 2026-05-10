@@ -76,26 +76,32 @@ type State = {
 
   studioTab: "edit" | "text" | "sticker" | "design";
   studioBackground: string | null;
-  studioRotate: number; // 0, 90, 180, 270
+  studioRotate: number;
   studioFlipH: boolean;
   studioFlipV: boolean;
-  studioCrop: number; // 1, 1.25, 1.5, 1.75 (legacy zoom — kept for reset only)
+  studioCrop: number;
   studioCropMode: boolean;
-  studioRatio: string; // "9/16" | "4/5" | "1/1" | "5/4"
+  studioRatio: string;
   studioTexts: Array<{
     id: number;
     text: string;
-    x: number; // percent 0-100
-    y: number; // percent 0-100
-    size: number; // px
-    font: string; // CSS font-family
+    x: number;
+    y: number;
+    size: number;
+    font: string;
     fontWeight?: number | string;
     fontStyle?: string;
-    color: string; // hex
+    color: string;
   }>;
   studioActiveTextId: number | null;
   studioTextSubmenu: "none" | "font" | "size" | "color";
   studioEyedropperActive: boolean;
+  studioLayerPanelOpen: boolean;
+  studioHiddenLayers: Record<string, boolean>;
+  studioLockedLayers: Record<string, boolean>;
+  studioLayerNames: Record<string, string>;
+  studioSelectedLayerKey: string | null;
+  studioDesignSubmenu: "none" | "theme" | "style";
   studioCardData: {
     weekTitle: string;
     distance: string;
@@ -151,6 +157,16 @@ type State = {
   setActiveStudioText: (id: number | null) => void;
   setStudioTextSubmenu: (s: State["studioTextSubmenu"]) => void;
   setStudioEyedropperActive: (on: boolean) => void;
+  setStudioLayerPanelOpen: (open: boolean) => void;
+  toggleStudioLayerPanel: () => void;
+  toggleLayerVisibility: (key: string) => void;
+  toggleLayerLock: (key: string) => void;
+  setLayerName: (key: string, name: string) => void;
+  setStudioSelectedLayer: (key: string | null) => void;
+  reorderStudioText: (id: number, dir: "up" | "down") => void;
+  reorderSticker: (id: number, dir: "up" | "down") => void;
+  setStudioDesignSubmenu: (m: State["studioDesignSubmenu"]) => void;
+  applyStudioTheme: (bg: string) => void;
   setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
   loadNextStudioRecord: () => string | null;
   loadStudioRecord: (date: string) => void;
@@ -204,6 +220,12 @@ export const useAppStore = create<State>((set, get) => ({
   studioActiveTextId: null,
   studioTextSubmenu: "none",
   studioEyedropperActive: false,
+  studioLayerPanelOpen: false,
+  studioHiddenLayers: {},
+  studioLockedLayers: { bg: true },
+  studioLayerNames: {},
+  studioSelectedLayerKey: null,
+  studioDesignSubmenu: "none",
   studioCardData: {
     weekTitle: "이번주 러닝 기록",
     distance: "5.21",
@@ -305,7 +327,11 @@ export const useAppStore = create<State>((set, get) => ({
         font: "var(--font-noto-kr), 'Noto Sans KR', system-ui, sans-serif",
         color: "#FFFFFF",
       };
-      return { studioTexts: [...s.studioTexts, t], studioActiveTextId: id };
+      return {
+        studioTexts: [...s.studioTexts, t],
+        studioActiveTextId: id,
+        studioSelectedLayerKey: `text-${id}`,
+      };
     });
   },
   updateStudioText: (id, patch) =>
@@ -317,11 +343,90 @@ export const useAppStore = create<State>((set, get) => ({
     set((s) => ({
       studioTexts: s.studioTexts.filter((t) => t.id !== id),
       studioActiveTextId: s.studioActiveTextId === id ? null : s.studioActiveTextId,
+      studioSelectedLayerKey:
+        s.studioSelectedLayerKey === `text-${id}` ? null : s.studioSelectedLayerKey,
     }));
   },
-  setActiveStudioText: (id) => set({ studioActiveTextId: id }),
+  setActiveStudioText: (id) =>
+    set({
+      studioActiveTextId: id,
+      studioSelectedLayerKey: id != null ? `text-${id}` : null,
+    }),
+  setStudioSelectedLayer: (key) =>
+    set(() => {
+      if (key === null) return { studioSelectedLayerKey: null, studioActiveTextId: null };
+      if (key.startsWith("text-")) {
+        const id = Number(key.slice(5));
+        return { studioSelectedLayerKey: key, studioActiveTextId: id };
+      }
+      return { studioSelectedLayerKey: key, studioActiveTextId: null };
+    }),
   setStudioTextSubmenu: (m) => set({ studioTextSubmenu: m }),
   setStudioEyedropperActive: (on) => set({ studioEyedropperActive: on }),
+  setStudioLayerPanelOpen: (open) => set({ studioLayerPanelOpen: open }),
+  toggleStudioLayerPanel: () =>
+    set((s) => ({ studioLayerPanelOpen: !s.studioLayerPanelOpen })),
+  toggleLayerVisibility: (key) =>
+    set((s) => {
+      const next = { ...s.studioHiddenLayers };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return { studioHiddenLayers: next };
+    }),
+  toggleLayerLock: (key) =>
+    set((s) => {
+      const next = { ...s.studioLockedLayers };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return { studioLockedLayers: next };
+    }),
+  setLayerName: (key, name) =>
+    set((s) => {
+      const next = { ...s.studioLayerNames };
+      if (name.trim() === "") delete next[key];
+      else next[key] = name;
+      return { studioLayerNames: next };
+    }),
+  reorderStudioText: (id, dir) => {
+    get().pushStudioHistory();
+    set((s) => {
+      const arr = [...s.studioTexts];
+      const idx = arr.findIndex((t) => t.id === id);
+      if (idx === -1) return s;
+      const target = dir === "up" ? idx + 1 : idx - 1;
+      if (target < 0 || target >= arr.length) return s;
+      const tmp = arr[idx]!;
+      arr[idx] = arr[target]!;
+      arr[target] = tmp;
+      return { studioTexts: arr };
+    });
+  },
+  reorderSticker: (id, dir) => {
+    get().pushStudioHistory();
+    set((s) => {
+      const arr = [...s.placedStickers];
+      const idx = arr.findIndex((p) => p.id === id);
+      if (idx === -1) return s;
+      const target = dir === "up" ? idx + 1 : idx - 1;
+      if (target < 0 || target >= arr.length) return s;
+      const tmp = arr[idx]!;
+      arr[idx] = arr[target]!;
+      arr[target] = tmp;
+      return { placedStickers: arr };
+    });
+  },
+  setStudioDesignSubmenu: (m) => set({ studioDesignSubmenu: m }),
+  applyStudioTheme: (bg) => {
+    get().pushStudioHistory();
+    set({
+      studioBackground: bg,
+      studioRotate: 0,
+      studioFlipH: false,
+      studioFlipV: false,
+      studioCrop: 1,
+      studioCropMode: false,
+    });
+  },
   setStudioCardData: (patch) =>
     set((s) => ({ studioCardData: { ...s.studioCardData, ...patch } })),
   loadNextStudioRecord: () => {
@@ -375,7 +480,6 @@ export const useAppStore = create<State>((set, get) => ({
         studioTexts: s.studioTexts.map((t) => ({ ...t })),
         placedStickers: s.placedStickers.map((p) => ({ ...p })),
       };
-      // Cap history at 50 to avoid unbounded memory.
       const next = [...s.studioHistory, snap];
       if (next.length > 50) next.shift();
       return { studioHistory: next, studioFuture: [] };
@@ -438,7 +542,11 @@ export const useAppStore = create<State>((set, get) => ({
   },
   removeSticker: (id) => {
     get().pushStudioHistory();
-    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) }));
+    set((s) => ({
+      placedStickers: s.placedStickers.filter((p) => p.id !== id),
+      studioSelectedLayerKey:
+        s.studioSelectedLayerKey === `sticker-${id}` ? null : s.studioSelectedLayerKey,
+    }));
   },
   setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
   setArchiveView: (v) =>

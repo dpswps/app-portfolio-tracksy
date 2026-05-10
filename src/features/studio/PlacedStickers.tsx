@@ -3,10 +3,12 @@
 import { useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 
-const DRAG_THRESHOLD = 5; // px before treated as drag (vs click)
+const DRAG_THRESHOLD = 5;
 
 export default function PlacedStickers() {
   const stickers = useAppStore((s) => s.placedStickers);
+  const hidden = useAppStore((s) => s.studioHiddenLayers);
+  const locked = useAppStore((s) => s.studioLockedLayers);
   const removeSticker = useAppStore((s) => s.removeSticker);
   const updateSticker = useAppStore((s) => s.updatePlacedSticker);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
@@ -36,6 +38,8 @@ export default function PlacedStickers() {
     x: number,
     y: number,
   ) => (e: React.PointerEvent<HTMLButtonElement>) => {
+    // Locked sticker: ignore drag and tap-to-remove entirely.
+    if (locked[`sticker-${id}`]) return;
     e.stopPropagation();
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     dragRef.current = {
@@ -91,28 +95,29 @@ export default function PlacedStickers() {
       pushed: false,
     };
     if (wasClick) {
-      // tap without drag → remove
       removeSticker(id);
     }
   };
 
   return (
     <div ref={containerRef} className="placed-stickers">
-      {stickers.map((p) => (
-        <button
-          key={p.id}
-          className="placed-sticker"
-          style={{ left: `${p.x}%`, top: `${p.y}%` }}
-          onPointerDown={onPointerDown(p.id, p.x, p.y)}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          aria-label={`${p.emoji}`}
-          title="드래그로 이동, 탭으로 제거"
-        >
-          {p.emoji}
-        </button>
-      ))}
+      {stickers
+        .filter((p) => !hidden[`sticker-${p.id}`])
+        .map((p) => (
+          <button
+            key={p.id}
+            className="placed-sticker"
+            style={{ left: `${p.x}%`, top: `${p.y}%` }}
+            onPointerDown={onPointerDown(p.id, p.x, p.y)}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            aria-label={`${p.emoji}`}
+            title="드래그로 이동, 탭으로 제거"
+          >
+            {p.emoji}
+          </button>
+        ))}
     </div>
   );
 }

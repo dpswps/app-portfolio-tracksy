@@ -4,27 +4,26 @@ import { useEffect, useRef } from "react";
 import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
-// Uncontrolled contentEditable: sets initial text via ref on mount, then
-// emits onChange without React re-rendering its children (preserves caret).
 function EditableText({
   value,
   onChange,
   className,
   multiline = false,
   small,
+  locked = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
   multiline?: boolean;
   small?: boolean;
+  locked?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const editedRef = useRef(false);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
   const Tag = (multiline ? "div" : "span") as "div" | "span";
 
-  // Initial mount only — render the value via DOM, never via React children.
   useEffect(() => {
     if (ref.current && ref.current.innerText !== value) {
       ref.current.innerText = value;
@@ -32,8 +31,6 @@ function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If the value was changed externally (e.g. via "load record" or undo),
-  // sync the DOM only when the element is not currently being edited.
   useEffect(() => {
     if (!ref.current) return;
     if (document.activeElement === ref.current) return;
@@ -42,8 +39,8 @@ function EditableText({
     }
   }, [value]);
 
-  if (small) {
-    // small preview shouldn't be editable
+  if (small || locked) {
+    // Read-only render: still shows the value but no contentEditable.
     return <Tag className={className}>{value}</Tag>;
   }
 
@@ -54,10 +51,6 @@ function EditableText({
       contentEditable
       suppressContentEditableWarning
       spellCheck={false}
-      // Intentionally DO NOT stopPropagation here — let the parent drag
-      // handler (in RunningCard's stats-group) track the pointer too.
-      // Single tap (no movement) still focuses for editing; drag past the
-      // threshold takes over and blurs.
       onInput={(e) => {
         if (!editedRef.current) {
           pushHistory();
@@ -74,6 +67,14 @@ function EditableText({
 
 export default function RunningCard({ small = false }: { small?: boolean }) {
   const bg = useAppStore((s) => s.studioBackground);
+  const hidden = useAppStore((s) => s.studioHiddenLayers);
+  const locked = useAppStore((s) => s.studioLockedLayers);
+  const bgHidden = !small && !!hidden["bg"];
+  const cardHidden = !small && !!hidden["card"];
+  const cardLocked = !small && !!locked["card"];
+  // Themes are SVG-data-URL gradients applied via the design tab; photos
+  // are anything else (uploaded jpg/png as base64 data URL, or file URL).
+  const isTheme = !!bg && bg.startsWith("data:image/svg+xml");
   const rotate = useAppStore((s) => s.studioRotate);
   const flipH = useAppStore((s) => s.studioFlipH);
   const flipV = useAppStore((s) => s.studioFlipV);
@@ -102,7 +103,7 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
     captured: false,
     pushed: false,
   });
-  const DRAG_THRESHOLD = 4; // px
+  const DRAG_THRESHOLD = 4;
 
   const transforms: string[] = [];
   if (rotate) transforms.push(`rotate(${rotate}deg)`);
@@ -113,7 +114,7 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
 
   const photoStyle = bg
     ? {
-        backgroundImage: `url(${bg})`,
+        backgroundImage: `url("${bg}")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         transform,
@@ -124,15 +125,12 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
     ? { transform, transformOrigin: "center", transition: "transform 0.18s ease" }
     : undefined;
 
-  // ratio is consumed by card-stage in studio/page.tsx; reference it here so
-  // the component re-renders when ratio changes (no-op on small preview).
   void ratio;
 
   const onStatsPointerDown = (e: React.PointerEvent) => {
     if (small) return;
-    // Don't capture yet — let the click reach the editable text so a
-    // simple tap focuses it for editing. We only take over when the
-    // pointer actually moves past the drag threshold.
+    // Card layer locked: block the drag entirely.
+    if (cardLocked) return;
     dragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -154,29 +152,22 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
       if (Math.abs(dxPx) < DRAG_THRESHOLD && Math.abs(dyPx) < DRAG_THRESHOLD) {
         return;
       }
-      // threshold passed → start real drag
       d.captured = true;
       try {
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
       } catch {
         /* noop */
       }
-      // blur whatever editable was focused so we can drag freely
       const ae = document.activeElement;
       if (ae instanceof HTMLElement && ae.isContentEditable) ae.blur();
-      // try to clear any text selection started by the original mousedown
       window.getSelection?.()?.removeAllRanges?.();
       pushHistory();
       d.pushed = true;
-      // Reset the reference point to here so movement from this frame
-      // onward is smooth (no initial jump equal to the threshold).
       d.startX = e.clientX;
       d.startY = e.clientY;
       return;
     }
 
-    // Pixel-based offset so 1px of cursor movement = 1px of group movement,
-    // both horizontally and vertically.
     setStatsOffset(d.startOffX + dxPx, d.startOffY + dyPx);
   };
 
@@ -196,91 +187,102 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
 
   return (
     <div ref={cardRef} className={`running-card${small ? " small" : ""}`}>
-      <div className="rc-photo" style={photoStyle} />
-      <div className="rc-grad" />
-      {!bg && <div className="rc-runner" />}
+      {!bgHidden && <div className="rc-photo" style={photoStyle} />}
+      {!bgHidden && <div className="rc-grad" />}
+      {!bgHidden && (!bg || isTheme) && <div className="rc-runner" />}
 
-      <div
-        className="rc-stats-group"
-        style={
-          small
-            ? undefined
-            : {
-                transform: `translate(${statsOffset.x}px, ${statsOffset.y}px)`,
-              }
-        }
-        onPointerDown={onStatsPointerDown}
-        onPointerMove={onStatsPointerMove}
-        onPointerUp={onStatsPointerUp}
-        onPointerCancel={onStatsPointerUp}
-      >
-        <div className="rc-week">
-          <EditableText
-            small={small}
-            value={card.weekTitle}
-            onChange={(v) => setCard({ weekTitle: v })}
-          />{" "}
-          <span>🏃</span>
-        </div>
-        <div className="rc-distance">
-          <EditableText
-            small={small}
-            value={card.distance}
-            onChange={(v) => setCard({ distance: v })}
-          />
-          <small>km</small>
-        </div>
+      {!cardHidden && (
+        <div
+          className="rc-stats-group"
+          style={
+            small
+              ? undefined
+              : {
+                  transform: `translate(${statsOffset.x}px, ${statsOffset.y}px)`,
+                  cursor: cardLocked ? "default" : undefined,
+                }
+          }
+          onPointerDown={onStatsPointerDown}
+          onPointerMove={onStatsPointerMove}
+          onPointerUp={onStatsPointerUp}
+          onPointerCancel={onStatsPointerUp}
+        >
+          <div className="rc-week">
+            <EditableText
+              small={small}
+              locked={cardLocked}
+              value={card.weekTitle}
+              onChange={(v) => setCard({ weekTitle: v })}
+            />{" "}
+            <span>🏃</span>
+          </div>
+          <div className="rc-distance">
+            <EditableText
+              small={small}
+              locked={cardLocked}
+              value={card.distance}
+              onChange={(v) => setCard({ distance: v })}
+            />
+            <small>km</small>
+          </div>
 
-        <div className="rc-stats">
-          <div className="rc-stat">
-            <span className="rc-ic">⏱</span>
-            <b>
-              <EditableText
-                small={small}
-                value={card.time}
-                onChange={(v) => setCard({ time: v })}
-              />
-            </b>
-            <i>운동 시간</i>
-          </div>
-          <div className="rc-stat">
-            <span className="rc-ic">⚡</span>
-            <b>
-              <EditableText
-                small={small}
-                value={card.pace}
-                onChange={(v) => setCard({ pace: v })}
-              />
-            </b>
-            <i>평균 페이스</i>
-          </div>
-          <div className="rc-stat">
-            <span className="rc-ic">🔥</span>
-            <b>
-              <EditableText
-                small={small}
-                value={card.calories}
-                onChange={(v) => setCard({ calories: v })}
-              />
-            </b>
-            <i>kcal</i>
+          <div className="rc-stats">
+            <div className="rc-stat">
+              <span className="rc-ic">⏱</span>
+              <b>
+                <EditableText
+                  small={small}
+                  locked={cardLocked}
+                  value={card.time}
+                  onChange={(v) => setCard({ time: v })}
+                />
+              </b>
+              <i>운동 시간</i>
+            </div>
+            <div className="rc-stat">
+              <span className="rc-ic">⚡</span>
+              <b>
+                <EditableText
+                  small={small}
+                  locked={cardLocked}
+                  value={card.pace}
+                  onChange={(v) => setCard({ pace: v })}
+                />
+              </b>
+              <i>평균 페이스</i>
+            </div>
+            <div className="rc-stat">
+              <span className="rc-ic">🔥</span>
+              <b>
+                <EditableText
+                  small={small}
+                  locked={cardLocked}
+                  value={card.calories}
+                  onChange={(v) => setCard({ calories: v })}
+                />
+              </b>
+              <i>kcal</i>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="rc-bubble-wrap">
-        <div className="rc-bubble">
-          <EditableText
-            small={small}
-            multiline
-            value={card.bubble}
-            onChange={(v) => setCard({ bubble: v })}
-          />
+      {!cardHidden && (
+        <div className="rc-bubble-wrap">
+          <div className="rc-bubble">
+            <EditableText
+              small={small}
+              locked={cardLocked}
+              multiline
+              value={card.bubble}
+              onChange={(v) => setCard({ bubble: v })}
+            />
+          </div>
+          <div className="rc-mascot">
+            <Mascot />
+          </div>
         </div>
-        <div className="rc-mascot">
-          <Mascot />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

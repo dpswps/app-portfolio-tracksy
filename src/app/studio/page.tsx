@@ -11,6 +11,8 @@ import TextSubmenu from "@/features/studio/TextSubmenu";
 import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
 import RecordPicker from "@/features/studio/RecordPicker";
 import PlacedStickers from "@/features/studio/PlacedStickers";
+import LayerPanel from "@/features/studio/LayerPanel";
+import DesignSubmenu from "@/features/studio/DesignSubmenu";
 import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
@@ -27,6 +29,8 @@ export default function StudioPage() {
   const canUndo = useAppStore((s) => s.studioHistory.length > 0);
   const canRedo = useAppStore((s) => s.studioFuture.length > 0);
   const setRecordPickerOpen = useAppStore((s) => s.setStudioRecordPickerOpen);
+  const layerPanelOpen = useAppStore((s) => s.studioLayerPanelOpen);
+  const toggleLayerPanel = useAppStore((s) => s.toggleStudioLayerPanel);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onLoadRecord = () => {
@@ -58,7 +62,6 @@ export default function StudioPage() {
       }
     };
     reader.readAsDataURL(file);
-    // reset so same file can be picked again
     e.target.value = "";
   };
 
@@ -70,29 +73,24 @@ export default function StudioPage() {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <button
-          className="st-icon"
-          aria-label="실행취소"
-          onClick={undo}
-          disabled={!canUndo}
-        >
+        <button className="st-icon" aria-label="실행취소" onClick={undo} disabled={!canUndo}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 14L4 9l5-5" />
             <path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-4" />
           </svg>
         </button>
-        <button
-          className="st-icon"
-          aria-label="다시실행"
-          onClick={redo}
-          disabled={!canRedo}
-        >
+        <button className="st-icon" aria-label="다시실행" onClick={redo} disabled={!canRedo}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 14l5-5-5-5" />
             <path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h4" />
           </svg>
         </button>
-        <button className="st-icon" aria-label="레이어">
+        <button
+          className={`st-icon${layerPanelOpen ? " active" : ""}`}
+          aria-label="레이어"
+          aria-pressed={layerPanelOpen}
+          onClick={toggleLayerPanel}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="12 2 22 8.5 12 15 2 8.5 12 2" />
             <polyline points="2 15.5 12 22 22 15.5" />
@@ -117,15 +115,12 @@ export default function StudioPage() {
             <PlacedStickers />
             {cropMode && <CropOverlay />}
             {tab === "text" && <TextSubmenu />}
+            {tab === "design" && <DesignSubmenu />}
             <EyedropperLoupe />
           </div>
         </div>
         <div className="st-fab-stack">
-          <Link
-            href="/archive/ai"
-            className="st-fab st-fab-mascot"
-            aria-label="AI 오늘의 러닝일지"
-          >
+          <Link href="/archive/ai" className="st-fab st-fab-mascot" aria-label="AI 오늘의 러닝일지">
             <Mascot className="st-fab-mascot-img" />
           </Link>
           <button className="st-fab st-fab-image" aria-label="배경 사진 추가" onClick={onPickPhoto}>
@@ -144,17 +139,12 @@ export default function StudioPage() {
             </svg>
             <span className="st-fab-plus" aria-hidden>+</span>
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={onFileChange}
-            style={{ display: "none" }}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileChange} style={{ display: "none" }} />
         </div>
       </div>
 
       <RecordPicker />
+      <LayerPanel />
 
       <div className="studio-panel">
         <StudioPanel tab={tab} />
