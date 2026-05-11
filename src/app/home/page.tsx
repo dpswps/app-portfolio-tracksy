@@ -2,25 +2,192 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import Mascot from "@/components/ui/Mascot";
-
-const week = [
-  { dow: "일", date: 13, on: false },
-  { dow: "월", date: 14, on: true },
-  { dow: "화", date: 15, on: true },
-  { dow: "수", date: 16, on: false },
-  { dow: "목", date: 17, on: true },
-  { dow: "금", date: 18, on: false },
-  { dow: "토", date: 19, on: false },
-];
+import { archiveRecords } from "@/data/archiveRecords";
+import { KO_DOW, parseKey, pad2 } from "@/lib/date";
 
 export default function HomePage() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
+  const userRecords = useAppStore((s) => s.userRecords);
+  const bestMetric = useAppStore((s) => s.bestMetric);
+  const setModal = useAppStore((s) => s.setModal);
+  const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
+  const setArchiveView = useAppStore((s) => s.setArchiveView);
+  const setCalExpanded = useAppStore((s) => s.setCalExpanded);
+  const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
+  const pickDate = useAppStore((s) => s.pickDate);
   const trackRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+
+  // Today as YYYY-MM-DD (local time)
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  }, []);
+
+  // Pick the 2 most recent runs (today or earlier) from static + user records.
+  const recentRuns = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    return Object.entries(merged)
+      .filter(([k]) => k <= todayKey)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, 2)
+      .map(([key, rec]) => ({ key, rec }));
+  }, [userRecords, todayKey]);
+
+  // Count of runs in current month + delta vs. previous month.
+  const monthStats = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1; // 1-indexed
+    const prevY = m === 1 ? y - 1 : y;
+    const prevM = m === 1 ? 12 : m - 1;
+    const curPrefix = `${y}-${pad2(m)}`;
+    const prevPrefix = `${prevY}-${pad2(prevM)}`;
+    let cur = 0;
+    let prev = 0;
+    for (const k of Object.keys(merged)) {
+      if (k.startsWith(curPrefix)) cur++;
+      else if (k.startsWith(prevPrefix)) prev++;
+    }
+    let badge: { text: string; cls: "pink" | "gray" };
+    if (prev === 0 && cur === 0) {
+      badge = { text: "기록을 등록해보세요", cls: "gray" };
+    } else if (prev === 0) {
+      badge = { text: `↗ 이번달 ${cur}회 기록`, cls: "pink" };
+    } else if (cur === 0) {
+      badge = { text: "↘ 이번달 첫 기록 도전!", cls: "gray" };
+    } else {
+      const diff = Math.round(((cur - prev) / prev) * 100);
+      if (diff > 0) badge = { text: `↗ 지난달 대비 ${diff}%`, cls: "pink" };
+      else if (diff < 0) badge = { text: `↘ 지난달 대비 ${Math.abs(diff)}%`, cls: "gray" };
+      else badge = { text: "지난달과 동일", cls: "gray" };
+    }
+    return { cur, prev, badge };
+  }, [userRecords]);
+
+  // Best run within the past 90 days, computed by selected metric.
+  const bestRecord = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today);
+    cutoff.setDate(today.getDate() - 90);
+
+    const paceToSec = (p?: string) => {
+      if (!p) return null;
+      const m = p.match(/(\d+)['′](\d+)/);
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    };
+    const timeToSec = (t?: string) => {
+      if (!t) return null;
+      const parts = t.split(":").map((x) => parseInt(x, 10));
+      if (parts.some((n) => isNaN(n))) return null;
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return null;
+    };
+
+    type Best = { key: string; valueStr: string; numericRank: number };
+    let best: Best | null = null;
+    // For pace, smaller = better. For dist/time, larger = better.
+    const isLowerBetter = bestMetric === "pace";
+
+    for (const [key, rec] of Object.entries(merged)) {
+      const d = new Date(`${key}T00:00:00`);
+      if (isNaN(d.getTime()) || d < cutoff || d > today) continue;
+
+      let n: number | null = null;
+      let str = "";
+      if (bestMetric === "dist") {
+        n = parseFloat(rec.dist);
+        if (isNaN(n)) continue;
+        str = rec.dist;
+      } else if (bestMetric === "time") {
+        n = timeToSec(rec.time);
+        if (n == null) continue;
+        str = rec.time as string;
+      } else {
+        n = paceToSec(rec.pace);
+        if (n == null) continue;
+        str = rec.pace;
+      }
+      if (
+        !best ||
+        (isLowerBetter ? n < best.numericRank : n > best.numericRank)
+      ) {
+        best = { key, valueStr: str, numericRank: n };
+      }
+    }
+    return best;
+  }, [userRecords, todayKey, bestMetric]);
+
+  const bestDateLabel = useMemo(() => {
+    if (!bestRecord) return null;
+    const { y, m, d } = parseKey(bestRecord.key);
+    return `${y}.${pad2(m)}.${pad2(d)} 달성!`;
+  }, [bestRecord]);
+
+  const bestUnit =
+    bestMetric === "dist" ? "km" : bestMetric === "time" ? "" : "/km";
+  const bestActiveLabel =
+    bestMetric === "dist" ? "거리" : bestMetric === "time" ? "시간" : "페이스";
+
+  // This week's 7 days (Sunday → Saturday) based on today's date.
+  const week = useMemo(() => {
+    const merged = { ...archiveRecords, ...userRecords };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - today.getDay()); // back to Sunday
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      return {
+        dow: KO_DOW[i],
+        date: d.getDate(),
+        key,
+        on: !!merged[key],
+        isToday: key === todayKey,
+      };
+    });
+  }, [userRecords, todayKey]);
+
+  const recentPrimary = recentRuns[0];
+  const recentSecondary = recentRuns[1];
+
+  const goToRecordsArchive = () => {
+    setArchiveMainTab("records");
+    setArchiveView("calendar");
+    // setArchiveView resets archiveCalExpanded to false, so set it true after.
+    setTimeout(() => setCalExpanded(true), 0);
+    router.push("/archive");
+  };
+
+  const goToRecordOnArchive = (key: string) => {
+    const { y, m } = parseKey(key);
+    setArchiveMainTab("records");
+    setArchiveView("calendar");
+    setArchiveMonth(y, m);
+    pickDate(key);
+    setTimeout(() => setCalExpanded(true), 0);
+    router.push("/archive");
+  };
+
+  const formatShortDate = (k: string) => {
+    const { m, d, dow } = parseKey(k);
+    return `${pad2(m)}.${pad2(d)} ${KO_DOW[dow]}`;
+  };
+  const formatLongDate = (k: string) => {
+    const { y, m, d, dow } = parseKey(k);
+    return { full: `${y}.${pad2(m)}.${pad2(d)}`, dow: KO_DOW[dow] };
+  };
 
   useEffect(() => {
     const track = trackRef.current;
@@ -42,24 +209,35 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    // Snap to nearest slide center
-    const snapToNearest = () => {
+    // Pick the snap-target slide based on current scroll position + release velocity.
+    // Positive velocity (px/ms) means finger moved right (content moved right),
+    // which corresponds to scrolling LEFT (i.e. previous slide).
+    const getSnapTarget = (velocity: number) => {
       const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
-      const center = track.scrollLeft + track.clientWidth / 2;
-      let nearest = slides[0];
+      if (slides.length === 0) return null;
+      const viewCenter = track.scrollLeft + track.clientWidth / 2;
+      let nearestIdx = 0;
       let minDist = Infinity;
-      for (const s of slides) {
+      slides.forEach((s, i) => {
         const c = s.offsetLeft + s.clientWidth / 2;
-        const d = Math.abs(c - center);
+        const d = Math.abs(c - viewCenter);
         if (d < minDist) {
           minDist = d;
-          nearest = s;
+          nearestIdx = i;
         }
-      }
-      if (nearest) {
-        const targetLeft = nearest.offsetLeft - (track.clientWidth - nearest.clientWidth) / 2;
-        track.scrollTo({ left: targetLeft, behavior: "smooth" });
-      }
+      });
+      // If user flicks fast enough, advance one slide in the direction of motion.
+      const FLICK = 0.45; // px/ms
+      if (velocity < -FLICK && nearestIdx < slides.length - 1) nearestIdx++;
+      else if (velocity > FLICK && nearestIdx > 0) nearestIdx--;
+      return slides[nearestIdx];
+    };
+
+    const snapWithVelocity = (velocity: number) => {
+      const target = getSnapTarget(velocity);
+      if (!target) return;
+      const targetLeft = target.offsetLeft - (track.clientWidth - target.clientWidth) / 2;
+      track.scrollTo({ left: targetLeft, behavior: "smooth" });
     };
 
     // Pointer drag-to-slide (mouse + touch)
@@ -68,6 +246,9 @@ export default function HomePage() {
     let startX = 0;
     let startScroll = 0;
     let dragDistance = 0;
+    let lastX = 0;
+    let lastTime = 0;
+    let velocity = 0;
     const DRAG_THRESHOLD = 4;
 
     const onDown = (e: PointerEvent) => {
@@ -76,6 +257,9 @@ export default function HomePage() {
       dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
+      lastX = e.clientX;
+      lastTime = performance.now();
+      velocity = 0;
       // Don't capture pointer yet — wait until actual drag starts so that
       // simple clicks reach their underlying targets (e.g. hero-main onClick).
     };
@@ -91,7 +275,17 @@ export default function HomePage() {
         track.classList.add("dragging");
       }
       if (captured) {
+        // 1:1 follow-finger scroll; CSS disables snap while .dragging is set.
         track.scrollLeft = startScroll - dx;
+        // Smooth (low-pass) velocity sampling — px/ms.
+        const now = performance.now();
+        const dt = now - lastTime;
+        if (dt > 0) {
+          const inst = (e.clientX - lastX) / dt;
+          velocity = velocity * 0.6 + inst * 0.4;
+        }
+        lastX = e.clientX;
+        lastTime = now;
       }
     };
     const onUp = (e: PointerEvent) => {
@@ -101,7 +295,16 @@ export default function HomePage() {
         try {
           track.releasePointerCapture(e.pointerId);
         } catch {}
-        track.classList.remove("dragging");
+        // Stale velocity guard — if the pointer paused before release, treat as 0.
+        const sinceMove = performance.now() - lastTime;
+        if (sinceMove > 80) velocity = 0;
+        // Run snap on the next frame so the browser has up-to-date scrollLeft.
+        requestAnimationFrame(() => snapWithVelocity(velocity));
+        // Re-enable CSS snap after the smooth animation roughly finishes
+        // so subsequent native scrolls still snap on each slide.
+        window.setTimeout(() => {
+          track.classList.remove("dragging");
+        }, 280);
       }
       // If user actually dragged, suppress the upcoming click so the
       // hero-main onClick doesn't accidentally navigate to /record.
@@ -111,8 +314,6 @@ export default function HomePage() {
           ev.preventDefault();
         };
         track.addEventListener("click", suppress, { capture: true, once: true });
-        // Snap to nearest slide after drag ends
-        requestAnimationFrame(snapToNearest);
       }
     };
     track.addEventListener("pointerdown", onDown);
@@ -133,7 +334,11 @@ export default function HomePage() {
     <section className="home-screen">
       <div className="home-greeting">
         <Link href="/profile" className="greet-avatar" aria-label="프로필">
-          <Mascot />
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt="프로필" className="greet-avatar-img" />
+          ) : (
+            <Mascot />
+          )}
         </Link>
         <div className="greet-text">
           <div className="greet-name">
@@ -151,16 +356,24 @@ export default function HomePage() {
 
       <div className="hero-carousel">
         <div className="hero-track" ref={trackRef}>
-          <div className="hero-slide hero-photo">
+          <div
+            className="hero-slide hero-photo"
+            onClick={() => recentPrimary && goToRecordOnArchive(recentPrimary.key)}
+            role={recentPrimary ? "button" : undefined}
+            tabIndex={recentPrimary ? 0 : undefined}
+          >
             <div className="hp-bg" />
             <div className="hp-glow" />
             <div className="hp-content">
               <div className="hp-top">
                 <span className="hp-label">최근 러닝</span>
-                <span className="hp-date">04.18 목</span>
+                <span className="hp-date">
+                  {recentPrimary ? formatShortDate(recentPrimary.key) : "기록 없음"}
+                </span>
               </div>
               <div className="hp-distance">
-                21<small>km</small>
+                {recentPrimary ? recentPrimary.rec.dist : "—"}
+                <small>km</small>
               </div>
               <svg className="hp-route" viewBox="0 0 220 70" fill="none" preserveAspectRatio="none">
                 <path
@@ -176,11 +389,11 @@ export default function HomePage() {
               <div className="hp-meta">
                 <div className="hp-meta-item">
                   <span className="hp-ic">⏱</span>
-                  <span>1:42:30</span>
+                  <span>{recentPrimary?.rec.time || "—"}</span>
                 </div>
                 <div className="hp-meta-item">
                   <span className="hp-ic">⚡</span>
-                  <span>4&apos;52&quot;</span>
+                  <span>{recentPrimary?.rec.pace || "—"}</span>
                 </div>
               </div>
             </div>
@@ -208,31 +421,44 @@ export default function HomePage() {
             <div className="hm-wave" />
           </div>
 
-          <div className="hero-slide hero-stats">
+          <div
+            className="hero-slide hero-stats"
+            onClick={() => recentSecondary && goToRecordOnArchive(recentSecondary.key)}
+            role={recentSecondary ? "button" : undefined}
+            tabIndex={recentSecondary ? 0 : undefined}
+          >
             <div className="hs-meta">
               <div className="hs-date">
-                2026.04.06 <span>(월)</span>
+                {recentSecondary ? (
+                  <>
+                    {formatLongDate(recentSecondary.key).full}{" "}
+                    <span>({formatLongDate(recentSecondary.key).dow})</span>
+                  </>
+                ) : (
+                  "기록 없음"
+                )}
               </div>
-              <div className="hs-weather">오전 7:30 · 후 18°C</div>
+              <div className="hs-weather">이전 러닝 기록</div>
             </div>
             <div className="hs-distance">
-              5.21<small>km</small>
+              {recentSecondary ? recentSecondary.rec.dist : "—"}
+              <small>km</small>
             </div>
             <div className="hs-rows">
               <div className="hs-row">
                 <span className="hs-ic">⏱</span>
-                <b>00:32:45</b>
+                <b>{recentSecondary?.rec.time || "—"}</b>
                 <i>시간</i>
               </div>
               <div className="hs-row">
                 <span className="hs-ic">⚡</span>
-                <b>6&apos;12&quot;</b>
+                <b>{recentSecondary?.rec.pace || "—"}</b>
                 <i>페이스</i>
               </div>
               <div className="hs-row">
-                <span className="hs-ic">🔥</span>
-                <b>368</b>
-                <i>kcal</i>
+                <span className="hs-ic">❤️</span>
+                <b>{recentSecondary?.rec.bpm ?? "—"}</b>
+                <i>bpm</i>
               </div>
             </div>
           </div>
@@ -242,7 +468,14 @@ export default function HomePage() {
       <div className="week-section">
         <div className="week-header">
           <h3>
-            이번주 러닝 기록 <span className="cal">📅</span>
+            <button
+              type="button"
+              className="week-title-btn"
+              onClick={goToRecordsArchive}
+              aria-label="내 기록 보관소로 이동"
+            >
+              이번주 러닝 기록 <span className="cal">📅</span>
+            </button>
           </h3>
           <div className="week-legend">
             <span className="legend-item">
@@ -257,38 +490,91 @@ export default function HomePage() {
         </div>
         <div className="week-grid">
           {week.map((d) => (
-            <div key={d.dow} className="week-day">
+            <button
+              key={d.key}
+              type="button"
+              className={`week-day${d.isToday ? " today" : ""}`}
+              onClick={() => goToRecordOnArchive(d.key)}
+              aria-label={`${d.dow}요일 ${d.date}일 보관함으로 이동`}
+            >
               <div className="dow">{d.dow}</div>
               <div className="dom">{d.date}</div>
               <div className={`dot ${d.on ? "dot-on" : "dot-off"}`} />
-            </div>
+            </button>
           ))}
         </div>
       </div>
 
       <div className="home-stats-row">
-        <div className="hs-card hs-month">
-          <div className="hs-fig">
-            <svg viewBox="0 0 60 60" fill="none">
-              <circle cx="38" cy="14" r="4" fill="#8B5CF6" />
-              <path d="M22 50 L28 38 L34 30 L42 36 L48 32" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M28 38 L24 28 L34 22 L40 26" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M14 50 Q22 46 36 50 Q44 52 52 48" stroke="#E5E7EB" strokeWidth="6" strokeLinecap="round" fill="none" />
-            </svg>
+        <button
+          type="button"
+          className="hs-card hs-month"
+          onClick={goToRecordsArchive}
+          aria-label="이번달 러닝 기록 보러가기"
+        >
+          <svg className="hs-bg-art" viewBox="0 0 100 60" aria-hidden fill="currentColor">
+            <path d="M4 38c0-3 2-6 5-7l10-2c3-1 5-3 7-6l4-7c2-3 5-5 9-5h4c3 0 5 2 6 5l1 5 28 8c5 1 8 5 8 10v3c0 4-3 7-7 7H11c-4 0-7-3-7-7v-4z" />
+            <path d="M21 27l8-5h5l-1 4-8 4z" opacity="0.55" />
+            <circle cx="22" cy="48" r="3" fill="#fff" opacity="0.7" />
+            <circle cx="68" cy="48" r="3" fill="#fff" opacity="0.7" />
+          </svg>
+          <div className="hs-head">
+            <span className="hs-ico">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="13.5" cy="4" r="2" />
+                <path d="M13.49 5.48c-1.1 0-2.04.86-2.13 1.96l-1.06 4.84-3.1 7.27 1.84.78 2.95-6.91 2.1 1.13L13 18.5v3h2v-4.5l-2.1-2.7.7-3.6 1.83 2.4 2.6 1.2.86-1.84-2.05-.92-1.56-1.94c-.5-.6-1.22-.9-1.93-.9-.04-.04.14-.04.14-.04z" />
+              </svg>
+            </span>
+            <span className="hs-label">이번달 러닝 횟수</span>
           </div>
-          <div className="hs-label">이번달 러닝 횟수</div>
           <div className="hs-value">
-            12 <small>회</small>
+            {monthStats.cur} <small>회</small>
           </div>
-          <div className="hs-badge pink">↗ 지난달 대비 20%</div>
-        </div>
+          <div className={`hs-badge ${monthStats.badge.cls}`}>{monthStats.badge.text}</div>
+        </button>
         <div className="hs-card hs-best">
-          <div className="hs-fig hs-trophy">🏆</div>
-          <div className="hs-label">최고 기록(90일간)</div>
-          <div className="hs-value">
-            10.21 <small>km</small>
-          </div>
-          <div className="hs-badge gray">2026.04.06 달성!</div>
+          <button
+            type="button"
+            className="best-options-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setModal("bestPicker");
+            }}
+            aria-label="최고 기록 옵션 변경"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="5" cy="12" r="1.4" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+              <circle cx="19" cy="12" r="1.4" fill="currentColor" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            className="hs-best-body"
+            onClick={() => bestRecord && goToRecordOnArchive(bestRecord.key)}
+            aria-label="최고 기록 보러가기"
+            disabled={!bestRecord}
+          >
+            <svg className="hs-bg-art" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+              <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
+            </svg>
+            <div className="hs-head">
+              <span className="hs-ico">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
+                </svg>
+              </span>
+              <span className="hs-label">최고 {bestActiveLabel}(90일간)</span>
+            </div>
+            <div className="hs-value">
+              {bestRecord ? bestRecord.valueStr : "—"}
+              {bestUnit && <small>{bestUnit}</small>}
+            </div>
+            <div className="hs-badge gray">
+              {bestDateLabel || "기록 없음"}
+            </div>
+          </button>
         </div>
       </div>
     </section>
