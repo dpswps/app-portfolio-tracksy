@@ -1,15 +1,22 @@
 "use client";
 
 import { create } from "zustand";
-import type { ArchiveRecords, Inquiry, RunningRecord } from "@/types";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { ArchiveRecords, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
 type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
+export type AIJournal = {
+  id: number;
+  date: string;
+  savedAt: string;
+  summary: string;
+};
+
 const DEFAULT_AI_MESSAGES: AIMessage[] = [
-  { from: "bot", text: "오늘 5km 뛰었네! 꽤 괜찮은데 ✨" },
-  { from: "bot", text: "뛸 때 컨디션은 어땠어?" },
+  { from: "bot", text: "오늘 러닝 어땠어? 컨디션 좀 얘기해줘 🏃‍♀️" },
 ];
 
 const DEFAULT_INQUIRIES: Inquiry[] = [
@@ -72,6 +79,18 @@ type State = {
   connectedPartners: string[];
   bestMetric: "dist" | "time" | "pace";
 
+  /**
+   * scan 페이지에서 OCR로 추출한 데이터를 manual 페이지 prefill로 넘기기 위한 임시 state.
+   * manual mount 시 consume → null로 clear (휘발성, localStorage 비저장).
+   */
+  pendingScanData: ScanResult | null;
+
+  /** Style cards that the user removed from "저장한 스타일" tab via bookmark click */
+  removedSavedStyleIds: string[];
+
+  /** Style cards saved by the user (e.g., from a gallery card detail page) */
+  userSavedStyles: StyleCard[];
+
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
   composeSelectedCardId: string | null;
@@ -79,6 +98,7 @@ type State = {
   aiStep: AIStep;
   aiMessages: AIMessage[];
   aiSummary: string | null;
+  aiJournals: AIJournal[];
 
   inquiries: Inquiry[];
 
@@ -101,13 +121,18 @@ type State = {
   bumpListCount: () => void;
   resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
-  mergeRecords: (records: ArchiveRecords) => void;
-  connectPartner: (id: string) => void;
-  disconnectPartner: (id: string) => void;
-  setBestMetric: (m: State["bestMetric"]) => void;
+  /** 사용자가 추가한 기록 삭제 (시드 archiveRecords는 보호) */
+  deleteUserRecord: (key: string) => void;
+  /** OCR 추출 결과를 manual 페이지로 전달용 임시 저장 */
+  setPendingScanData: (d: ScanResult | null) => void;
+  /** manual 페이지에서 한 번 읽고 비움 */
+  consumePendingScanData: () => ScanResult | null;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
+  removeSavedStyle: (id: string) => void;
+  restoreSavedStyle: (id: string) => void;
+  addUserSavedStyle: (style: StyleCard) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
   togglePostSaved: (id: string | number) => boolean;
   setComposeSelectedCardId: (id: string | null) => void;
@@ -115,127 +140,258 @@ type State = {
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
   resetAI: () => void;
+  addAIJournal: (summary: string) => void;
+  removeAIJournal: (id: number) => void;
   prependInquiry: (i: Inquiry) => void;
 };
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const useAppStore = create<State>((set, get) => ({
-  user: { name: "김러너", birth: "2000.01.01", email: "tracksy1@gmail.com", style: "산책/러닝", avatarUrl: null, coverUrl: null },
+function todayKey(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
 
-  modal: null,
-  toast: null,
+function stripHtml(s: string): string {
+  return s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
+}
 
-  studioTab: "edit",
-  studioPanelOpen: true,
-  bgPickerTab: "mine",
-  placedStickers: [],
+export const useAppStore = create<State>()(
+  persist(
+    (set, get) => ({
+      user: {
+        name: "김러너",
+        birth: "2000.01.01",
+        email: "tracksy1@gmail.com",
+        style: "산책/러닝",
+      },
 
-  archiveMainTab: "records",
-  archiveView: "calendar",
-  archiveCalExpanded: false,
-  archiveMonth: { y: 2026, m: 4 },
-  archiveSelected: null,
-  archiveListExpanded: null,
-  archiveListCount: 4,
-  galleryFilter: { y: 2024, m: 5 },
-  gallerySheet: null,
-  styleSubTab: "saved",
+      modal: null,
+      toast: null,
 
-  userRecords: {},
-  connectedPartners: [],
-  bestMetric: "dist",
+      studioTab: "edit",
+      studioPanelOpen: true,
+      bgPickerTab: "mine",
+      placedStickers: [],
 
-  communityTab: "hot",
-  savedPosts: {},
-  composeSelectedCardId: null,
-
-  aiStep: "intro",
-  aiMessages: DEFAULT_AI_MESSAGES,
-  aiSummary: null,
-
-  inquiries: DEFAULT_INQUIRIES,
-
-  setUser: (p) => set((s) => ({ user: { ...s.user, ...p } })),
-  setModal: (m) => set({ modal: m }),
-  showToast: (msg) => {
-    set({ toast: msg });
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => set({ toast: null }), 1800);
-  },
-  hideToast: () => set({ toast: null }),
-  setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
-  setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
-  setBgPickerTab: (t) => set({ bgPickerTab: t }),
-  addSticker: (emoji) =>
-    set((s) => {
-      const x = 15 + Math.random() * 60;
-      const y = 15 + Math.random() * 50;
-      return {
-        placedStickers: [
-          ...s.placedStickers,
-          { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
-        ],
-      };
-    }),
-  removeSticker: (id) =>
-    set((s) => ({ placedStickers: s.placedStickers.filter((p) => p.id !== id) })),
-  setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
-  setArchiveView: (v) =>
-    set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
-  toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
-  setCalExpanded: (v) => set({ archiveCalExpanded: v }),
-  setArchiveMonth: (y, m) =>
-    set({
-      archiveMonth: { y, m },
+      archiveMainTab: "records",
+      archiveView: "calendar",
+      archiveCalExpanded: false,
+      archiveMonth: { y: 2026, m: 4 },
       archiveSelected: null,
       archiveListExpanded: null,
       archiveListCount: 4,
+      galleryFilter: { y: 2024, m: 5 },
+      gallerySheet: null,
+      styleSubTab: "saved",
+
+      userRecords: {},
+      pendingScanData: null,
+
+      removedSavedStyleIds: [],
+      userSavedStyles: [],
+
+      communityTab: "hot",
+savedPosts: {},
+composeSelectedCardId: null,
+connectedPartners: [],
+bestMetric: "dist",
+
+      aiStep: "intro",
+      aiMessages: DEFAULT_AI_MESSAGES,
+      aiSummary: null,
+      aiJournals: [],
+
+      inquiries: DEFAULT_INQUIRIES,
+
+      setUser: (p) => set((s) => ({ user: { ...s.user, ...p } })),
+      setModal: (m) => set({ modal: m }),
+      showToast: (msg) => {
+        set({ toast: msg });
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => set({ toast: null }), 1800);
+      },
+      hideToast: () => set({ toast: null }),
+
+      setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
+      setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
+      setBgPickerTab: (t) => set({ bgPickerTab: t }),
+
+      addSticker: (emoji) =>
+        set((s) => {
+          const x = 15 + Math.random() * 60;
+          const y = 15 + Math.random() * 50;
+          return {
+            placedStickers: [
+              ...s.placedStickers,
+              { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
+            ],
+          };
+        }),
+
+      removeSticker: (id) =>
+        set((s) => ({
+          placedStickers: s.placedStickers.filter((p) => p.id !== id),
+        })),
+
+      setArchiveMainTab: (t) =>
+        set({ archiveMainTab: t, gallerySheet: null, modal: null }),
+
+      setArchiveView: (v) =>
+        set({
+          archiveView: v,
+          archiveCalExpanded: false,
+          archiveListExpanded: null,
+        }),
+
+      toggleCalExpanded: () =>
+        set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
+
+      setCalExpanded: (v) => set({ archiveCalExpanded: v }),
+
+      setArchiveMonth: (y, m) =>
+        set({
+          archiveMonth: { y, m },
+          archiveSelected: null,
+          archiveListExpanded: null,
+          archiveListCount: 4,
+        }),
+
+      pickDate: (k) =>
+        set((s) => {
+          const [yStr, mStr] = k.split("-");
+          const y = Number(yStr);
+          const m = Number(mStr);
+          const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
+
+          return {
+            archiveMonth: sameMonth ? s.archiveMonth : { y, m },
+            archiveSelected: s.archiveSelected === k ? null : k,
+          };
+        }),
+
+      toggleListExpanded: (k) =>
+        set((s) => ({
+          archiveListExpanded: s.archiveListExpanded === k ? null : k,
+        })),
+
+      bumpListCount: () =>
+        set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
+
+      resetListCount: () =>
+        set({ archiveListCount: 4, archiveListExpanded: null }),
+
+      addRecord: (key, rec) =>
+        set((s) => ({
+          userRecords: { ...s.userRecords, [key]: rec },
+        })),
+
+      deleteUserRecord: (key) =>
+        set((s) => {
+          if (!(key in s.userRecords)) return s;
+          const next = { ...s.userRecords };
+          delete next[key];
+          return { userRecords: next };
+        }),
+
+      setPendingScanData: (d) => set({ pendingScanData: d }),
+
+      consumePendingScanData: () => {
+        const cur = get().pendingScanData;
+        if (cur) set({ pendingScanData: null });
+        return cur;
+      },
+
+      setGalleryFilter: (p) =>
+        set((s) => ({
+          galleryFilter: { ...s.galleryFilter, ...p },
+        })),
+
+      setGallerySheet: (s) =>
+        set({ gallerySheet: s, modal: s ? "gallerySheet" : null }),
+
+      setStyleSubTab: (t) => set({ styleSubTab: t }),
+
+      removeSavedStyle: (id) =>
+        set((s) =>
+          s.removedSavedStyleIds.includes(id)
+            ? s
+            : { removedSavedStyleIds: [...s.removedSavedStyleIds, id] },
+        ),
+
+      restoreSavedStyle: (id) =>
+        set((s) => ({
+          removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== id),
+        })),
+
+      addUserSavedStyle: (style) =>
+        set((s) => {
+          const exists = s.userSavedStyles.some((x) => x.id === style.id);
+          const nextStyles = exists
+            ? s.userSavedStyles.map((x) => (x.id === style.id ? style : x))
+            : [style, ...s.userSavedStyles];
+          return {
+            userSavedStyles: nextStyles,
+            removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== style.id),
+          };
+        }),
+
+      setCommunityTab: (t) => set({ communityTab: t }),
+togglePostSaved: (id) => {
+  const key = String(id);
+  const next = !get().savedPosts[key];
+  set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
+  return next;
+},
+setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+      setAIStep: (s) => set({ aiStep: s }),
+
+      pushAIMessage: (m) =>
+        set((s) => ({ aiMessages: [...s.aiMessages, m] })),
+
+      setAISummary: (s) => set({ aiSummary: s }),
+
+      resetAI: () =>
+        set({
+          aiStep: "intro",
+          aiMessages: DEFAULT_AI_MESSAGES,
+          aiSummary: null,
+        }),
+
+      addAIJournal: (summary) =>
+        set((s) => {
+          const now = new Date();
+          const entry: AIJournal = {
+            id: now.getTime() + Math.floor(Math.random() * 1000),
+            date: todayKey(),
+            savedAt: now.toISOString(),
+            summary: stripHtml(summary),
+          };
+
+          return { aiJournals: [entry, ...s.aiJournals] };
+        }),
+
+      removeAIJournal: (id) =>
+        set((s) => ({
+          aiJournals: s.aiJournals.filter((j) => j.id !== id),
+        })),
+
+      prependInquiry: (i) =>
+        set((s) => ({ inquiries: [i, ...s.inquiries] })),
     }),
-  pickDate: (k) =>
-    set((s) => {
-      const [yStr, mStr] = k.split("-");
-      const y = Number(yStr);
-      const m = Number(mStr);
-      const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
-      return {
-        archiveMonth: sameMonth ? s.archiveMonth : { y, m },
-        archiveSelected: s.archiveSelected === k ? null : k,
-      };
-    }),
-  toggleListExpanded: (k) =>
-    set((s) => ({ archiveListExpanded: s.archiveListExpanded === k ? null : k })),
-  bumpListCount: () => set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
-  resetListCount: () => set({ archiveListCount: 4, archiveListExpanded: null }),
-  addRecord: (key, rec) =>
-    set((s) => ({ userRecords: { ...s.userRecords, [key]: rec } })),
-  mergeRecords: (records) =>
-    set((s) => ({ userRecords: { ...s.userRecords, ...records } })),
-  connectPartner: (id) =>
-    set((s) =>
-      s.connectedPartners.includes(id)
-        ? s
-        : { connectedPartners: [...s.connectedPartners, id] }
-    ),
-  disconnectPartner: (id) =>
-    set((s) => ({ connectedPartners: s.connectedPartners.filter((x) => x !== id) })),
-  setBestMetric: (m) => set({ bestMetric: m }),
-  setGalleryFilter: (p) => set((s) => ({ galleryFilter: { ...s.galleryFilter, ...p } })),
-  setGallerySheet: (kind) =>
-    set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
-  setStyleSubTab: (t) => set({ styleSubTab: t }),
-  setCommunityTab: (t) => set({ communityTab: t }),
-  togglePostSaved: (id) => {
-    const key = String(id);
-    const current = get().savedPosts[key] ?? false;
-    const next = !current;
-    set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
-    return next;
-  },
-  setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
-  setAIStep: (s) => set({ aiStep: s }),
-  pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
-  setAISummary: (s) => set({ aiSummary: s }),
-  resetAI: () => set({ aiStep: "intro", aiMessages: DEFAULT_AI_MESSAGES, aiSummary: null }),
-  prependInquiry: (i) => set((s) => ({ inquiries: [i, ...s.inquiries] })),
-}));
+    {
+      name: "tracksy-store",
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({
+        aiJournals: s.aiJournals,
+        userRecords: s.userRecords,
+        removedSavedStyleIds: s.removedSavedStyleIds,
+        userSavedStyles: s.userSavedStyles,
+      }),
+    },
+  ),
+);

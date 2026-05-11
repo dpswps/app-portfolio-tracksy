@@ -197,7 +197,11 @@ function SelectedDateBlock() {
   const thirdUnit = rec.bpm != null ? "bpm" : "";
 
   return (
-    <div className="sel-block sel-record">
+    <Link
+      href={`/archive/records/${encodeURIComponent(sel)}`}
+      className="sel-block sel-record sel-record-link"
+      aria-label="러닝 기록 자세히 보기"
+    >
       <div className="sr-date">{formatKoreanDate(sel)}</div>
       <div className="sr-stats">
         <div className="sr-stat">
@@ -219,6 +223,7 @@ function SelectedDateBlock() {
         </div>
       </div>
       {rec.note && <div className="sr-note">{rec.note}</div>}
-    </div>
+      <div className="sr-detail-hint">자세히 보기 ›</div>
+    </Link>
   );
 }

@@ -200,7 +200,6 @@ export default function HomePage() {
     };
     requestAnimationFrame(center);
 
-    // Convert vertical wheel to horizontal scroll on desktop
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault();
@@ -209,10 +208,7 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    // Pick the snap-target slide based on current scroll position + release velocity.
-    // Positive velocity (px/ms) means finger moved right (content moved right),
-    // which corresponds to scrolling LEFT (i.e. previous slide).
-    const getSnapTarget = (velocity: number) => {
+    const snapToNearest = () => {
       const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
       if (slides.length === 0) return null;
       const viewCenter = track.scrollLeft + track.clientWidth / 2;
@@ -232,7 +228,37 @@ export default function HomePage() {
       else if (velocity > FLICK && nearestIdx > 0) nearestIdx--;
       return slides[nearestIdx];
     };
+const getSnapTarget = (velocity: number) => {
+  if (!trackRef.current) return null;
 
+  const track = trackRef.current;
+  const currentLeft = track.scrollLeft;
+  const cards = Array.from(track.children) as HTMLElement[];
+
+  if (cards.length === 0) return null;
+
+  let nearestIndex = 0;
+  let minDistance = Infinity;
+
+  cards.forEach((card, index) => {
+    const cardCenter = card.offsetLeft + card.clientWidth / 2;
+    const trackCenter = currentLeft + track.clientWidth / 2;
+    const distance = Math.abs(cardCenter - trackCenter);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestIndex = index;
+    }
+  });
+
+  if (velocity > 0.5) {
+    nearestIndex = Math.min(nearestIndex + 1, cards.length - 1);
+  } else if (velocity < -0.5) {
+    nearestIndex = Math.max(nearestIndex - 1, 0);
+  }
+
+  return cards[nearestIndex];
+};
     const snapWithVelocity = (velocity: number) => {
       const target = getSnapTarget(velocity);
       if (!target) return;
@@ -240,7 +266,6 @@ export default function HomePage() {
       track.scrollTo({ left: targetLeft, behavior: "smooth" });
     };
 
-    // Pointer drag-to-slide (mouse + touch)
     let isDown = false;
     let captured = false;
     let startX = 0;
@@ -257,11 +282,6 @@ export default function HomePage() {
       dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
-      lastX = e.clientX;
-      lastTime = performance.now();
-      velocity = 0;
-      // Don't capture pointer yet — wait until actual drag starts so that
-      // simple clicks reach their underlying targets (e.g. hero-main onClick).
     };
     const onMove = (e: PointerEvent) => {
       if (!isDown) return;
@@ -306,14 +326,13 @@ export default function HomePage() {
           track.classList.remove("dragging");
         }, 280);
       }
-      // If user actually dragged, suppress the upcoming click so the
-      // hero-main onClick doesn't accidentally navigate to /record.
       if (dragDistance > DRAG_THRESHOLD) {
         const suppress = (ev: Event) => {
           ev.stopPropagation();
           ev.preventDefault();
         };
         track.addEventListener("click", suppress, { capture: true, once: true });
+        requestAnimationFrame(snapToNearest);
       }
     };
     track.addEventListener("pointerdown", onDown);
