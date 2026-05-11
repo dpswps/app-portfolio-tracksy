@@ -2,22 +2,67 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import RunningCard from "@/features/studio/RunningCard";
 import StudioPanel from "@/features/studio/StudioPanel";
+import CropOverlay from "@/features/studio/CropOverlay";
+import TextOverlay from "@/features/studio/TextOverlay";
+import TextSubmenu from "@/features/studio/TextSubmenu";
+import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
+import RecordPicker from "@/features/studio/RecordPicker";
+import PlacedStickers from "@/features/studio/PlacedStickers";
+import LayerPanel from "@/features/studio/LayerPanel";
+import DesignSubmenu from "@/features/studio/DesignSubmenu";
+import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
 export default function StudioPage() {
   const router = useRouter();
   const tab = useAppStore((s) => s.studioTab);
   const setTab = useAppStore((s) => s.setStudioTab);
-  const panelOpen = useAppStore((s) => s.studioPanelOpen);
-  const setPanelOpen = useAppStore((s) => s.setStudioPanelOpen);
-  const placedStickers = useAppStore((s) => s.placedStickers);
-  const removeSticker = useAppStore((s) => s.removeSticker);
+  const setBackground = useAppStore((s) => s.setStudioBackground);
+  const showToast = useAppStore((s) => s.showToast);
+  const cropMode = useAppStore((s) => s.studioCropMode);
+  const ratio = useAppStore((s) => s.studioRatio);
+  const undo = useAppStore((s) => s.studioUndo);
+  const redo = useAppStore((s) => s.studioRedo);
+  const canUndo = useAppStore((s) => s.studioHistory.length > 0);
+  const canRedo = useAppStore((s) => s.studioFuture.length > 0);
+  const setRecordPickerOpen = useAppStore((s) => s.setStudioRecordPickerOpen);
+  const layerPanelOpen = useAppStore((s) => s.studioLayerPanelOpen);
+  const toggleLayerPanel = useAppStore((s) => s.toggleStudioLayerPanel);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onLoadRecord = () => {
+    setRecordPickerOpen(true);
+  };
 
   const back = () => {
     if (window.history.length > 1) router.back();
     else router.push("/home");
+  };
+
+  const onPickPhoto = () => {
+    fileInputRef.current?.click();
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("이미지 파일을 선택해주세요");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : null;
+      if (url) {
+        setBackground(url);
+        showToast("배경이 적용되었어요");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   return (
@@ -28,63 +73,82 @@ export default function StudioPage() {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <button className="st-icon" aria-label="실행취소">
+        <button className="st-icon" aria-label="실행취소" onClick={undo} disabled={!canUndo}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 14L4 9l5-5" />
             <path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-4" />
           </svg>
         </button>
-        <button className="st-icon" aria-label="다시실행">
+        <button className="st-icon" aria-label="다시실행" onClick={redo} disabled={!canRedo}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 14l5-5-5-5" />
             <path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h4" />
           </svg>
         </button>
-        <button className="st-icon" aria-label="레이어">
+        <button
+          className={`st-icon${layerPanelOpen ? " active" : ""}`}
+          aria-label="레이어"
+          aria-pressed={layerPanelOpen}
+          onClick={toggleLayerPanel}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="12 2 22 8.5 12 15 2 8.5 12 2" />
             <polyline points="2 15.5 12 22 22 15.5" />
           </svg>
         </button>
         <span style={{ flex: 1 }} />
-        <Link href="/studio/export" className="st-export" style={{ textDecoration: "none" }}>
-          내보내기
+        <Link
+          href="/studio/export"
+          className="st-export"
+          style={{ textDecoration: "none" }}
+          onClick={() => showToast("갤러리 보관소에 저장되었습니다")}
+        >
+          저장하기
         </Link>
       </div>
 
       <div className="studio-canvas">
         <div className="studio-card-wrap">
-          <RunningCard />
-          <div className="placed-stickers">
-            {placedStickers.map((p) => (
-              <button
-                key={p.id}
-                className="placed-sticker"
-                style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                onClick={() => removeSticker(p.id)}
-                aria-label={`${p.emoji} 제거`}
-                title="클릭하여 제거"
-              >
-                {p.emoji}
-              </button>
-            ))}
+          <div className="card-stage" style={{ aspectRatio: ratio.replace("/", " / ") }}>
+            <RunningCard />
+            <TextOverlay />
+            <PlacedStickers />
+            {cropMode && <CropOverlay />}
+            {tab === "text" && <TextSubmenu />}
+            {tab === "design" && <DesignSubmenu />}
+            <EyedropperLoupe />
           </div>
         </div>
-        <button className="st-fab" aria-label="스티커 추가" onClick={() => setTab("sticker")}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="9" />
-            <circle cx="9" cy="10" r="0.8" fill="currentColor" />
-            <circle cx="15" cy="10" r="0.8" fill="currentColor" />
-            <path d="M8.5 14.5c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2" />
-          </svg>
-        </button>
+        <div className="st-fab-stack">
+          <Link href="/archive/ai" className="st-fab st-fab-mascot" aria-label="AI 오늘의 러닝일지">
+            <Mascot className="st-fab-mascot-img" />
+          </Link>
+          <button className="st-fab st-fab-image" aria-label="배경 사진 추가" onClick={onPickPhoto}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10" r="1.4" fill="currentColor" />
+              <path d="M21 16l-5-5-9 9" />
+            </svg>
+            <span className="st-fab-plus" aria-hidden>+</span>
+          </button>
+          <button className="st-fab st-fab-record" aria-label="기록 불러오기" onClick={onLoadRecord}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 3h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z" />
+              <path d="M5 7h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
+              <path d="M9 13l2 2 4-4" />
+            </svg>
+            <span className="st-fab-plus" aria-hidden>+</span>
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileChange} style={{ display: "none" }} />
+        </div>
       </div>
 
-      {panelOpen && (
-        <div className="studio-panel">
-          <StudioPanel tab={tab} onClose={() => setPanelOpen(false)} />
-        </div>
-      )}
+      <RecordPicker />
+      <LayerPanel />
+
+      <div className="studio-panel">
+        <StudioPanel tab={tab} />
+      </div>
 
       <div className="studio-tabs">
         <button className={`st-tab${tab === "edit" ? " active" : ""}`} onClick={() => setTab("edit")}>

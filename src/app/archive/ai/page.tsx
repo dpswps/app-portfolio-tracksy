@@ -53,14 +53,11 @@ async function fetchSummary(messages: ChatMsg[]): Promise<string> {
 export default function AIJournalPage() {
   const step = useAppStore((s) => s.aiStep);
 
-  // 페이지에 새로 진입했을 때 stale step(skip/loading/result)이 store에 남아있으면
-  // intro로 reset. chat은 진행 중일 수 있으니 보존.
   useEffect(() => {
     const current = useAppStore.getState().aiStep;
     if (current === "skip" || current === "loading" || current === "result") {
       useAppStore.getState().setAIStep("intro");
     }
-    // mount 시 한 번만 확인
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -147,6 +144,7 @@ function Chat() {
   const pushMsg = useAppStore((s) => s.pushAIMessage);
   const setStep = useAppStore((s) => s.setAIStep);
   const setSummary = useAppStore((s) => s.setAISummary);
+  const setStudioCardData = useAppStore((s) => s.setStudioCardData);
   const showToast = useAppStore((s) => s.showToast);
 
   const [input, setInput] = useState("");
@@ -157,6 +155,13 @@ function Chat() {
     const a = areaRef.current;
     if (a) a.scrollTop = a.scrollHeight;
   }, [messages, isReplying]);
+
+  // AI 요약 HTML(<br/> 포함)을 스튜디오 카드용 plain text로 변환
+  const toPlainBubble = (s: string) =>
+    s
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .trim();
 
   const sendUserMessage = async (text: string) => {
     if (isReplying || !text.trim()) return;
@@ -178,6 +183,7 @@ function Chat() {
         const summary = await fetchSummary([...conversationAfterUser, wrapMsg]);
         if (useAppStore.getState().aiStep === "loading") {
           setSummary(summary);
+          setStudioCardData({ bubble: toPlainBubble(summary) });
           useAppStore.getState().setAIStep("result");
         }
       }, 1200);
@@ -214,6 +220,7 @@ function Chat() {
     const summary = await fetchSummary(messages);
     if (useAppStore.getState().aiStep === "loading") {
       setSummary(summary);
+      setStudioCardData({ bubble: toPlainBubble(summary) });
       useAppStore.getState().setAIStep("result");
     }
   };

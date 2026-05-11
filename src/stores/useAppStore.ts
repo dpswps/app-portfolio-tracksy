@@ -4,9 +4,31 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ArchiveRecords, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
+import { archiveRecords } from "@/data/archiveRecords";
 
 type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
+
+type StudioSnapshot = {
+  studioBackground: string | null;
+  studioRotate: number;
+  studioFlipH: boolean;
+  studioFlipV: boolean;
+  studioCrop: number;
+  studioRatio: string;
+  studioTexts: Array<{
+    id: number;
+    text: string;
+    x: number;
+    y: number;
+    size: number;
+    font: string;
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string;
+  }>;
+  placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
+};
 
 export type AIJournal = {
   id: number;
@@ -60,7 +82,46 @@ type State = {
   toast: string | null;
 
   studioTab: "edit" | "text" | "sticker" | "design";
-  studioPanelOpen: boolean;
+  studioBackground: string | null;
+  studioRotate: number;
+  studioFlipH: boolean;
+  studioFlipV: boolean;
+  studioCrop: number;
+  studioCropMode: boolean;
+  studioRatio: string;
+  studioTexts: Array<{
+    id: number;
+    text: string;
+    x: number;
+    y: number;
+    size: number;
+    font: string;
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string;
+  }>;
+  studioActiveTextId: number | null;
+  studioTextSubmenu: "none" | "font" | "size" | "color";
+  studioEyedropperActive: boolean;
+  studioLayerPanelOpen: boolean;
+  studioHiddenLayers: Record<string, boolean>;
+  studioLockedLayers: Record<string, boolean>;
+  studioLayerNames: Record<string, string>;
+  studioSelectedLayerKey: string | null;
+  studioDesignSubmenu: "none" | "theme" | "style";
+  studioCardData: {
+    weekTitle: string;
+    distance: string;
+    time: string;
+    pace: string;
+    calories: string;
+    bubble: string;
+  };
+  studioRecordIdx: number;
+  studioRecordPickerOpen: boolean;
+  studioStatsOffset: { x: number; y: number };
+  studioHistory: StudioSnapshot[];
+  studioFuture: StudioSnapshot[];
   bgPickerTab: "mine" | "ai";
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
 
@@ -100,7 +161,38 @@ type State = {
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
-  setStudioPanelOpen: (open: boolean) => void;
+  setStudioBackground: (url: string | null) => void;
+  rotateBackground: () => void;
+  toggleFlipH: () => void;
+  toggleFlipV: () => void;
+  cycleCrop: () => void;
+  setStudioCropMode: (on: boolean) => void;
+  cycleRatio: () => void;
+  addStudioText: () => void;
+  updateStudioText: (id: number, patch: Partial<State["studioTexts"][number]>) => void;
+  removeStudioText: (id: number) => void;
+  setActiveStudioText: (id: number | null) => void;
+  setStudioTextSubmenu: (s: State["studioTextSubmenu"]) => void;
+  setStudioEyedropperActive: (on: boolean) => void;
+  setStudioLayerPanelOpen: (open: boolean) => void;
+  toggleStudioLayerPanel: () => void;
+  toggleLayerVisibility: (key: string) => void;
+  toggleLayerLock: (key: string) => void;
+  setLayerName: (key: string, name: string) => void;
+  setStudioSelectedLayer: (key: string | null) => void;
+  reorderStudioText: (id: number, dir: "up" | "down") => void;
+  reorderSticker: (id: number, dir: "up" | "down") => void;
+  setStudioDesignSubmenu: (m: State["studioDesignSubmenu"]) => void;
+  applyStudioTheme: (bg: string) => void;
+  setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
+  loadNextStudioRecord: () => string | null;
+  loadStudioRecord: (date: string) => void;
+  setStudioRecordPickerOpen: (open: boolean) => void;
+  updatePlacedSticker: (id: number, patch: { x?: number; y?: number }) => void;
+  setStudioStatsOffset: (x: number, y: number) => void;
+  pushStudioHistory: () => void;
+  studioUndo: () => void;
+  studioRedo: () => void;
   setBgPickerTab: (t: State["bgPickerTab"]) => void;
   addSticker: (emoji: string) => void;
   removeSticker: (id: number) => void;
@@ -166,7 +258,36 @@ export const useAppStore = create<State>()(
       toast: null,
 
       studioTab: "edit",
-      studioPanelOpen: true,
+      studioBackground: null,
+      studioRotate: 0,
+      studioFlipH: false,
+      studioFlipV: false,
+      studioCrop: 1,
+      studioCropMode: false,
+      studioRatio: "9/16",
+      studioTexts: [],
+      studioActiveTextId: null,
+      studioTextSubmenu: "none",
+      studioEyedropperActive: false,
+      studioLayerPanelOpen: false,
+      studioHiddenLayers: {},
+      studioLockedLayers: { bg: true },
+      studioLayerNames: {},
+      studioSelectedLayerKey: null,
+      studioDesignSubmenu: "none",
+      studioCardData: {
+        weekTitle: "이번주 러닝 기록",
+        distance: "5.21",
+        time: "00:32:45",
+        pace: "6'12\"",
+        calories: "368",
+        bubble: "처음 발걸음이\n큰 변화를 만들어요! 💜",
+      },
+      studioRecordIdx: -1,
+      studioRecordPickerOpen: false,
+      studioStatsOffset: { x: 0, y: 0 },
+      studioHistory: [],
+      studioFuture: [],
       bgPickerTab: "mine",
       placedStickers: [],
 
@@ -208,12 +329,264 @@ export const useAppStore = create<State>()(
         toastTimer = setTimeout(() => set({ toast: null }), 1800);
       },
       hideToast: () => set({ toast: null }),
-
-      setStudioTab: (t) => set({ studioTab: t, studioPanelOpen: true }),
-      setStudioPanelOpen: (open) => set({ studioPanelOpen: open }),
+      setStudioTab: (t) => set({ studioTab: t }),
+      setStudioBackground: (url) => {
+        get().pushStudioHistory();
+        set({
+          studioBackground: url,
+          studioRotate: 0,
+          studioFlipH: false,
+          studioFlipV: false,
+          studioCrop: 1,
+          studioCropMode: false,
+        });
+      },
+      setStudioCropMode: (on) => set({ studioCropMode: on }),
+      rotateBackground: () => {
+        get().pushStudioHistory();
+        set((s) => ({ studioRotate: (s.studioRotate + 90) % 360 }));
+      },
+      toggleFlipH: () => {
+        get().pushStudioHistory();
+        set((s) => ({ studioFlipH: !s.studioFlipH }));
+      },
+      toggleFlipV: () => {
+        get().pushStudioHistory();
+        set((s) => ({ studioFlipV: !s.studioFlipV }));
+      },
+      cycleCrop: () => {
+        get().pushStudioHistory();
+        set((s) => {
+          const steps = [1, 1.25, 1.5, 1.75];
+          const idx = steps.indexOf(s.studioCrop);
+          const next = steps[(idx + 1) % steps.length] ?? 1;
+          return { studioCrop: next };
+        });
+      },
+      cycleRatio: () => {
+        get().pushStudioHistory();
+        set((s) => {
+          const steps = ["9/16", "4/5", "1/1", "5/4", "4/3"];
+          const idx = steps.indexOf(s.studioRatio);
+          const next = steps[(idx + 1) % steps.length] ?? "9/16";
+          return { studioRatio: next };
+        });
+      },
+      addStudioText: () => {
+        get().pushStudioHistory();
+        set((s) => {
+          const id = Date.now();
+          const t = {
+            id,
+            text: "텍스트 입력",
+            x: 50,
+            y: 50,
+            size: 28,
+            font: "var(--font-noto-kr), 'Noto Sans KR', system-ui, sans-serif",
+            color: "#FFFFFF",
+          };
+          return {
+            studioTexts: [...s.studioTexts, t],
+            studioActiveTextId: id,
+            studioSelectedLayerKey: `text-${id}`,
+          };
+        });
+      },
+      updateStudioText: (id, patch) =>
+        set((s) => ({
+          studioTexts: s.studioTexts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        })),
+      removeStudioText: (id) => {
+        get().pushStudioHistory();
+        set((s) => ({
+          studioTexts: s.studioTexts.filter((t) => t.id !== id),
+          studioActiveTextId: s.studioActiveTextId === id ? null : s.studioActiveTextId,
+          studioSelectedLayerKey:
+            s.studioSelectedLayerKey === `text-${id}` ? null : s.studioSelectedLayerKey,
+        }));
+      },
+      setActiveStudioText: (id) =>
+        set({
+          studioActiveTextId: id,
+          studioSelectedLayerKey: id != null ? `text-${id}` : null,
+        }),
+      setStudioSelectedLayer: (key) =>
+        set(() => {
+          if (key === null) return { studioSelectedLayerKey: null, studioActiveTextId: null };
+          if (key.startsWith("text-")) {
+            const id = Number(key.slice(5));
+            return { studioSelectedLayerKey: key, studioActiveTextId: id };
+          }
+          return { studioSelectedLayerKey: key, studioActiveTextId: null };
+        }),
+      setStudioTextSubmenu: (m) => set({ studioTextSubmenu: m }),
+      setStudioEyedropperActive: (on) => set({ studioEyedropperActive: on }),
+      setStudioLayerPanelOpen: (open) => set({ studioLayerPanelOpen: open }),
+      toggleStudioLayerPanel: () =>
+        set((s) => ({ studioLayerPanelOpen: !s.studioLayerPanelOpen })),
+      toggleLayerVisibility: (key) =>
+        set((s) => {
+          const next = { ...s.studioHiddenLayers };
+          if (next[key]) delete next[key];
+          else next[key] = true;
+          return { studioHiddenLayers: next };
+        }),
+      toggleLayerLock: (key) =>
+        set((s) => {
+          const next = { ...s.studioLockedLayers };
+          if (next[key]) delete next[key];
+          else next[key] = true;
+          return { studioLockedLayers: next };
+        }),
+      setLayerName: (key, name) =>
+        set((s) => {
+          const next = { ...s.studioLayerNames };
+          if (name.trim() === "") delete next[key];
+          else next[key] = name;
+          return { studioLayerNames: next };
+        }),
+      reorderStudioText: (id, dir) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const arr = [...s.studioTexts];
+          const idx = arr.findIndex((t) => t.id === id);
+          if (idx === -1) return s;
+          const target = dir === "up" ? idx + 1 : idx - 1;
+          if (target < 0 || target >= arr.length) return s;
+          const tmp = arr[idx]!;
+          arr[idx] = arr[target]!;
+          arr[target] = tmp;
+          return { studioTexts: arr };
+        });
+      },
+      reorderSticker: (id, dir) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const arr = [...s.placedStickers];
+          const idx = arr.findIndex((p) => p.id === id);
+          if (idx === -1) return s;
+          const target = dir === "up" ? idx + 1 : idx - 1;
+          if (target < 0 || target >= arr.length) return s;
+          const tmp = arr[idx]!;
+          arr[idx] = arr[target]!;
+          arr[target] = tmp;
+          return { placedStickers: arr };
+        });
+      },
+      setStudioDesignSubmenu: (m) => set({ studioDesignSubmenu: m }),
+      applyStudioTheme: (bg) => {
+        get().pushStudioHistory();
+        set({
+          studioBackground: bg,
+          studioRotate: 0,
+          studioFlipH: false,
+          studioFlipV: false,
+          studioCrop: 1,
+          studioCropMode: false,
+        });
+      },
+      setStudioCardData: (patch) =>
+        set((s) => ({ studioCardData: { ...s.studioCardData, ...patch } })),
+      loadNextStudioRecord: () => {
+        const entries = Object.entries(archiveRecords).sort(([a], [b]) =>
+          a < b ? 1 : -1,
+        );
+        if (entries.length === 0) return null;
+        get().pushStudioHistory();
+        const cur = get().studioRecordIdx;
+        const next = (cur + 1) % entries.length;
+        const [date, rec] = entries[next]!;
+        set((s) => ({
+          studioRecordIdx: next,
+          studioCardData: {
+            ...s.studioCardData,
+            distance: rec.dist,
+            pace: rec.pace,
+          },
+        }));
+        return date;
+      },
+      loadStudioRecord: (date) => {
+        const rec = archiveRecords[date];
+        if (!rec) return;
+        get().pushStudioHistory();
+        set((s) => ({
+          studioCardData: {
+            ...s.studioCardData,
+            distance: rec.dist,
+            pace: rec.pace,
+          },
+        }));
+      },
+      setStudioRecordPickerOpen: (open) => set({ studioRecordPickerOpen: open }),
+      updatePlacedSticker: (id, patch) =>
+        set((s) => ({
+          placedStickers: s.placedStickers.map((p) =>
+            p.id === id ? { ...p, ...patch } : p,
+          ),
+        })),
+      setStudioStatsOffset: (x, y) => set({ studioStatsOffset: { x, y } }),
+      pushStudioHistory: () =>
+        set((s) => {
+          const snap: StudioSnapshot = {
+            studioBackground: s.studioBackground,
+            studioRotate: s.studioRotate,
+            studioFlipH: s.studioFlipH,
+            studioFlipV: s.studioFlipV,
+            studioCrop: s.studioCrop,
+            studioRatio: s.studioRatio,
+            studioTexts: s.studioTexts.map((t) => ({ ...t })),
+            placedStickers: s.placedStickers.map((p) => ({ ...p })),
+          };
+          const next = [...s.studioHistory, snap];
+          if (next.length > 50) next.shift();
+          return { studioHistory: next, studioFuture: [] };
+        }),
+      studioUndo: () =>
+        set((s) => {
+          if (s.studioHistory.length === 0) return s;
+          const past = s.studioHistory.slice(0, -1);
+          const target = s.studioHistory[s.studioHistory.length - 1]!;
+          const current: StudioSnapshot = {
+            studioBackground: s.studioBackground,
+            studioRotate: s.studioRotate,
+            studioFlipH: s.studioFlipH,
+            studioFlipV: s.studioFlipV,
+            studioCrop: s.studioCrop,
+            studioRatio: s.studioRatio,
+            studioTexts: s.studioTexts.map((t) => ({ ...t })),
+            placedStickers: s.placedStickers.map((p) => ({ ...p })),
+          };
+          return {
+            ...target,
+            studioHistory: past,
+            studioFuture: [...s.studioFuture, current],
+          };
+        }),
+      studioRedo: () =>
+        set((s) => {
+          if (s.studioFuture.length === 0) return s;
+          const future = s.studioFuture.slice(0, -1);
+          const target = s.studioFuture[s.studioFuture.length - 1]!;
+          const current: StudioSnapshot = {
+            studioBackground: s.studioBackground,
+            studioRotate: s.studioRotate,
+            studioFlipH: s.studioFlipH,
+            studioFlipV: s.studioFlipV,
+            studioCrop: s.studioCrop,
+            studioRatio: s.studioRatio,
+            studioTexts: s.studioTexts.map((t) => ({ ...t })),
+            placedStickers: s.placedStickers.map((p) => ({ ...p })),
+          };
+          return {
+            ...target,
+            studioHistory: [...s.studioHistory, current],
+            studioFuture: future,
+          };
+        }),
       setBgPickerTab: (t) => set({ bgPickerTab: t }),
-
-      addSticker: (emoji) =>
+      addSticker: (emoji) => {
+        get().pushStudioHistory();
         set((s) => {
           const x = 15 + Math.random() * 60;
           const y = 15 + Math.random() * 50;
@@ -223,28 +596,21 @@ export const useAppStore = create<State>()(
               { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
             ],
           };
-        }),
-
-      removeSticker: (id) =>
+        });
+      },
+      removeSticker: (id) => {
+        get().pushStudioHistory();
         set((s) => ({
           placedStickers: s.placedStickers.filter((p) => p.id !== id),
-        })),
-
-      setArchiveMainTab: (t) =>
-        set({ archiveMainTab: t, gallerySheet: null, modal: null }),
-
+          studioSelectedLayerKey:
+            s.studioSelectedLayerKey === `sticker-${id}` ? null : s.studioSelectedLayerKey,
+        }));
+      },
+      setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
       setArchiveView: (v) =>
-        set({
-          archiveView: v,
-          archiveCalExpanded: false,
-          archiveListExpanded: null,
-        }),
-
-      toggleCalExpanded: () =>
-        set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
-
+        set({ archiveView: v, archiveCalExpanded: false, archiveListExpanded: null }),
+      toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
       setCalExpanded: (v) => set({ archiveCalExpanded: v }),
-
       setArchiveMonth: (y, m) =>
         set({
           archiveMonth: { y, m },
@@ -252,36 +618,29 @@ export const useAppStore = create<State>()(
           archiveListExpanded: null,
           archiveListCount: 4,
         }),
-
       pickDate: (k) =>
         set((s) => {
           const [yStr, mStr] = k.split("-");
           const y = Number(yStr);
           const m = Number(mStr);
           const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
-
           return {
             archiveMonth: sameMonth ? s.archiveMonth : { y, m },
             archiveSelected: s.archiveSelected === k ? null : k,
           };
         }),
-
       toggleListExpanded: (k) =>
         set((s) => ({
           archiveListExpanded: s.archiveListExpanded === k ? null : k,
         })),
-
       bumpListCount: () =>
         set((s) => ({ archiveListCount: s.archiveListCount + 4 })),
-
       resetListCount: () =>
         set({ archiveListCount: 4, archiveListExpanded: null }),
-
       addRecord: (key, rec) =>
         set((s) => ({
           userRecords: { ...s.userRecords, [key]: rec },
         })),
-
       deleteUserRecord: (key) =>
         set((s) => {
           if (!(key in s.userRecords)) return s;
@@ -289,42 +648,33 @@ export const useAppStore = create<State>()(
           delete next[key];
           return { userRecords: next };
         }),
-
       mergeRecords: (records) =>
         set((s) => ({
           userRecords: { ...s.userRecords, ...records },
         })),
-
       setPendingScanData: (d) => set({ pendingScanData: d }),
-
       consumePendingScanData: () => {
         const cur = get().pendingScanData;
         if (cur) set({ pendingScanData: null });
         return cur;
       },
-
       setGalleryFilter: (p) =>
         set((s) => ({
           galleryFilter: { ...s.galleryFilter, ...p },
         })),
-
       setGallerySheet: (s) =>
         set({ gallerySheet: s, modal: s ? "gallerySheet" : null }),
-
       setStyleSubTab: (t) => set({ styleSubTab: t }),
-
       removeSavedStyle: (id) =>
         set((s) =>
           s.removedSavedStyleIds.includes(id)
             ? s
             : { removedSavedStyleIds: [...s.removedSavedStyleIds, id] },
         ),
-
       restoreSavedStyle: (id) =>
         set((s) => ({
           removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== id),
         })),
-
       addUserSavedStyle: (style) =>
         set((s) => {
           const exists = s.userSavedStyles.some((x) => x.id === style.id);
@@ -336,41 +686,31 @@ export const useAppStore = create<State>()(
             removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== style.id),
           };
         }),
-
       setCommunityTab: (t) => set({ communityTab: t }),
-
       connectPartner: (id) =>
         set((s) => ({
           connectedPartners: s.connectedPartners.includes(id)
             ? s.connectedPartners
             : [...s.connectedPartners, id],
         })),
-
       togglePostSaved: (id) => {
         const key = String(id);
         const next = !get().savedPosts[key];
         set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
         return next;
       },
-
       setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
-
       setBestMetric: (m) => set({ bestMetric: m }),
-
       setAIStep: (s) => set({ aiStep: s }),
-
       pushAIMessage: (m) =>
         set((s) => ({ aiMessages: [...s.aiMessages, m] })),
-
       setAISummary: (s) => set({ aiSummary: s }),
-
       resetAI: () =>
         set({
           aiStep: "intro",
           aiMessages: DEFAULT_AI_MESSAGES,
           aiSummary: null,
         }),
-
       addAIJournal: (summary) =>
         set((s) => {
           const now = new Date();
@@ -380,15 +720,12 @@ export const useAppStore = create<State>()(
             savedAt: now.toISOString(),
             summary: stripHtml(summary),
           };
-
           return { aiJournals: [entry, ...s.aiJournals] };
         }),
-
       removeAIJournal: (id) =>
         set((s) => ({
           aiJournals: s.aiJournals.filter((j) => j.id !== id),
         })),
-
       prependInquiry: (i) =>
         set((s) => ({ inquiries: [i, ...s.inquiries] })),
     }),
