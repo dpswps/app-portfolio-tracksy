@@ -115,6 +115,7 @@ type State = {
   resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
   deleteUserRecord: (key: string) => void;
+  mergeRecords: (records: ArchiveRecords) => void;
   setPendingScanData: (d: ScanResult | null) => void;
   consumePendingScanData: () => ScanResult | null;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
@@ -287,6 +288,11 @@ export const useAppStore = create<State>()(
           delete next[key];
           return { userRecords: next };
         }),
+
+      mergeRecords: (records) =>
+        set((s) => ({
+          userRecords: { ...s.userRecords, ...records },
+        })),
 
       setPendingScanData: (d) => set({ pendingScanData: d }),
 
