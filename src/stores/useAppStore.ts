@@ -73,6 +73,8 @@ type State = {
   bestMetric: "dist" | "time" | "pace";
 
   communityTab: "hot" | "new";
+  savedPosts: Record<string, boolean>;
+  composeSelectedCardId: string | null;
 
   aiStep: AIStep;
   aiMessages: AIMessage[];
@@ -107,6 +109,8 @@ type State = {
   setGallerySheet: (s: GallerySheetKind) => void;
   setStyleSubTab: (t: State["styleSubTab"]) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
+  togglePostSaved: (id: string | number) => boolean;
+  setComposeSelectedCardId: (id: string | null) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
@@ -143,6 +147,8 @@ export const useAppStore = create<State>((set, get) => ({
   bestMetric: "dist",
 
   communityTab: "hot",
+  savedPosts: {},
+  composeSelectedCardId: null,
 
   aiStep: "intro",
   aiMessages: DEFAULT_AI_MESSAGES,
@@ -219,6 +225,14 @@ export const useAppStore = create<State>((set, get) => ({
     set({ gallerySheet: kind, modal: kind ? "gallerySheet" : null }),
   setStyleSubTab: (t) => set({ styleSubTab: t }),
   setCommunityTab: (t) => set({ communityTab: t }),
+  togglePostSaved: (id) => {
+    const key = String(id);
+    const current = get().savedPosts[key] ?? false;
+    const next = !current;
+    set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
+    return next;
+  },
+  setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
   setAIStep: (s) => set({ aiStep: s }),
   pushAIMessage: (m) => set((s) => ({ aiMessages: [...s.aiMessages, m] })),
   setAISummary: (s) => set({ aiSummary: s }),
