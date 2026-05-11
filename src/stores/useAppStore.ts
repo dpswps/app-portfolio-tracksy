@@ -128,6 +128,7 @@ type State = {
   connectPartner: (id: string) => void;
   togglePostSaved: (id: string | number) => boolean;
   setComposeSelectedCardId: (id: string | null) => void;
+  setBestMetric: (m: State["bestMetric"]) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
@@ -353,6 +354,8 @@ export const useAppStore = create<State>()(
       },
 
       setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+
+      setBestMetric: (m) => set({ bestMetric: m }),
 
       setAIStep: (s) => set({ aiStep: s }),
 
