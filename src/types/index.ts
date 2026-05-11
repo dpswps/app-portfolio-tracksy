@@ -116,6 +116,7 @@ export type CommunityPost = {
   likes: number;
   brand?: string;
   bg: string;
+  image?: string;
   tall?: boolean;
   avatarBg?: string;
   pace?: string;

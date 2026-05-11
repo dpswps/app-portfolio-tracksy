@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { ArchiveRecords, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 
-type Modal = "gallerySheet" | "monthPicker" | null;
+type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
 export type AIJournal = {
@@ -54,7 +54,7 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 ];
 
 type State = {
-  user: { name: string; birth: string; email: string; style: string };
+  user: { name: string; birth: string; email: string; style: string; avatarUrl?: string | null; coverUrl?: string | null };
 
   modal: Modal;
   toast: string | null;
@@ -76,6 +76,8 @@ type State = {
   styleSubTab: "saved" | "mine";
 
   userRecords: ArchiveRecords;
+  connectedPartners: string[];
+  bestMetric: "dist" | "time" | "pace";
 
   /**
    * scan 페이지에서 OCR로 추출한 데이터를 manual 페이지 prefill로 넘기기 위한 임시 state.
@@ -90,6 +92,8 @@ type State = {
   userSavedStyles: StyleCard[];
 
   communityTab: "hot" | "new";
+  savedPosts: Record<string, boolean>;
+  composeSelectedCardId: string | null;
 
   aiStep: AIStep;
   aiMessages: AIMessage[];
@@ -130,6 +134,8 @@ type State = {
   restoreSavedStyle: (id: string) => void;
   addUserSavedStyle: (style: StyleCard) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
+  togglePostSaved: (id: string | number) => boolean;
+  setComposeSelectedCardId: (id: string | null) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
   setAISummary: (s: string | null) => void;
@@ -189,6 +195,10 @@ export const useAppStore = create<State>()(
       userSavedStyles: [],
 
       communityTab: "hot",
+savedPosts: {},
+composeSelectedCardId: null,
+connectedPartners: [],
+bestMetric: "dist",
 
       aiStep: "intro",
       aiMessages: DEFAULT_AI_MESSAGES,
@@ -330,7 +340,13 @@ export const useAppStore = create<State>()(
         }),
 
       setCommunityTab: (t) => set({ communityTab: t }),
-
+togglePostSaved: (id) => {
+  const key = String(id);
+  const next = !get().savedPosts[key];
+  set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
+  return next;
+},
+setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
       setAIStep: (s) => set({ aiStep: s }),
 
       pushAIMessage: (m) =>

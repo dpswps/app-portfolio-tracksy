@@ -6,10 +6,10 @@ import { communityPosts } from "@/data/communityPosts";
 import { useAppStore } from "@/stores/useAppStore";
 
 const collections = [
-  { title: "오늘 러닝 무드", emoji: "☁️", g: "linear-gradient(135deg,#9CA3AF,#4B5563)" },
-  { title: "데일리 러닝", emoji: "🏆", g: "linear-gradient(135deg,#FBBF24,#F59E0B)" },
-  { title: "야경 러닝", emoji: "🌙", g: "linear-gradient(135deg,#1E3A8A,#312E81)" },
-  { title: "감성 러닝", emoji: "💜", g: "linear-gradient(135deg,#A78BFA,#7C3AED)" },
+  { title: "오늘 러닝 무드", emoji: "🎧", img: "/collection1.jpg" },
+  { title: "데일리 러닝", emoji: "📅", img: "/collection2.jpg" },
+  { title: "야경 러닝", emoji: "🌙", img: "/collection3.jpg" },
+  { title: "감성 러닝", emoji: "💜", img: "/collection4.jpg" },
 ];
 
 export default function CommunityPage() {
@@ -56,7 +56,11 @@ export default function CommunityPage() {
         </div>
         <div className="cc-grid">
           {collections.map((c) => (
-            <div key={c.title} className="cc-tile" style={{ background: c.g }}>
+            <div key={c.title} className="cc-tile">
+              <div
+                className="cc-thumb"
+                style={{ background: `url(${c.img}) center/cover no-repeat` }}
+              />
               <div className="cc-label">
                 {c.title} <span>{c.emoji}</span>
               </div>
