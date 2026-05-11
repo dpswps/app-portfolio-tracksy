@@ -79,16 +79,9 @@ type State = {
   connectedPartners: string[];
   bestMetric: "dist" | "time" | "pace";
 
-  /**
-   * scan 페이지에서 OCR로 추출한 데이터를 manual 페이지 prefill로 넘기기 위한 임시 state.
-   * manual mount 시 consume → null로 clear (휘발성, localStorage 비저장).
-   */
   pendingScanData: ScanResult | null;
 
-  /** Style cards that the user removed from "저장한 스타일" tab via bookmark click */
   removedSavedStyleIds: string[];
-
-  /** Style cards saved by the user (e.g., from a gallery card detail page) */
   userSavedStyles: StyleCard[];
 
   communityTab: "hot" | "new";
@@ -121,11 +114,8 @@ type State = {
   bumpListCount: () => void;
   resetListCount: () => void;
   addRecord: (key: string, rec: RunningRecord) => void;
-  /** 사용자가 추가한 기록 삭제 (시드 archiveRecords는 보호) */
   deleteUserRecord: (key: string) => void;
-  /** OCR 추출 결과를 manual 페이지로 전달용 임시 저장 */
   setPendingScanData: (d: ScanResult | null) => void;
-  /** manual 페이지에서 한 번 읽고 비움 */
   consumePendingScanData: () => ScanResult | null;
   setGalleryFilter: (p: Partial<State["galleryFilter"]>) => void;
   setGallerySheet: (s: GallerySheetKind) => void;
@@ -134,6 +124,7 @@ type State = {
   restoreSavedStyle: (id: string) => void;
   addUserSavedStyle: (style: StyleCard) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
+  connectPartner: (id: string) => void;
   togglePostSaved: (id: string | number) => boolean;
   setComposeSelectedCardId: (id: string | null) => void;
   setAIStep: (s: AIStep) => void;
@@ -190,15 +181,15 @@ export const useAppStore = create<State>()(
 
       userRecords: {},
       pendingScanData: null,
+      connectedPartners: [],
+      bestMetric: "dist",
 
       removedSavedStyleIds: [],
       userSavedStyles: [],
 
       communityTab: "hot",
-savedPosts: {},
-composeSelectedCardId: null,
-connectedPartners: [],
-bestMetric: "dist",
+      savedPosts: {},
+      composeSelectedCardId: null,
 
       aiStep: "intro",
       aiMessages: DEFAULT_AI_MESSAGES,
@@ -340,13 +331,23 @@ bestMetric: "dist",
         }),
 
       setCommunityTab: (t) => set({ communityTab: t }),
-togglePostSaved: (id) => {
-  const key = String(id);
-  const next = !get().savedPosts[key];
-  set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
-  return next;
-},
-setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+
+      connectPartner: (id) =>
+        set((s) => ({
+          connectedPartners: s.connectedPartners.includes(id)
+            ? s.connectedPartners
+            : [...s.connectedPartners, id],
+        })),
+
+      togglePostSaved: (id) => {
+        const key = String(id);
+        const next = !get().savedPosts[key];
+        set((s) => ({ savedPosts: { ...s.savedPosts, [key]: next } }));
+        return next;
+      },
+
+      setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+
       setAIStep: (s) => set({ aiStep: s }),
 
       pushAIMessage: (m) =>
