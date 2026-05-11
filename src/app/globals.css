@@ -562,10 +562,10 @@ input, textarea, select {
   margin: 0 16px;
 }
 .hs-card {
-  background: #fff;
-  border: 1px solid var(--border-soft);
-  border-radius: 16px;
-  padding: 14px;
+  background: #F5F3FF;
+  border: 0;
+  border-radius: 18px;
+  padding: 16px 16px 14px;
   position: relative;
   overflow: hidden;
   text-align: left;
@@ -576,17 +576,17 @@ button.hs-card {
   cursor: pointer;
   width: 100%;
   display: block;
-  transition: transform 0.1s, border-color 0.15s;
+  transition: transform 0.1s, box-shadow 0.15s;
 }
-button.hs-card:hover { border-color: var(--primary-soft); }
+button.hs-card:hover { box-shadow: 0 4px 14px rgba(139, 92, 246, 0.12); }
 button.hs-card:active { transform: scale(0.98); }
 button.hs-card:disabled { cursor: default; opacity: 0.7; }
-button.hs-card:disabled:hover { border-color: var(--border-soft); }
+button.hs-card:disabled:hover { box-shadow: none; }
 
 /* Best record card with options popover */
 .hs-best {
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 .hs-best-body {
   background: transparent;
@@ -595,11 +595,12 @@ button.hs-card:disabled:hover { border-color: var(--border-soft); }
   text-align: left;
   font: inherit;
   color: inherit;
-  padding: 14px;
+  padding: 16px 16px 14px;
   cursor: pointer;
   display: block;
-  border-radius: 16px;
+  border-radius: 18px;
   transition: transform 0.1s;
+  position: relative;
 }
 .hs-best-body:active { transform: scale(0.98); }
 .hs-best-body:disabled { cursor: default; opacity: 0.7; }
@@ -684,39 +685,87 @@ button.hs-card:disabled:hover { border-color: var(--border-soft); }
   box-shadow: inset 0 0 0 3px #fff;
 }
 .bm-apply { margin-top: 0; }
-.hs-card .hs-fig {
-  height: 36px;
-  display: flex; align-items: flex-start;
-  margin-bottom: 6px;
+.hs-card .hs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
 }
-.hs-card .hs-fig svg { width: 60px; height: 36px; }
-.hs-card .hs-trophy { font-size: 28px; line-height: 1; }
+.hs-card .hs-ico {
+  width: 22px;
+  height: 22px;
+  color: var(--primary);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.hs-card .hs-ico svg { width: 100%; height: 100%; }
 .hs-card .hs-label {
-  font-size: 12px; color: var(--text-soft);
-  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .hs-card .hs-value {
-  font-size: 22px; font-weight: 800;
+  font-size: 26px;
+  font-weight: 800;
   color: var(--text);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
 }
 .hs-card .hs-value small {
-  font-size: 13px; font-weight: 600; color: var(--text-soft); margin-left: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-left: 3px;
+}
+.hs-card .hs-bg-art {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 96px;
+  height: 96px;
+  color: var(--primary);
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: 0;
+}
+.hs-month .hs-bg-art {
+  width: 110px;
+  height: 70px;
+  right: -8px;
+  bottom: 12px;
+}
+.hs-best .hs-bg-art {
+  width: 100px;
+  height: 100px;
+  right: -14px;
+  bottom: -10px;
 }
 .hs-badge {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
+  position: relative;
+  z-index: 1;
 }
 .hs-badge.pink {
-  background: #FFE4E6;
-  color: #E11D48;
+  background: #FCE7F3;
+  color: #DB2777;
 }
 .hs-badge.gray {
-  background: #F3F4F6;
-  color: #6B7280;
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--text-soft);
+  border: 1px solid rgba(139, 92, 246, 0.08);
 }
 
 /* === PROFILE === */

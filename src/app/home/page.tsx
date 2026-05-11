@@ -512,15 +512,21 @@ export default function HomePage() {
           onClick={goToRecordsArchive}
           aria-label="이번달 러닝 기록 보러가기"
         >
-          <div className="hs-fig">
-            <svg viewBox="0 0 60 60" fill="none">
-              <circle cx="38" cy="14" r="4" fill="#8B5CF6" />
-              <path d="M22 50 L28 38 L34 30 L42 36 L48 32" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M28 38 L24 28 L34 22 L40 26" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M14 50 Q22 46 36 50 Q44 52 52 48" stroke="#E5E7EB" strokeWidth="6" strokeLinecap="round" fill="none" />
-            </svg>
+          <svg className="hs-bg-art" viewBox="0 0 100 60" aria-hidden fill="currentColor">
+            <path d="M4 38c0-3 2-6 5-7l10-2c3-1 5-3 7-6l4-7c2-3 5-5 9-5h4c3 0 5 2 6 5l1 5 28 8c5 1 8 5 8 10v3c0 4-3 7-7 7H11c-4 0-7-3-7-7v-4z" />
+            <path d="M21 27l8-5h5l-1 4-8 4z" opacity="0.55" />
+            <circle cx="22" cy="48" r="3" fill="#fff" opacity="0.7" />
+            <circle cx="68" cy="48" r="3" fill="#fff" opacity="0.7" />
+          </svg>
+          <div className="hs-head">
+            <span className="hs-ico">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="13.5" cy="4" r="2" />
+                <path d="M13.49 5.48c-1.1 0-2.04.86-2.13 1.96l-1.06 4.84-3.1 7.27 1.84.78 2.95-6.91 2.1 1.13L13 18.5v3h2v-4.5l-2.1-2.7.7-3.6 1.83 2.4 2.6 1.2.86-1.84-2.05-.92-1.56-1.94c-.5-.6-1.22-.9-1.93-.9-.04-.04.14-.04.14-.04z" />
+              </svg>
+            </span>
+            <span className="hs-label">이번달 러닝 횟수</span>
           </div>
-          <div className="hs-label">이번달 러닝 횟수</div>
           <div className="hs-value">
             {monthStats.cur} <small>회</small>
           </div>
@@ -550,9 +556,16 @@ export default function HomePage() {
             aria-label="최고 기록 보러가기"
             disabled={!bestRecord}
           >
-            <div className="hs-fig hs-trophy">🏆</div>
-            <div className="hs-label">
-              최고 {bestActiveLabel}(90일간)
+            <svg className="hs-bg-art" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+              <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
+            </svg>
+            <div className="hs-head">
+              <span className="hs-ico">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
+                </svg>
+              </span>
+              <span className="hs-label">최고 {bestActiveLabel}(90일간)</span>
             </div>
             <div className="hs-value">
               {bestRecord ? bestRecord.valueStr : "—"}
