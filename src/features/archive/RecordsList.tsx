@@ -95,7 +95,11 @@ export default function RecordsList() {
               <span className="lr-date">{dateLabel}</span>
               <span className="lr-arrow up">⌃</span>
             </button>
-            <div className="lr-body lr-rec-body">
+            <Link
+              href={`/archive/records/${encodeURIComponent(it.key)}`}
+              className="lr-body lr-rec-body lr-rec-link"
+              aria-label="러닝 기록 자세히 보기"
+            >
               <div className="lr-rec-stats">
                 <div className="lr-stat">
                   <b>{it.rec.dist}</b>
@@ -114,7 +118,8 @@ export default function RecordsList() {
                 </div>
               </div>
               {it.rec.note && <div className="lr-rec-note">{it.rec.note}</div>}
-            </div>
+              <div className="lr-rec-hint">자세히 보기 ›</div>
+            </Link>
           </div>
         );
       })}

@@ -4,11 +4,14 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import { galleryCards } from "@/data/galleryCards";
 import { pad2 } from "@/lib/date";
+import Mascot from "@/components/ui/Mascot";
 
 export default function GalleryBody() {
   const router = useRouter();
   const { y, m } = useAppStore((s) => s.galleryFilter);
   const setSheet = useAppStore((s) => s.setGallerySheet);
+
+  const filteredCards = galleryCards.filter((c) => c.y === y && c.m === m);
 
   return (
     <div className="gallery-area">
@@ -27,64 +30,74 @@ export default function GalleryBody() {
         </button>
       </div>
 
-      <div className="gallery-grid">
-        {galleryCards.map((c) => (
-          <div
-            key={c.id}
-            className="g-card"
-            role="button"
-            tabIndex={0}
-            onClick={() => router.push(`/archive/gallery/${c.id}`)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                router.push(`/archive/gallery/${c.id}`);
-              }
-            }}
-          >
-            <div className="gc-bg" style={{ background: c.bg }} />
-            <div className="gc-overlay" />
-            <div className="gc-content">
-              <div className="gc-meta">{c.date}</div>
-              <div className="gc-title">{c.title}</div>
-              <div className="gc-dist">
-                {c.dist}
-                <small>킬로미터</small>
-              </div>
-              <div className="gc-stats">
-                <div className="gcs-cell">
-                  <b>{c.pace}</b>
-                  <i>평균 페이스</i>
+      {filteredCards.length === 0 ? (
+        <div className="gallery-empty">
+          <div className="gallery-empty-mascot">
+            <Mascot />
+          </div>
+          <div className="gallery-empty-title">
+            {y}년 {pad2(m)}월에 저장된 카드가 없어요
+          </div>
+          <div className="gallery-empty-sub">
+            다른 연도 / 월을 선택해보세요
+          </div>
+        </div>
+      ) : (
+        <div className="gallery-grid">
+          {filteredCards.map((c) => (
+            <div
+              key={c.id}
+              className="g-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/archive/gallery/${c.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  router.push(`/archive/gallery/${c.id}`);
+                }
+              }}
+            >
+              <div className="gc-bg" style={{ background: c.bg }} />
+              <div className="gc-overlay" />
+              <div className="gc-content">
+                <div className="gc-meta">{c.date}</div>
+                <div className="gc-title">{c.title}</div>
+                <div className="gc-dist">
+                  {c.dist}
+                  <small>킬로미터</small>
                 </div>
-                <div className="gcs-cell">
-                  <b>{c.time}</b>
-                  <i>시간</i>
+                <div className="gc-stats">
+                  <div className="gcs-cell">
+                    <b>{c.pace}</b>
+                    <i>평균 페이스</i>
+                  </div>
+                  <div className="gcs-cell">
+                    <b>{c.time}</b>
+                    <i>시간</i>
+                  </div>
+                  <div className="gcs-cell">
+                    <b>{c.elev}</b>
+                    <i>누적 상승</i>
+                  </div>
+                  <div className="gcs-cell">
+                    <b>{c.kcal}</b>
+                    <i>칼로리</i>
+                  </div>
+                  <div className="gcs-cell">
+                    <b>{c.bpm}</b>
+                    <i>평균 심박</i>
+                  </div>
+                  <div className="gcs-cell">
+                    <b>{c.cadence}</b>
+                    <i>케이던스</i>
+                  </div>
                 </div>
-                <div className="gcs-cell">
-                  <b>{c.elev}</b>
-                  <i>누적 상승</i>
-                </div>
-                <div className="gcs-cell">
-                  <b>{c.kcal}</b>
-                  <i>칼로리</i>
-                </div>
-                <div className="gcs-cell">
-                  <b>{c.bpm}</b>
-                  <i>평균 심박</i>
-                </div>
-                <div className="gcs-cell">
-                  <b>{c.cadence}</b>
-                  <i>케이던스</i>
-                </div>
-              </div>
-              <div className="gc-reactions">
-                <span className="gcr-item">❤ {c.likes}</span>
-                <span className="gcr-item">💬 {c.comments}</span>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

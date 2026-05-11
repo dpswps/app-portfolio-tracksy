@@ -11,6 +11,7 @@ const HIDE_NAV_PREFIXES = [
   "/login",
   "/signup",
   "/studio",
+  "/community/compose/cards",
 ];
 
 export default function DeviceFrame({ children }: { children: React.ReactNode }) {
