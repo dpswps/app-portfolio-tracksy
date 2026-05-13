@@ -2841,10 +2841,25 @@ textarea:focus { border-color: var(--primary); }
 }
 .cal-dow-row .sun { color: #EF4444; }
 .cal-dow-row .sat { color: #3B82F6; }
+/* 캘린더 그리드 wrap — 접힘/펼침을 부드럽게 보간.
+ * - aspect-ratio: 7 / visibleRows 로 보이는 주 수를 결정.
+ *   접힘일 때 7/2, 펼침일 때 7/totalRows. 두 값 사이를 CSS
+ *   transition으로 보간하면 한달 캘린더가 슬라이드처럼 펼쳐진다.
+ * - 내부 .cal-grid는 항상 totalRows 높이로 렌더되고
+ *   transform: translateY 로 보일 주를 위로 끌어올린다.
+ *   둘 다 같은 easing/duration으로 transition 걸어서
+ *   드래그 후 모션이 자연스럽게 이어지게 함. */
+.cal-grid-wrap {
+  width: 100%;
+  overflow: hidden;
+  transition: aspect-ratio 0.36s cubic-bezier(0.32, 0.72, 0, 1);
+}
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px 2px;
+  transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
 }
 .cal-day {
   aspect-ratio: 1 / 1;
@@ -2962,6 +2977,28 @@ textarea:focus { border-color: var(--primary); }
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+/* "자세히 보기 ›" 링크 hint (캘린더 선택 블록 / 리스트 확장 블록 공용) */
+.sr-record-link,
+.lr-rec-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.sr-record-link:hover,
+.lr-rec-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.08);
+}
+.sr-detail-hint,
+.lr-rec-hint {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
 .lr-rec-note {
   margin-top: 12px;
   padding: 10px 12px;
@@ -3008,16 +3045,277 @@ textarea:focus { border-color: var(--primary); }
   overflow-wrap: anywhere;
   word-break: break-all;
 }
+/* ──────────────────────────────────────────────────────────
+ * Record detail screen (/archive/records/[date])
+ * ────────────────────────────────────────────────────────── */
+.rd-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 12px;
+}
+.rd-header .back-btn {
+  font-size: 24px;
+  color: var(--text);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+}
+.rd-header-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rd-header-spacer { width: 28px; }
+
+.rd-screen {
+  padding: 4px 14px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .rd-hero {
+  background: var(--primary-softer);
+  border: 1px solid var(--primary-soft);
+  border-radius: 16px;
+  padding: 18px 16px 20px;
+  text-align: center;
   overflow: hidden;
 }
+.rd-hero-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.rd-hero-distance {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 8px;
+}
 .rd-hero-distance b {
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1;
   overflow-wrap: anywhere;
   word-break: break-all;
 }
+.rd-hero-distance small {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.rd-hero-tag {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid var(--primary-soft);
+  color: var(--primary-dark);
+}
+.rd-hero-tag.tone-great {
+  background: #FEF3C7;
+  border-color: #FCD34D;
+  color: #B45309;
+}
+.rd-hero-tag.tone-good {
+  background: #E0F2FE;
+  border-color: #BAE6FD;
+  color: #0369A1;
+}
+.rd-hero-tag.tone-ok {
+  background: #DCFCE7;
+  border-color: #BBF7D0;
+  color: #15803D;
+}
+.rd-hero-tag.tone-tough {
+  background: #F3E8FF;
+  border-color: #E9D5FF;
+  color: #7C3AED;
+}
+
+.rd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 14px 8px;
+  gap: 12px 4px;
+}
+.rd-cell {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.rd-cell b {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rd-cell i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
+.rd-cell small {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.rd-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+
+.rd-map {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 12px;
+}
+.rd-map-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.rd-splits {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 12px;
+}
+.rd-splits-table {
+  display: flex;
+  flex-direction: column;
+}
+.rd-splits-head,
+.rd-splits-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  padding: 8px 4px;
+  font-size: 12px;
+  align-items: center;
+}
+.rd-splits-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+}
+.rd-splits-row {
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text);
+}
+.rd-splits-row:last-child { border-bottom: none; }
+.rd-splits-row .rs-km { font-weight: 700; }
+
+.rd-note {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+}
+.rd-note-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
 .rd-note-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+.rd-note-text.muted { color: var(--text-muted); }
+.rd-note-empty { background: var(--primary-softer); border-color: var(--primary-soft); }
+
+.rd-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.rd-edit-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.rd-edit-btn:hover { background: var(--primary-dark); }
+.rd-delete-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rd-delete-btn:hover {
+  color: #DC2626;
+  border-color: #FCA5A5;
+  background: #FEF2F2;
+}
+.rd-delete-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rd-empty {
+  padding: 48px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.rd-empty-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.rd-empty-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.rd-empty-cta {
+  width: 100%;
+  max-width: 240px;
+  text-align: center;
+  text-decoration: none;
 }
 
 /* List view */
@@ -3888,6 +4186,14 @@ textarea:focus { border-color: var(--primary); }
   position: relative;
   overflow: hidden;
 }
+/* 지원 예시 이미지 — 9:16 컨테이너에 비율 유지하며 채움. 3장이 가로로 정렬됨. */
+.se-tile-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: #fff;
+}
 .se-mock {
   position: absolute;
   inset: 8px;
@@ -4723,18 +5029,18 @@ textarea:focus { border-color: var(--primary); }
   display: flex; align-items: center; justify-content: center;
 }
 .g-detail-title {
+  flex: 1;
+  text-align: center;
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
 }
-.g-detail-bookmark {
-  margin-left: auto;
-  width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text);
-  background: transparent;
+/* 헤더 우측 spacer — back-btn(28px)과 같은 너비로 두어 제목이 정확히 가운데에 오도록 함. */
+.g-detail-spacer {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
 }
-.g-detail-bookmark svg { width: 20px; height: 20px; }
 
 .g-detail { padding: 0 14px 24px; }
 

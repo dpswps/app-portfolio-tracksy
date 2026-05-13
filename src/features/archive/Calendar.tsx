@@ -84,19 +84,31 @@ export default function Calendar() {
     });
   }
 
-  let visibleCells = cells;
-  if (!expanded) {
-    let anchor = selected;
-    if (!anchor || !cells.some((c) => c.key === anchor)) {
-      anchor = dateKey(y, m, daysInMonth);
-    }
-    const idx = cells.findIndex((c) => c.key === anchor);
-    const weekStart = Math.floor(idx / 7) * 7;
-    visibleCells = cells.slice(weekStart, weekStart + 14);
-    if (visibleCells.length < 14) {
-      visibleCells = cells.slice(Math.max(0, cells.length - 14));
-    }
+  /* ──────────────────────────────────────────────────────────
+   * 항상 모든 셀을 렌더하고, wrapper의 aspect-ratio와 grid의
+   * transform: translateY(...) 를 CSS transition으로 보간해서
+   * 펼침/접기 모션이 부드럽게 이어지도록 한다.
+   *
+   * - 접힘: aspect-ratio = 7/2 (2주만 보임) + translateY로
+   *   선택된 날짜가 속한 주를 맨 위로 스크롤.
+   * - 펼침: aspect-ratio = 7/totalRows (전체) + translateY=0.
+   * ────────────────────────────────────────────────────────── */
+  const totalRows = Math.ceil(cells.length / 7);
+  const visibleRowsCollapsed = 2;
+
+  let anchor = selected;
+  if (!anchor || !cells.some((c) => c.key === anchor)) {
+    anchor = dateKey(y, m, daysInMonth);
   }
+  const anchorIdx = cells.findIndex((c) => c.key === anchor);
+  let startRow = Math.max(0, Math.floor(anchorIdx / 7));
+  if (startRow + visibleRowsCollapsed > totalRows) {
+    startRow = Math.max(0, totalRows - visibleRowsCollapsed);
+  }
+
+  const visibleRows = expanded ? totalRows : visibleRowsCollapsed;
+  // grid는 항상 totalRows 높이. 접힘 시 startRow만큼 위로 밀어 보여줄 주만 노출.
+  const translatePct = expanded ? 0 : -(startRow / totalRows) * 100;
 
   return (
     <>
@@ -108,24 +120,32 @@ export default function Calendar() {
             </span>
           ))}
         </div>
-        <div className="cal-grid">
-          {visibleCells.map((c, i) => {
-            const has = !!allRecords[c.key];
-            const isSel = selected === c.key;
-            const dow = i % 7;
-            const cls = ["cal-day"];
-            if (c.other) cls.push("other");
-            if (has) cls.push("has");
-            if (isSel) cls.push("sel");
-            if (dow === 0) cls.push("sun");
-            if (dow === 6) cls.push("sat");
-            return (
-              <button key={`${c.key}-${i}`} className={cls.join(" ")} onClick={() => pickDate(c.key)}>
-                <span className="cd-num">{c.d}</span>
-                <span className="cd-dot" />
-              </button>
-            );
-          })}
+        <div
+          className="cal-grid-wrap"
+          style={{ aspectRatio: `7 / ${visibleRows}` }}
+        >
+          <div
+            className="cal-grid"
+            style={{ transform: `translateY(${translatePct}%)` }}
+          >
+            {cells.map((c, i) => {
+              const has = !!allRecords[c.key];
+              const isSel = selected === c.key;
+              const dow = i % 7;
+              const cls = ["cal-day"];
+              if (c.other) cls.push("other");
+              if (has) cls.push("has");
+              if (isSel) cls.push("sel");
+              if (dow === 0) cls.push("sun");
+              if (dow === 6) cls.push("sat");
+              return (
+                <button key={`${c.key}-${i}`} className={cls.join(" ")} onClick={() => pickDate(c.key)}>
+                  <span className="cd-num">{c.d}</span>
+                  <span className="cd-dot" />
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div
           className="cal-drag-handle"

@@ -5,49 +5,102 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import type { ScanResult } from "@/types";
 
-/** File → base64 data URL 변환 */
+/** File → base64 data URL 변환 (구형 안드로이드 fallback 경로용) */
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () =>
+      reject(reader.error || new Error("파일을 읽지 못했어요"));
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * 이미지를 canvas에 그려서 max 너비로 리사이즈 + JPEG 압축.
- * localStorage에 base64로 저장할 때 용량 부담 줄임 (대형 사진 → 100~300KB 수준).
+ * File을 캔버스에 그려 maxWidth로 리사이즈 + JPEG 압축해서 base64 dataURL로 반환.
+ *
+ * 왜 이렇게까지 하나?
+ * - 갤럭시 S21 등 고해상도 카메라는 원본이 4~8MB. base64 인코딩 시 +33% → 6~11MB.
+ *   이를 fetch 바디로 보내면 Vercel 4.5MB 한도에 엣지에서 거부되거나, 안드로이드
+ *   JS 엔진 메모리/JSON.stringify에서 실패한다.
+ * - 그래서 OCR 업로드와 로컬 저장(screenshot) 양쪽 모두 *압축본*을 쓴다.
+ *
+ * 구현 전략:
+ * 1) 최신 경로: createImageBitmap(file) → canvas. blob 단계에서 디코딩을 위임해
+ *    new Image()의 메모리 문제(특히 Samsung Internet)를 피한다.
+ * 2) Fallback: FileReader → new Image() → canvas. 1)이 안되는 환경 (createImageBitmap
+ *    미지원 또는 HEIC 등) 에서 사용.
+ *
+ * 둘 다 실패해도 호출자에서 step별 메시지로 사용자에게 정확한 실패 단계를 알려줌.
  */
-function compressImage(
-  dataUrl: string,
-  maxWidth = 800,
-  quality = 0.7,
+async function compressFileToDataUrl(
+  file: File,
+  maxWidth = 1280,
+  quality = 0.72,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
+  // 1) Modern path — createImageBitmap (Chrome/Edge/Firefox 50+, Safari 15+,
+  //    삼성 인터넷 14+ 등 대부분의 현역 모바일 브라우저 지원)
+  if (typeof createImageBitmap === "function") {
+    let bitmap: ImageBitmap | null = null;
+    try {
+      bitmap = await createImageBitmap(file);
+      const scale = bitmap.width > maxWidth ? maxWidth / bitmap.width : 1;
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        const out = canvas.toDataURL("image/jpeg", quality);
+        try {
+          bitmap.close();
+        } catch {
+          /* ignore */
+        }
+        return out;
+      }
+    } catch (err) {
+      console.warn(
+        "[scan] createImageBitmap path failed, falling back to Image():",
+        err,
+      );
+      try {
+        bitmap?.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  // 2) Fallback path — FileReader → new Image() → canvas
+  const dataUrl = await fileToDataUrl(file);
+  return await new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const ratio = img.width > maxWidth ? maxWidth / img.width : 1;
-      const w = Math.round(img.width * ratio);
-      const h = Math.round(img.height * ratio);
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        // canvas 미지원 환경 → 원본 그대로
-        resolve(dataUrl);
+        resolve(dataUrl); // canvas 미지원 → 원본 그대로 (마지막 안전망)
         return;
       }
-      ctx.drawImage(img, 0, 0, w, h);
       try {
+        ctx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL("image/jpeg", quality));
-      } catch {
-        // tainted canvas 등 → 원본 그대로
+      } catch (e) {
+        // tainted canvas 등 — 원본 dataUrl이라도 반환
+        console.warn("[scan] canvas draw/toDataURL failed:", e);
         resolve(dataUrl);
       }
     };
-    img.onerror = () => reject(new Error("이미지 로드 실패"));
+    img.onerror = () =>
+      reject(new Error("이미지를 디코딩하지 못했어요 (지원되지 않는 형식일 수 있어요)"));
     img.src = dataUrl;
   });
 }
@@ -123,25 +176,55 @@ export default function ArchiveScanPage() {
   const onAnalyze = async () => {
     if (!pickedFile || analyzing) return;
     setAnalyzing(true);
-    try {
-      // 1) 원본을 base64 data URL로 (OCR 전송용)
-      const originalDataUrl = await fileToDataUrl(pickedFile);
 
-      // 2) OCR 호출 + 동시에 사진 압축 (저장용 thumbnail)
-      const [ocrJson, compressed] = await Promise.all([
-        fetch("/api/ocr", {
+    /* 단계별 실패 지점을 추적 — 사용자에게 "어디서 실패했는지" 알려주고
+     * 콘솔로도 디버깅할 수 있도록 한다. (S21 처럼 특정 기기에서만 실패할 때
+     * 이전엔 "분석 중 오류" 만 떴는데, 이제 어느 단계인지까지 보인다.) */
+    let step: "compress" | "ocr-fetch" | "ocr-parse" | "done" = "compress";
+    try {
+      // 1) 파일 → 압축된 base64. OCR 업로드 + 로컬 screenshot 양쪽에 동일하게 사용.
+      //    원본을 OCR에 보내지 않는 이유는 위 compressFileToDataUrl 주석 참고.
+      step = "compress";
+      const compressed = await compressFileToDataUrl(pickedFile, 1280, 0.72);
+
+      // payload 크기 가드 — 압축에도 불구하고 너무 크면 사용자에게 알리고 중단.
+      // (Vercel free 4.5MB 제한. base64는 원본 대비 ~1.33배, JSON wrapping까지
+      //  여유를 두고 4_000_000 byte로 컷.)
+      if (compressed.length > 4_000_000) {
+        throw new Error(
+          "사진이 너무 커서 분석할 수 없어요. 더 작은 사진으로 다시 시도해주세요.",
+        );
+      }
+
+      // 2) OCR 호출 — 압축본을 전송. 60초 타임아웃으로 무한 대기 방지.
+      step = "ocr-fetch";
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 60_000);
+      let res: Response;
+      try {
+        res = await fetch("/api/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: originalDataUrl }),
-        }).then((r) => r.json()),
-        compressImage(originalDataUrl).catch(() => originalDataUrl),
-      ]);
+          body: JSON.stringify({ image: compressed }),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(tid);
+      }
+      if (!res.ok) {
+        // 413 (Payload Too Large), 5xx 등 명시적 실패. Vercel 엣지에서 거부될 때
+        // 보통 413이 떨어진다.
+        throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+      }
 
-      const result: ScanResult | undefined = ocrJson?.result;
+      step = "ocr-parse";
+      const ocrJson = (await res.json()) as { result?: ScanResult };
+      const result = ocrJson?.result;
 
+      step = "done";
       if (!result || !hasAnyData(result)) {
         showToast("기록을 인식하지 못했어요. 직접 입력해주세요.");
-        // 인식은 실패해도 사진 자체는 보존해서 지도로 활용
+        // 인식이 실패해도 사진 자체는 보존해서 지도/스튜디오에서 활용
         setPendingScanData({
           date: null,
           dist: null,
@@ -158,13 +241,31 @@ export default function ArchiveScanPage() {
         return;
       }
 
-      // OCR 결과에 압축된 사진을 함께 담음
       setPendingScanData({ ...result, screenshot: compressed });
       showToast("사진에서 기록을 추출했어요");
       router.push("/archive/manual");
     } catch (err) {
-      console.error("OCR error:", err);
-      showToast("분석 중 오류가 발생했어요");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[scan] failed at step '${step}':`, err);
+
+      // 단계별 사용자 메시지. step 으로 어디서 실패했는지 구분.
+      if (step === "compress") {
+        showToast(
+          msg.includes("디코딩") || msg.includes("읽")
+            ? msg
+            : "이미지 처리에 실패했어요. 다른 사진으로 시도해주세요.",
+        );
+      } else if (step === "ocr-fetch") {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          showToast("서버 응답이 너무 느려요. 잠시 후 다시 시도해주세요.");
+        } else {
+          showToast(`서버 연결 실패: ${msg}`);
+        }
+      } else if (step === "ocr-parse") {
+        showToast("서버 응답을 해석하지 못했어요. 다시 시도해주세요.");
+      } else {
+        showToast(`분석 중 오류: ${msg}`);
+      }
       setAnalyzing(false);
     }
   };
@@ -184,15 +285,25 @@ export default function ArchiveScanPage() {
       <div className="scan-examples">
         <div className="se-title">지원 예시</div>
         <div className="se-grid">
-          <div className="se-tile" style={{ background: "linear-gradient(135deg,#DBEAFE,#BFDBFE)" }}>
-            <div className="se-mock se-mock-map" />
-          </div>
-          <div className="se-tile" style={{ background: "linear-gradient(135deg,#1F2937,#111827)" }}>
-            <div className="se-mock se-mock-stats" />
-          </div>
-          <div className="se-tile" style={{ background: "linear-gradient(135deg,#FEF3C7,#FDE68A)" }}>
-            <div className="se-mock se-mock-summary" />
-          </div>
+          {/* 사용자가 제공한 캡쳐 사진 지원 예시 3장 (가로 정렬) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/scan-example-1.png"
+            alt="러닝 앱 캡쳐 예시 1"
+            className="se-tile se-tile-img"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/scan-example-2.png"
+            alt="러닝 앱 캡쳐 예시 2"
+            className="se-tile se-tile-img"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/scan-example-3.png"
+            alt="러닝 앱 캡쳐 예시 3"
+            className="se-tile se-tile-img"
+          />
         </div>
       </div>
 

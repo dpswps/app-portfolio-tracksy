@@ -50,15 +50,8 @@ export default function GalleryDetailPage() {
           ‹
         </button>
         <div className="g-detail-title">갤러리 게시물</div>
-        <button
-          className="g-detail-bookmark"
-          aria-label="저장"
-          onClick={() => showToast("저장했어요")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M6 3h12v18l-6-4-6 4z" />
-          </svg>
-        </button>
+        {/* 우측 상단 북마크 아이콘 제거. 헤더 좌우 균형을 위해 빈 spacer로 대체. */}
+        <span className="g-detail-spacer" aria-hidden="true" />
       </div>
 
       <section className="g-detail">
