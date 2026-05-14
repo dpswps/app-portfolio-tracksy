@@ -107,8 +107,22 @@ type State = {
   studioHiddenLayers: Record<string, boolean>;
   studioLockedLayers: Record<string, boolean>;
   studioLayerNames: Record<string, string>;
+  /** 각 레이어 key의 불투명도 (0~100). 누락 시 100으로 간주. */
+  studioLayerOpacities: Record<string, number>;
+  /**
+   * 사용자 레이어(텍스트 + 스티커) 통합 순서.
+   * 배열의 *마지막* 원소가 z-index 최상위(가장 앞)에 있는 레이어.
+   * key 형식: "text-${id}" | "sticker-${id}".
+   * 텍스트/스티커를 자유롭게 inter-mingle 할 수 있게 해주는 단일 source of truth.
+   */
+  studioLayerOrder: string[];
   studioSelectedLayerKey: string | null;
   studioDesignSubmenu: "none" | "theme" | "style";
+  /** 현재 적용된 카드 레이아웃 id — Design > 스타일 탭의 그리드에서 선택 */
+  studioLayoutId: string;
+  /** 배경 위에 얹는 테마 오버레이 (data URL, 보통 투명 영역 포함 SVG).
+   *  배경(studioBackground)을 대체하지 않고 그 위에 추가로 렌더링됨. */
+  studioThemeOverlay: string | null;
   studioCardData: {
     weekTitle: string;
     distance: string;
@@ -119,6 +133,8 @@ type State = {
   };
   studioRecordIdx: number;
   studioRecordPickerOpen: boolean;
+  /** 스튜디오에서 "스타일 불러오기" 시트 열림 여부. */
+  studioStylePickerOpen: boolean;
   studioStatsOffset: { x: number; y: number };
   studioHistory: StudioSnapshot[];
   studioFuture: StudioSnapshot[];
@@ -182,12 +198,26 @@ type State = {
   setStudioSelectedLayer: (key: string | null) => void;
   reorderStudioText: (id: number, dir: "up" | "down") => void;
   reorderSticker: (id: number, dir: "up" | "down") => void;
+  /** 텍스트 레이어를 특정 array index로 이동 (drag reorder 용). */
+  moveStudioTextTo: (id: number, toIndex: number) => void;
+  /** 스티커 레이어를 특정 array index로 이동 (drag reorder 용). */
+  movePlacedStickerTo: (id: number, toIndex: number) => void;
+  /** 레이어 불투명도 설정 (0~100). */
+  setLayerOpacity: (key: string, value: number) => void;
   setStudioDesignSubmenu: (m: State["studioDesignSubmenu"]) => void;
+  /** 카드 레이아웃 id 설정. */
+  setStudioLayoutId: (id: string) => void;
   applyStudioTheme: (bg: string) => void;
+  /** 테마 오버레이를 설정 (배경 위에 얹힘). null이면 해제. */
+  setStudioThemeOverlay: (overlay: string | null) => void;
   setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
   loadNextStudioRecord: () => string | null;
   loadStudioRecord: (date: string) => void;
   setStudioRecordPickerOpen: (open: boolean) => void;
+  /** 스타일 picker 열기/닫기. */
+  setStudioStylePickerOpen: (open: boolean) => void;
+  /** 보관함의 저장된 StyleCard를 스튜디오 카드에 적용. 배경·제목·거리·통계 모두 반영. */
+  applyStudioStyle: (style: StyleCard) => void;
   updatePlacedSticker: (id: number, patch: { x?: number; y?: number }) => void;
   setStudioStatsOffset: (x: number, y: number) => void;
   pushStudioHistory: () => void;
@@ -273,8 +303,12 @@ export const useAppStore = create<State>()(
       studioHiddenLayers: {},
       studioLockedLayers: { bg: true },
       studioLayerNames: {},
+      studioLayerOpacities: {},
+      studioLayerOrder: [],
       studioSelectedLayerKey: null,
       studioDesignSubmenu: "none",
+      studioThemeOverlay: null,
+      studioLayoutId: "default",
       studioCardData: {
         weekTitle: "이번주 러닝 기록",
         distance: "5.21",
@@ -285,6 +319,7 @@ export const useAppStore = create<State>()(
       },
       studioRecordIdx: -1,
       studioRecordPickerOpen: false,
+      studioStylePickerOpen: false,
       studioStatsOffset: { x: 0, y: 0 },
       studioHistory: [],
       studioFuture: [],
@@ -473,8 +508,45 @@ export const useAppStore = create<State>()(
           return { placedStickers: arr };
         });
       },
+      moveStudioTextTo: (id, toIndex) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const arr = [...s.studioTexts];
+          const fromIdx = arr.findIndex((t) => t.id === id);
+          if (fromIdx === -1) return s;
+          const target = Math.max(0, Math.min(arr.length - 1, toIndex));
+          if (target === fromIdx) return s;
+          const [item] = arr.splice(fromIdx, 1);
+          arr.splice(target, 0, item!);
+          return { studioTexts: arr };
+        });
+      },
+      movePlacedStickerTo: (id, toIndex) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const arr = [...s.placedStickers];
+          const fromIdx = arr.findIndex((p) => p.id === id);
+          if (fromIdx === -1) return s;
+          const target = Math.max(0, Math.min(arr.length - 1, toIndex));
+          if (target === fromIdx) return s;
+          const [item] = arr.splice(fromIdx, 1);
+          arr.splice(target, 0, item!);
+          return { placedStickers: arr };
+        });
+      },
+      setLayerOpacity: (key, value) =>
+        set((s) => {
+          const v = Math.max(0, Math.min(100, Math.round(value)));
+          return { studioLayerOpacities: { ...s.studioLayerOpacities, [key]: v } };
+        }),
       setStudioDesignSubmenu: (m) => set({ studioDesignSubmenu: m }),
+      setStudioLayoutId: (id) => {
+        get().pushStudioHistory();
+        set({ studioLayoutId: id });
+      },
       applyStudioTheme: (bg) => {
+        // 레거시 — 일부 호출부가 여전히 배경 교체 방식의 테마를 사용할 수 있음.
+        // 새 기능은 setStudioThemeOverlay를 사용해서 배경을 보존한 채 위에 얹을 것.
         get().pushStudioHistory();
         set({
           studioBackground: bg,
@@ -485,12 +557,18 @@ export const useAppStore = create<State>()(
           studioCropMode: false,
         });
       },
+      setStudioThemeOverlay: (overlay) => {
+        get().pushStudioHistory();
+        set({ studioThemeOverlay: overlay });
+      },
       setStudioCardData: (patch) =>
         set((s) => ({ studioCardData: { ...s.studioCardData, ...patch } })),
       loadNextStudioRecord: () => {
-        const entries = Object.entries(archiveRecords).sort(([a], [b]) =>
-          a < b ? 1 : -1,
-        );
+        // userRecords + archiveRecords 머지본 사용 — 사용자가 직접입력/타사앱연동/
+        // 캡쳐스캔으로 저장한 기록도 스튜디오에서 동등하게 불러올 수 있도록 함.
+        // userRecords가 우선 (같은 날짜면 사용자 기록을 사용).
+        const merged = { ...archiveRecords, ...get().userRecords };
+        const entries = Object.entries(merged).sort(([a], [b]) => (a < b ? 1 : -1));
         if (entries.length === 0) return null;
         get().pushStudioHistory();
         const cur = get().studioRecordIdx;
@@ -507,7 +585,10 @@ export const useAppStore = create<State>()(
         return date;
       },
       loadStudioRecord: (date) => {
-        const rec = archiveRecords[date];
+        // userRecords 우선 → archiveRecords fallback.
+        // 같은 날짜에 둘 다 있으면 사용자가 직접 저장한 기록을 사용.
+        const userRec = get().userRecords[date];
+        const rec = userRec || archiveRecords[date];
         if (!rec) return;
         get().pushStudioHistory();
         set((s) => ({
@@ -519,6 +600,33 @@ export const useAppStore = create<State>()(
         }));
       },
       setStudioRecordPickerOpen: (open) => set({ studioRecordPickerOpen: open }),
+      setStudioStylePickerOpen: (open) => set({ studioStylePickerOpen: open }),
+      applyStudioStyle: (style) => {
+        // 스타일의 모든 정보(배경·제목·거리·통계)를 스튜디오 카드에 한 번에 적용.
+        // 적용 후 사용자는 텍스트를 클릭해서 그대로 수정할 수 있음 (기존 EditableText 동작).
+        get().pushStudioHistory();
+        const stats = style.stats || [];
+        // StyleCard의 stats는 자유 형식. 표준 매핑:
+        //   0 → time, 1 → pace, 2 → calories
+        // 나머지는 무시 (스튜디오 카드는 4개 필드만 노출 — bubble은 별도).
+        const get0 = (i: number) => (stats[i]?.v ?? "").toString();
+        set((s) => ({
+          studioBackground: style.bg || s.studioBackground,
+          studioRotate: 0,
+          studioFlipH: false,
+          studioFlipV: false,
+          studioCrop: 1,
+          studioCropMode: false,
+          studioCardData: {
+            ...s.studioCardData,
+            weekTitle: style.title || s.studioCardData.weekTitle,
+            distance: style.dist || s.studioCardData.distance,
+            time: get0(0) || s.studioCardData.time,
+            pace: get0(1) || s.studioCardData.pace,
+            calories: get0(2) || s.studioCardData.calories,
+          },
+        }));
+      },
       updatePlacedSticker: (id, patch) =>
         set((s) => ({
           placedStickers: s.placedStickers.map((p) =>

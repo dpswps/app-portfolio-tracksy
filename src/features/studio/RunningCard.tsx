@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
 function EditableText({
@@ -67,11 +66,17 @@ function EditableText({
 
 export default function RunningCard({ small = false }: { small?: boolean }) {
   const bg = useAppStore((s) => s.studioBackground);
+  const themeOverlay = useAppStore((s) => s.studioThemeOverlay);
+  const layoutId = useAppStore((s) => s.studioLayoutId);
   const hidden = useAppStore((s) => s.studioHiddenLayers);
   const locked = useAppStore((s) => s.studioLockedLayers);
+  const opacities = useAppStore((s) => s.studioLayerOpacities);
   const bgHidden = !small && !!hidden["bg"];
   const cardHidden = !small && !!hidden["card"];
   const cardLocked = !small && !!locked["card"];
+  // 레이어 패널의 불투명도 (0~1). small preview에서는 항상 1.
+  const bgOpacity = small ? 1 : (opacities["bg"] != null ? opacities["bg"] / 100 : 1);
+  const cardOpacity = small ? 1 : (opacities["card"] != null ? opacities["card"] / 100 : 1);
   // Themes are SVG-data-URL gradients applied via the design tab; photos
   // are anything else (uploaded jpg/png as base64 data URL, or file URL).
   const isTheme = !!bg && bg.startsWith("data:image/svg+xml");
@@ -120,9 +125,15 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
         transform,
         transformOrigin: "center",
         transition: "transform 0.18s ease",
+        opacity: bgOpacity,
       }
-    : transform
-    ? { transform, transformOrigin: "center", transition: "transform 0.18s ease" }
+    : transform || bgOpacity !== 1
+    ? {
+        transform,
+        transformOrigin: "center",
+        transition: "transform 0.18s ease",
+        opacity: bgOpacity,
+      }
     : undefined;
 
   void ratio;
@@ -186,10 +197,24 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
   };
 
   return (
-    <div ref={cardRef} className={`running-card${small ? " small" : ""}`}>
+    <div
+      ref={cardRef}
+      className={`running-card${small ? " small" : ""} layout-${layoutId || "default"}`}
+    >
       {!bgHidden && <div className="rc-photo" style={photoStyle} />}
       {!bgHidden && <div className="rc-grad" />}
       {!bgHidden && (!bg || isTheme) && <div className="rc-runner" />}
+      {/* 테마 오버레이 — 배경 위, 스티커/텍스트/통계 아래.
+          투명 영역을 포함한 SVG라 배경을 가리지 않고 장식만 얹힘. */}
+      {themeOverlay && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={themeOverlay}
+          alt=""
+          className="rc-theme-overlay"
+          aria-hidden="true"
+        />
+      )}
 
       {!cardHidden && (
         <div
@@ -200,6 +225,7 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
               : {
                   transform: `translate(${statsOffset.x}px, ${statsOffset.y}px)`,
                   cursor: cardLocked ? "default" : undefined,
+                  opacity: cardOpacity,
                 }
           }
           onPointerDown={onStatsPointerDown}
@@ -279,7 +305,9 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
             />
           </div>
           <div className="rc-mascot">
-            <Mascot />
+            {/* 카드 우측 하단 — 메인 캐릭터(main-character.png, 보라 러닝 마스코트). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/main-character.png" alt="" draggable={false} />
           </div>
         </div>
       )}

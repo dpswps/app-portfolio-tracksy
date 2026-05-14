@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { archiveRecords } from "@/data/archiveRecords";
 import { useAppStore } from "@/stores/useAppStore";
 import { dateKey, formatKoreanDate, KO_DOW } from "@/lib/date";
-import Mascot from "@/components/ui/Mascot";
 import Link from "next/link";
 
 export default function Calendar() {
@@ -175,9 +174,14 @@ function SelectedDateBlock() {
   if (!sel) {
     return (
       <div className="sel-block sel-empty">
-        <div className="sel-mascot">
-          <Mascot />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/speech-bubble.png"
+          alt=""
+          className="sel-bubble"
+          width={39}
+          height={28}
+        />
         <div className="sel-title">아직 선택된 날짜가 없어요</div>
         <div className="sel-sub">
           날짜를 선택하거나<br />
@@ -193,9 +197,14 @@ function SelectedDateBlock() {
   if (!rec) {
     return (
       <div className="sel-block sel-empty">
-        <div className="sel-mascot">
-          <Mascot />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/speech-bubble.png"
+          alt=""
+          className="sel-bubble"
+          width={39}
+          height={28}
+        />
         <div className="sel-title">선택된 날짜에 기록이 없어요</div>
         <div className="sel-sub">
           오늘의 러닝을 기록하고<br />

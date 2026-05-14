@@ -10,10 +10,10 @@ import TextOverlay from "@/features/studio/TextOverlay";
 import TextSubmenu from "@/features/studio/TextSubmenu";
 import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
 import RecordPicker from "@/features/studio/RecordPicker";
+import StylePicker from "@/features/studio/StylePicker";
 import PlacedStickers from "@/features/studio/PlacedStickers";
 import LayerPanel from "@/features/studio/LayerPanel";
 import DesignSubmenu from "@/features/studio/DesignSubmenu";
-import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
 export default function StudioPage() {
@@ -31,6 +31,7 @@ export default function StudioPage() {
   const setRecordPickerOpen = useAppStore((s) => s.setStudioRecordPickerOpen);
   const layerPanelOpen = useAppStore((s) => s.studioLayerPanelOpen);
   const toggleLayerPanel = useAppStore((s) => s.toggleStudioLayerPanel);
+  const resetAI = useAppStore((s) => s.resetAI);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onLoadRecord = () => {
@@ -120,8 +121,23 @@ export default function StudioPage() {
           </div>
         </div>
         <div className="st-fab-stack">
-          <Link href="/archive/ai" className="st-fab st-fab-mascot" aria-label="AI 오늘의 러닝일지">
-            <Mascot className="st-fab-mascot-img" />
+          {/* AI 오늘의 러닝일지 — 보관함의 동일 버튼과 똑같이 동작.
+              둘 다 /archive/ai 로 가고, 진입 직전 resetAI()로 이전 세션 잔재를 정리해서
+              항상 intro 부터 시작되도록 한다.
+              아이콘은 트랙시 챗봇 캐릭터(public/tracksy-chatbot.png) 사용. */}
+          <Link
+            href="/archive/ai"
+            className="st-fab st-fab-mascot"
+            aria-label="AI 오늘의 러닝일지"
+            onClick={resetAI}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/tracksy-chatbot.png"
+              alt=""
+              className="st-fab-mascot-img"
+              draggable={false}
+            />
           </Link>
           <button className="st-fab st-fab-image" aria-label="배경 사진 추가" onClick={onPickPhoto}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -139,11 +155,13 @@ export default function StudioPage() {
             </svg>
             <span className="st-fab-plus" aria-hidden>+</span>
           </button>
+          {/* 스타일 불러오기는 Design > 스타일 탭으로 이동했으므로 FAB은 제거. */}
           <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileChange} style={{ display: "none" }} />
         </div>
       </div>
 
       <RecordPicker />
+      <StylePicker />
       <LayerPanel />
 
       <div className="studio-panel">

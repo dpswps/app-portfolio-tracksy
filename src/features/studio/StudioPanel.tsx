@@ -2,7 +2,26 @@
 
 import { useAppStore } from "@/stores/useAppStore";
 
-const STICKERS = ["🏃", "💜", "✨", "🔥", "🎯", "⚡", "🏆", "❤️", "🌟", "😊", "🎉", "💪"];
+/**
+ * 스튜디오 스티커 풀 — Tracksy 마스코트 캐릭터 12종.
+ * `key` 는 캔버스에 저장될 식별자(이미지 경로). `label` 은 토스트/접근성용.
+ * placedStickers의 emoji 필드에 경로를 그대로 담아둔다. 렌더 시 PlacedStickers
+ * 가 "/" 로 시작하는 값은 <img> 로, 그 외는 텍스트로 그린다.
+ */
+const STICKERS: { key: string; label: string }[] = [
+  { key: "/stickers/happy.png", label: "행복" },
+  { key: "/stickers/laughing.png", label: "웃음" },
+  { key: "/stickers/excited.png", label: "신남" },
+  { key: "/stickers/kissing.png", label: "키스" },
+  { key: "/stickers/cool.png", label: "쿨" },
+  { key: "/stickers/nervous.png", label: "긴장" },
+  { key: "/stickers/sleepy.png", label: "졸림" },
+  { key: "/stickers/shocked.png", label: "놀람" },
+  { key: "/stickers/dizzy.png", label: "어지러움" },
+  { key: "/stickers/crying.png", label: "눈물" },
+  { key: "/stickers/angry.png", label: "화남" },
+  { key: "/stickers/furious.png", label: "분노" },
+];
 
 function StickerGrid() {
   const addSticker = useAppStore((s) => s.addSticker);
@@ -11,14 +30,17 @@ function StickerGrid() {
     <div className="sp-stickers">
       {STICKERS.map((s) => (
         <button
-          key={s}
-          className="sp-sticker"
+          key={s.key}
+          className="sp-sticker sp-sticker-img"
           onClick={() => {
-            addSticker(s);
-            showToast(`${s} 추가됨`);
+            addSticker(s.key);
+            showToast(`${s.label} 스티커 추가됨`);
           }}
+          aria-label={s.label}
+          title={s.label}
         >
-          {s}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.key} alt={s.label} />
         </button>
       ))}
     </div>
@@ -207,38 +229,186 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
 function DesignTab() {
   const submenu = useAppStore((s) => s.studioDesignSubmenu);
   const setSubmenu = useAppStore((s) => s.setStudioDesignSubmenu);
-  const showToast = useAppStore((s) => s.showToast);
   const toggle = (m: "theme" | "style") => {
     setSubmenu(submenu === m ? "none" : m);
   };
   return (
-    <div className="sp-tools sp-design">
+    <>
+      <div className="sp-tools sp-design">
+        <button
+          className={`sp-tool${submenu === "theme" ? " active" : ""}`}
+          onClick={() => toggle("theme")}
+        >
+          <span className="sp-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M3 17l5-5 4 4 4-4 5 5" />
+            </svg>
+          </span>
+          <i>테마</i>
+        </button>
+        <button
+          className={`sp-tool${submenu === "style" ? " active" : ""}`}
+          onClick={() => toggle("style")}
+        >
+          <span className="sp-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 3l9 9-9 9-9-9z" />
+            </svg>
+          </span>
+          <i>스타일</i>
+        </button>
+      </div>
+      {submenu === "style" && <StyleLayoutGrid />}
+    </>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+ * 스타일 → 레이아웃 그리드.
+ *
+ * 8개의 레이아웃 프리셋을 보여주고, 클릭하면 그 레이아웃이 카드에 적용됨.
+ * 우측 하단에는 "저장한 스타일 사용하기" 버튼 — 보관함의 저장된 스타일 picker 열기.
+ * ────────────────────────────────────────────────────────── */
+type LayoutPreset = {
+  id: string;
+  name: string;
+  /** 작은 미리보기 — 실제 카드와 비슷한 정보 구성으로 표시 */
+  preview: React.ReactNode;
+};
+
+const LAYOUTS: LayoutPreset[] = [
+  {
+    id: "default",
+    name: "기본",
+    preview: (
+      <>
+        <span className="lyp-distance">0.00km</span>
+      </>
+    ),
+  },
+  {
+    id: "time-only",
+    name: "시간",
+    preview: <span className="lyp-time">00:00</span>,
+  },
+  {
+    id: "date-distance",
+    name: "날짜+거리",
+    preview: (
+      <>
+        <span className="lyp-date">YYYY.MM.DD</span>
+        <span className="lyp-small">0.00km</span>
+      </>
+    ),
+  },
+  {
+    id: "time-distance",
+    name: "시간+거리",
+    preview: (
+      <>
+        <span className="lyp-small">00:00 / 0.00km</span>
+      </>
+    ),
+  },
+  {
+    id: "distance-pace",
+    name: "거리+페이스",
+    preview: (
+      <>
+        <span className="lyp-small">0.0km</span>
+        <span className="lyp-small">00&apos;20&quot;</span>
+      </>
+    ),
+  },
+  {
+    id: "stats-row",
+    name: "통계 한 줄",
+    preview: (
+      <>
+        <span className="lyp-tiny">00:00 · 00.0km/h · 00.0km/h</span>
+      </>
+    ),
+  },
+  {
+    id: "icons-pair",
+    name: "아이콘",
+    preview: <span className="lyp-icons">♥ 🏃</span>,
+  },
+  {
+    id: "minimal-icons",
+    name: "심플 아이콘",
+    preview: <span className="lyp-icons">🏃 ♥</span>,
+  },
+  {
+    id: "stacked",
+    name: "스택",
+    preview: (
+      <>
+        <span className="lyp-tiny">00:00</span>
+        <span className="lyp-tiny">0.00km</span>
+        <span className="lyp-tiny">00&apos;20&quot;</span>
+        <span className="lyp-tiny">00.0km/h</span>
+      </>
+    ),
+  },
+  {
+    id: "full",
+    name: "풀",
+    preview: (
+      <>
+        <span className="lyp-tiny">00:00</span>
+        <span className="lyp-tiny">0.00km</span>
+        <span className="lyp-tiny">00&apos;20&quot;</span>
+        <span className="lyp-tiny">0kcal</span>
+      </>
+    ),
+  },
+  {
+    id: "summary",
+    name: "요약",
+    preview: (
+      <>
+        <span className="lyp-date">YYYY.MM.DD</span>
+        <span className="lyp-tiny">0.00km · 00&apos;20&quot;</span>
+        <span className="lyp-tiny">0kcal · ♥ 🏃</span>
+      </>
+    ),
+  },
+];
+
+function StyleLayoutGrid() {
+  const layoutId = useAppStore((s) => s.studioLayoutId);
+  const setLayout = useAppStore((s) => s.setStudioLayoutId);
+  const showToast = useAppStore((s) => s.showToast);
+  const openSavedStylesPicker = useAppStore((s) => s.setStudioStylePickerOpen);
+
+  return (
+    <div className="sp-layout-grid">
+      {LAYOUTS.map((ly) => {
+        const active = layoutId === ly.id;
+        return (
+          <button
+            key={ly.id}
+            className={`sp-layout-cell${active ? " active" : ""}`}
+            onClick={() => {
+              setLayout(ly.id);
+              showToast(`${ly.name} 레이아웃 적용됨`);
+            }}
+            aria-label={`${ly.name} 레이아웃`}
+            title={ly.name}
+          >
+            <div className="sp-layout-preview">{ly.preview}</div>
+          </button>
+        );
+      })}
+      {/* 우측 하단 — 보관함의 저장된 스타일 사용 */}
       <button
-        className={`sp-tool${submenu === "theme" ? " active" : ""}`}
-        onClick={() => toggle("theme")}
+        className="sp-layout-cell sp-layout-use-saved"
+        onClick={() => openSavedStylesPicker(true)}
       >
-        <span className="sp-ic">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <path d="M3 17l5-5 4 4 4-4 5 5" />
-          </svg>
-        </span>
-        <i>테마</i>
-      </button>
-      <button
-        className={`sp-tool${submenu === "style" ? " active" : ""}`}
-        onClick={() => {
-          toggle("style");
-          if (submenu !== "style") showToast("스타일");
-        }}
-      >
-        <span className="sp-ic">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 3l9 9-9 9-9-9z" />
-          </svg>
-        </span>
-        <i>스타일</i>
+        <span>저장한 스타일{"\n"}사용하기</span>
       </button>
     </div>
   );

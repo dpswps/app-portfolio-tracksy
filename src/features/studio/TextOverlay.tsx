@@ -18,6 +18,7 @@ type TextItem = {
 function StxItem({
   t,
   isActive,
+  layerOpacity = 1,
   onPointerDown,
   onChange,
   onBlur,
@@ -26,6 +27,8 @@ function StxItem({
 }: {
   t: TextItem;
   isActive: boolean;
+  /** 레이어 패널에서 설정된 불투명도(0~1). 기본 1. */
+  layerOpacity?: number;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   onChange: (text: string) => void;
   onBlur: () => void;
@@ -71,6 +74,7 @@ function StxItem({
         fontStyle: t.fontStyle ?? "normal",
         fontSize: `${t.size}px`,
         color: t.color,
+        opacity: layerOpacity,
       }}
       onPointerDown={onPointerDown}
     >
@@ -114,6 +118,7 @@ export default function TextOverlay() {
   const texts = useAppStore((s) => s.studioTexts);
   const hidden = useAppStore((s) => s.studioHiddenLayers);
   const locked = useAppStore((s) => s.studioLockedLayers);
+  const opacities = useAppStore((s) => s.studioLayerOpacities);
   const activeId = useAppStore((s) => s.studioActiveTextId);
   const setActive = useAppStore((s) => s.setActiveStudioText);
   const updateText = useAppStore((s) => s.updateStudioText);
@@ -227,28 +232,38 @@ export default function TextOverlay() {
     >
       {texts
         .filter((t) => !hidden[`text-${t.id}`])
-        .map((t) => (
-          <StxItem
-            key={t.id}
-            t={t}
-            isActive={activeId === t.id}
-            onPointerDown={onPointerDownItem(t.id, t.x, t.y)}
-            onChange={(text) => updateText(t.id, { text })}
-            onBlur={() => {
-              const current = useAppStore.getState().studioTexts.find((x) => x.id === t.id);
-              if (current && current.text.trim() === "") removeText(t.id);
-            }}
-            onCommit={() => {
-              const current = useAppStore.getState().studioTexts.find((x) => x.id === t.id);
-              if (current && current.text.trim() === "") {
-                removeText(t.id);
-              } else {
-                setActive(null);
-              }
-            }}
-            onRemove={() => removeText(t.id)}
-          />
-        ))}
+        .map((t) => {
+          const op = opacities[`text-${t.id}`];
+          // 레이어 opacity (0~100). 미설정 시 100으로 간주.
+          const layerOpacity = op != null ? op / 100 : 1;
+          return (
+            <StxItem
+              key={t.id}
+              t={t}
+              isActive={activeId === t.id}
+              layerOpacity={layerOpacity}
+              onPointerDown={onPointerDownItem(t.id, t.x, t.y)}
+              onChange={(text) => updateText(t.id, { text })}
+              onBlur={() => {
+                const current = useAppStore
+                  .getState()
+                  .studioTexts.find((x) => x.id === t.id);
+                if (current && current.text.trim() === "") removeText(t.id);
+              }}
+              onCommit={() => {
+                const current = useAppStore
+                  .getState()
+                  .studioTexts.find((x) => x.id === t.id);
+                if (current && current.text.trim() === "") {
+                  removeText(t.id);
+                } else {
+                  setActive(null);
+                }
+              }}
+              onRemove={() => removeText(t.id)}
+            />
+          );
+        })}
     </div>
   );
 }

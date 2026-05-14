@@ -54,6 +54,12 @@ export default function AIJournalPage() {
   const step = useAppStore((s) => s.aiStep);
 
   useEffect(() => {
+    // 페이지 mount 시 stale 상태를 정리.
+    // - skip/loading/result에서 멈춘 채로 다시 진입하면 그 화면이 그대로 떠서
+    //   혼란스러울 수 있으니 intro로 되돌림.
+    // - chat 상태는 mid-flow일 수 있어 보존 (의도적으로 reset 안 함).
+    // 더 깨끗한 시작이 필요한 경우(스튜디오 FAB, 보관함 AICard) 진입 호출부에서
+    // resetAI()를 먼저 부르도록 통일되어 있음.
     const current = useAppStore.getState().aiStep;
     if (current === "skip" || current === "loading" || current === "result") {
       useAppStore.getState().setAIStep("intro");
