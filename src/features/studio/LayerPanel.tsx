@@ -55,15 +55,19 @@ function LockOpenIcon() {
     </svg>
   );
 }
+/**
+ * 햄버거 메뉴(가로 3줄) 아이콘 — 드래그 핸들임을 한눈에 알아보게.
+ * 점 6개보다 "잡고 끌어 옮긴다" 라는 의미가 더 즉각적으로 전달됨.
+ */
 function DragHandleIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-      <circle cx="9" cy="6" r="1.4" fill="currentColor" />
-      <circle cx="15" cy="6" r="1.4" fill="currentColor" />
-      <circle cx="9" cy="12" r="1.4" fill="currentColor" />
-      <circle cx="15" cy="12" r="1.4" fill="currentColor" />
-      <circle cx="9" cy="18" r="1.4" fill="currentColor" />
-      <circle cx="15" cy="18" r="1.4" fill="currentColor" />
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -172,10 +176,10 @@ export default function LayerPanel() {
   const toggleLock = useAppStore((s) => s.toggleLayerLock);
   const setLayerName = useAppStore((s) => s.setLayerName);
   const setLayerOpacity = useAppStore((s) => s.setLayerOpacity);
-  const moveText = useAppStore((s) => s.moveStudioTextTo);
-  const moveSticker = useAppStore((s) => s.movePlacedStickerTo);
+  const moveLayer = useAppStore((s) => s.moveStudioLayer);
   const removeText = useAppStore((s) => s.removeStudioText);
   const removeSticker = useAppStore((s) => s.removeSticker);
+  const layerOrderState = useAppStore((s) => s.studioLayerOrder);
 
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
 
@@ -215,89 +219,105 @@ export default function LayerPanel() {
   if (!open) return null;
 
   /* ──────────────────────────────────────────────────────────
-   * Row 목록 만들기 — 위(앞쪽)부터 차례로:
-   *   stickers (역순 — 최근에 추가된 것이 위)
-   *   texts    (역순)
-   *   card
-   *   bg
+   * Row 목록 만들기 — studioLayerOrder 통합 순서를 사용.
+   *   layerOrder 의 마지막 원소가 가장 앞(top)이므로, 화면 표시는 reverse.
+   *   layerOrder가 비어있으면 (마이그레이션 안 된 상태) stickers + texts 로 채움.
    * ────────────────────────────────────────────────────────── */
   const rows: LayerRow[] = [];
-  stickers.slice().reverse().forEach((s) => {
-    // emoji 필드가 이미지 경로인지 진짜 이모지인지에 따라 썸네일을 다르게 그림.
-    const isImg = s.emoji.startsWith("/");
-    rows.push({
-      key: `sticker-${s.id}`,
-      kind: "sticker",
-      refId: s.id,
-      defaultName: isImg
-        ? `스티커 ${s.emoji.split("/").pop()?.replace(/\.[^.]+$/, "") ?? ""}`
-        : `Sticker ${s.emoji}`,
-      preview: isImg ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={s.emoji}
-          alt=""
-          style={{ width: 22, height: 22, objectFit: "contain" }}
-        />
-      ) : (
-        <span style={{ fontSize: 18, lineHeight: 1 }}>{s.emoji}</span>
-      ),
-      reorderable: true,
-      deletable: true,
-      renameable: true,
-    });
-  });
-  texts.slice().reverse().forEach((t) => {
-    rows.push({
-      key: `text-${t.id}`,
-      kind: "text",
-      refId: t.id,
-      defaultName: t.text || "텍스트",
-      preview: (
-        // 라이트 라벤더 패널 배경에서 텍스트 색(특히 흰색)이 묻히지 않도록
-        // 썸네일은 사용자 텍스트 색을 작은 swatch 로 보여주고, "T" 글자는
-        // 항상 어두운 보라(--lp-text)로 또렷하게 표시.
-        <span
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              position: "absolute",
-              right: 3,
-              bottom: 3,
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: t.color,
-              border: "1px solid rgba(0,0,0,0.15)",
-            }}
+
+  // 효과적인 layerOrder — 비어있으면 기본 순서로 채움 (back→front)
+  let effectiveOrder = layerOrderState;
+  if (effectiveOrder.length === 0) {
+    const textKeys = texts.map((t) => `text-${t.id}`);
+    const stickerKeys = stickers.map((p) => `sticker-${p.id}`);
+    effectiveOrder = [...textKeys, ...stickerKeys];
+  }
+  // 표시 순서는 front-to-back (마지막 = top 이므로 reverse)
+  const displayOrder = [...effectiveOrder].reverse();
+
+  // 빠른 조회를 위한 map
+  const textMap = new Map(texts.map((t) => [t.id, t]));
+  const stickerMap = new Map(stickers.map((p) => [p.id, p]));
+
+  displayOrder.forEach((key) => {
+    if (key.startsWith("sticker-")) {
+      const id = Number(key.slice("sticker-".length));
+      const s = stickerMap.get(id);
+      if (!s) return;
+      const isImg = s.emoji.startsWith("/");
+      rows.push({
+        key,
+        kind: "sticker",
+        refId: s.id,
+        defaultName: isImg
+          ? `스티커 ${s.emoji.split("/").pop()?.replace(/\.[^.]+$/, "") ?? ""}`
+          : `Sticker ${s.emoji}`,
+        preview: isImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={s.emoji}
+            alt=""
+            style={{ width: 22, height: 22, objectFit: "contain" }}
           />
+        ) : (
+          <span style={{ fontSize: 18, lineHeight: 1 }}>{s.emoji}</span>
+        ),
+        reorderable: true,
+        deletable: true,
+        renameable: true,
+      });
+    } else if (key.startsWith("text-")) {
+      const id = Number(key.slice("text-".length));
+      const t = textMap.get(id);
+      if (!t) return;
+      rows.push({
+        key,
+        kind: "text",
+        refId: t.id,
+        defaultName: t.text || "텍스트",
+        preview: (
           <span
             style={{
-              fontFamily: t.font,
-              fontWeight: 800,
-              fontStyle: t.fontStyle ?? "normal",
-              color: "var(--lp-text)",
-              fontSize: 14,
-              lineHeight: 1,
+              position: "relative",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
             }}
           >
-            T
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                right: 3,
+                bottom: 3,
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: t.color,
+                border: "1px solid rgba(0,0,0,0.15)",
+              }}
+            />
+            <span
+              style={{
+                fontFamily: t.font,
+                fontWeight: 800,
+                fontStyle: t.fontStyle ?? "normal",
+                color: "var(--lp-text)",
+                fontSize: 14,
+                lineHeight: 1,
+              }}
+            >
+              T
+            </span>
           </span>
-        </span>
-      ),
-      reorderable: true,
-      deletable: true,
-      renameable: true,
-    });
+        ),
+        reorderable: true,
+        deletable: true,
+        renameable: true,
+      });
+    }
   });
   rows.push({
     key: "card",
@@ -361,7 +381,7 @@ export default function LayerPanel() {
    * 드래그 시작 / 이동 / 종료 핸들러
    *
    * pointerdown 즉시 드래그 모드 활성화 (long-press 없음).
-   * 같은 종류(text↔text, sticker↔sticker) 안에서만 reorder.
+   * 텍스트 ↔ 스티커 cross-kind reorder — 모든 reorderable row 가 한 그룹.
    * 드롭 위치는 현재 pointer 가 가리키는 row 사이의 보라 라인으로 또렷하게 표시.
    * ────────────────────────────────────────────────────────── */
   const onHandlePointerDown =
@@ -378,9 +398,9 @@ export default function LayerPanel() {
       const rowRect = rowEl.getBoundingClientRect();
       const listRect = listEl.getBoundingClientRect();
 
-      // 같은 종류만 reorder 대상으로 — visible rows 중 같은 kind만 필터
-      const sameKindRows = rows.filter((r) => r.kind === row.kind);
-      const initialTargetIdx = sameKindRows.findIndex((r) => r.key === row.key);
+      // 통합 reorder — text/sticker 구분 없이 모든 reorderable row를 한 group으로
+      const reorderableRows = rows.filter((r) => r.reorderable);
+      const initialTargetIdx = reorderableRows.findIndex((r) => r.key === row.key);
 
       const initial: DragState = {
         pointerId: e.pointerId,
@@ -394,7 +414,7 @@ export default function LayerPanel() {
         listBottom: listRect.bottom,
         longPressTimer: null,
         active: true, // 즉시 활성화 — long-press 없음
-        rows: sameKindRows.map((r) => ({ key: r.key, kind: r.kind, refId: r.refId })),
+        rows: reorderableRows.map((r) => ({ key: r.key, kind: r.kind, refId: r.refId })),
         currentTargetIdx: initialTargetIdx,
       };
       dragRef.current = initial;
@@ -423,21 +443,21 @@ export default function LayerPanel() {
     if (!d || d.pointerId !== e.pointerId) return;
 
     // pointer 가 가리키는 위치를 기준으로 target index 갱신.
-    // 같은 kind 행들의 화면 위치를 다시 측정해서 어느 행의 위/아래에 떨어질지 판단.
+    // 모든 reorderable 행을 대상으로.
     const listEl = listRef.current;
     if (!listEl) return;
     const items = Array.from(
       listEl.querySelectorAll<HTMLElement>(".lp-item"),
     );
-    const sameKindEls = items.filter((el) =>
+    const reorderEls = items.filter((el) =>
       d.rows.some((r) => r.key === el.dataset.key),
     );
 
     const pointerY = e.clientY;
     // 마지막 행보다 아래로 끌면 맨 끝(=d.rows.length)에 떨어뜨릴 수 있도록 처리.
     let target = d.rows.length;
-    for (let i = 0; i < sameKindEls.length; i++) {
-      const r = sameKindEls[i].getBoundingClientRect();
+    for (let i = 0; i < reorderEls.length; i++) {
+      const r = reorderEls[i].getBoundingClientRect();
       const mid = r.top + r.height / 2;
       if (pointerY < mid) {
         target = i;
@@ -466,19 +486,11 @@ export default function LayerPanel() {
       const toIdx = d.currentTargetIdx;
       const wouldMove = toIdx !== fromIdx && toIdx !== fromIdx + 1;
       if (wouldMove) {
-        // visible idx → store array idx 변환:
-        //   visible은 top→bottom = front→back. store array는 마지막 원소가 front.
-        //   visibleIdx → storeIdx = arr.length - 1 - visibleIdx
-        //   단, drop은 "이 row 위에" 의미라 fromIdx보다 위로 가는지 아래로 가는지에 따라 보정.
-        const sourceItems = d.rowKind === "text" ? texts : stickers;
+        // visible idx → moveStudioLayer에 그대로 전달 (내부에서 store 인덱스 변환).
+        // toIdx가 fromIdx보다 아래면, 자기 자리만큼 한 칸 보정.
         let visibleInsertIdx = toIdx;
-        if (toIdx > fromIdx) visibleInsertIdx = toIdx - 1; // 아래로 이동 시 자기 자리만큼 보정
-        const newStoreIdx = sourceItems.length - 1 - visibleInsertIdx;
-        if (d.rowKind === "text") {
-          moveText(d.refId, newStoreIdx);
-        } else {
-          moveSticker(d.refId, newStoreIdx);
-        }
+        if (toIdx > fromIdx) visibleInsertIdx = toIdx - 1;
+        moveLayer(d.rowKey, visibleInsertIdx);
       }
     }
     dragRef.current = null;
@@ -535,25 +547,23 @@ export default function LayerPanel() {
             const isSelected = selectedKey === r.key;
             const isDragging = draggingKey === r.key;
 
-            // 같은 kind 안에서의 dropline 표시.
-            //   showDropAbove: pointer가 이 row 위쪽 절반에 있을 때 — 이 row 위에 놓일 자리.
-            //   showDropBelow: 같은 kind 마지막 row인데 pointer가 그 아래까지 갔을 때 — 끝에 놓일 자리.
-            const sameKindRows = rows.filter((x) => x.kind === r.kind);
-            const sameKindIdx = sameKindRows.findIndex((x) => x.key === r.key);
-            const isLastSameKind = sameKindIdx === sameKindRows.length - 1;
-            const isSameDragKind = dragRef.current?.rowKind === r.kind;
+            // dropline 표시 — 통합 reorder 그룹(모든 reorderable rows) 기준.
+            //   showDropAbove: 이 row 위에 놓일 자리.
+            //   showDropBelow: 마지막 reorderable row 아래(=가장 뒤) 자리.
+            const reorderableRows = rows.filter((x) => x.reorderable);
+            const reorderIdx = reorderableRows.findIndex((x) => x.key === r.key);
+            const isLastReorderable = reorderIdx === reorderableRows.length - 1;
             const showDropAbove =
               draggingKey != null &&
               dragOverIdx != null &&
-              isSameDragKind &&
-              dragOverIdx === sameKindIdx &&
+              reorderIdx >= 0 &&
+              dragOverIdx === reorderIdx &&
               !isDragging;
             const showDropBelow =
               draggingKey != null &&
               dragOverIdx != null &&
-              isSameDragKind &&
-              isLastSameKind &&
-              dragOverIdx >= sameKindRows.length &&
+              isLastReorderable &&
+              dragOverIdx >= reorderableRows.length &&
               !isDragging;
 
             return (

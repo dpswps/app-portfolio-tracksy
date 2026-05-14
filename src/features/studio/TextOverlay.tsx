@@ -19,21 +19,22 @@ function StxItem({
   t,
   isActive,
   layerOpacity = 1,
+  zIndex,
   onPointerDown,
   onChange,
   onBlur,
   onCommit,
-  onRemove,
 }: {
   t: TextItem;
   isActive: boolean;
   /** 레이어 패널에서 설정된 불투명도(0~1). 기본 1. */
   layerOpacity?: number;
+  /** 통합 layerOrder 기반 z-index — 텍스트가 스티커 위/아래로 갈 수 있게. */
+  zIndex?: number;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   onChange: (text: string) => void;
   onBlur: () => void;
   onCommit: () => void;
-  onRemove: () => void;
 }) {
   const editRef = useRef<HTMLDivElement>(null);
   const editedRef = useRef(false);
@@ -75,6 +76,7 @@ function StxItem({
         fontSize: `${t.size}px`,
         color: t.color,
         opacity: layerOpacity,
+        zIndex,
       }}
       onPointerDown={onPointerDown}
     >
@@ -100,18 +102,22 @@ function StxItem({
         }}
         onBlur={onBlur}
       />
-      {isActive && (
-        <button
-          className="stx-remove"
-          aria-label="삭제"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onRemove}
-        >
-          ×
-        </button>
-      )}
+      {/* X 버튼 제거됨 — 텍스트 삭제는 하단 휴지통으로 드래그하는 통합 방식 사용. */}
     </div>
   );
+}
+
+/**
+ * 화면상의 trash zone 요소 boundingClientRect 를 반환. 드래그 중 hit-test 용.
+ */
+function getTrashRect(): DOMRect | null {
+  if (typeof document === "undefined") return null;
+  const el = document.querySelector<HTMLElement>(".studio-trash-zone");
+  return el ? el.getBoundingClientRect() : null;
+}
+function isOverRect(rect: DOMRect | null, x: number, y: number): boolean {
+  if (!rect) return false;
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
 export default function TextOverlay() {
@@ -119,11 +125,14 @@ export default function TextOverlay() {
   const hidden = useAppStore((s) => s.studioHiddenLayers);
   const locked = useAppStore((s) => s.studioLockedLayers);
   const opacities = useAppStore((s) => s.studioLayerOpacities);
+  const layerOrder = useAppStore((s) => s.studioLayerOrder);
   const activeId = useAppStore((s) => s.studioActiveTextId);
   const setActive = useAppStore((s) => s.setActiveStudioText);
   const updateText = useAppStore((s) => s.updateStudioText);
   const removeText = useAppStore((s) => s.removeStudioText);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
+  const setDragging = useAppStore((s) => s.setStudioDraggingContent);
+  const setOverTrash = useAppStore((s) => s.setStudioDraggingOverTrash);
   const containerRef = useRef<HTMLDivElement>(null);
   const DRAG_THRESHOLD = 6;
   const dragRef = useRef<{
@@ -152,6 +161,12 @@ export default function TextOverlay() {
     (id: number, x: number, y: number) => (e: React.PointerEvent<HTMLDivElement>) => {
       if (locked[`text-${id}`]) return;
       e.stopPropagation();
+      // 모바일 기본 동작 차단 — touch-action: none 의 이중 안전망.
+      try {
+        e.preventDefault();
+      } catch {
+        /* passive */
+      }
       setActive(id);
       dragRef.current = {
         id,
@@ -164,6 +179,8 @@ export default function TextOverlay() {
         captured: false,
         pushed: false,
       };
+      // 캔버스 하단 휴지통 영역을 즉시 표시 — pointer 가 처음 down 되자마자
+      setDragging({ kind: "text", id });
     };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -198,16 +215,24 @@ export default function TextOverlay() {
     const x = Math.max(0, Math.min(100, d.startPctX + dx));
     const y = Math.max(0, Math.min(100, d.startPctY + dy));
     updateText(d.id, { x, y });
+    // trash zone hit-test — pointer 가 휴지통 위에 있으면 강조
+    setOverTrash(isOverRect(getTrashRect(), e.clientX, e.clientY));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
+    const droppedOnTrash =
+      d.id != null && isOverRect(getTrashRect(), e.clientX, e.clientY);
+
     if (d.captured && d.target) {
       try {
         d.target.releasePointerCapture?.(e.pointerId);
       } catch {
         /* noop */
       }
+    }
+    if (droppedOnTrash && d.id != null) {
+      removeText(d.id);
     }
     dragRef.current = {
       id: null,
@@ -220,6 +245,8 @@ export default function TextOverlay() {
       captured: false,
       pushed: false,
     };
+    setDragging(null);
+    setOverTrash(false);
   };
 
   return (
@@ -233,15 +260,21 @@ export default function TextOverlay() {
       {texts
         .filter((t) => !hidden[`text-${t.id}`])
         .map((t) => {
-          const op = opacities[`text-${t.id}`];
+          const key = `text-${t.id}`;
+          const op = opacities[key];
           // 레이어 opacity (0~100). 미설정 시 100으로 간주.
           const layerOpacity = op != null ? op / 100 : 1;
+          // 통합 layerOrder에서의 인덱스가 z-index가 됨 (큰 값 = 앞).
+          // 미발견 시 기본 z-index 1 (stickers와 동률 정도).
+          const zIdx = layerOrder.indexOf(key);
+          const zIndex = zIdx >= 0 ? zIdx + 1 : undefined;
           return (
             <StxItem
               key={t.id}
               t={t}
               isActive={activeId === t.id}
               layerOpacity={layerOpacity}
+              zIndex={zIndex}
               onPointerDown={onPointerDownItem(t.id, t.x, t.y)}
               onChange={(text) => updateText(t.id, { text })}
               onBlur={() => {
@@ -260,7 +293,6 @@ export default function TextOverlay() {
                   setActive(null);
                 }
               }}
-              onRemove={() => removeText(t.id)}
             />
           );
         })}

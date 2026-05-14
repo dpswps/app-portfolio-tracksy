@@ -42,6 +42,11 @@ export default function RecordDetailPage() {
   const userRecords = useAppStore((s) => s.userRecords);
   const deleteUserRecord = useAppStore((s) => s.deleteUserRecord);
   const showToast = useAppStore((s) => s.showToast);
+  // 같은 날짜에 저장된 AI 러닝일지들 — 메모 아래에 함께 노출.
+  const aiJournalsForDate = useAppStore((s) =>
+    s.aiJournals.filter((j) => j.date === dateParam),
+  );
+  const removeAIJournal = useAppStore((s) => s.removeAIJournal);
 
   const isUserOwned = dateParam in userRecords;
   const rec = userRecords[dateParam] || archiveRecords[dateParam];
@@ -197,6 +202,58 @@ export default function RecordDetailPage() {
           <div className="rd-note rd-note-empty">
             <div className="rd-note-label">메모</div>
             <div className="rd-note-text muted">기록된 메모가 없어요.</div>
+          </div>
+        )}
+
+        {/* AI 오늘의 러닝일지 — 같은 날짜에 저장된 일지들을 메모 아래에 함께 노출.
+            보관함에서 AI 챗봇을 마치고 "러닝 일지 저장하기" 를 누르면 이 섹션에
+            자동으로 카드 형태로 쌓인다. */}
+        {aiJournalsForDate.length > 0 && (
+          <div className="rd-ai-journals">
+            <div className="rd-ai-journals-label">
+              <span>✨ AI 오늘의 러닝일지</span>
+              <span className="rd-ai-journals-count">
+                {aiJournalsForDate.length}
+              </span>
+            </div>
+            <div className="rd-ai-journals-list">
+              {aiJournalsForDate.map((j) => (
+                <div key={j.id} className="rd-ai-journal-card">
+                  <button
+                    className="rd-ai-journal-remove"
+                    aria-label="이 러닝일지 삭제"
+                    title="이 러닝일지 삭제"
+                    onClick={() => {
+                      const ok =
+                        typeof window !== "undefined"
+                          ? window.confirm("이 러닝일지를 삭제할까요?")
+                          : true;
+                      if (!ok) return;
+                      removeAIJournal(j.id);
+                      showToast("러닝일지가 삭제되었어요");
+                    }}
+                  >
+                    ×
+                  </button>
+                  <div className="rd-ai-journal-quote">
+                    <span className="rd-ai-journal-q open">&ldquo;</span>
+                    <p
+                      dangerouslySetInnerHTML={{
+                        __html: j.summary.replace(/\n/g, "<br/>"),
+                      }}
+                    />
+                    <span className="rd-ai-journal-q close">&rdquo;</span>
+                  </div>
+                  <div className="rd-ai-journal-time">
+                    {new Date(j.savedAt).toLocaleTimeString("ko-KR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    저장
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

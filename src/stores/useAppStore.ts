@@ -131,8 +131,31 @@ type State = {
     calories: string;
     bubble: string;
   };
+  /**
+   * 카드 빌트인 텍스트(weekTitle / distance / time / pace / calories / bubble)
+   * 각 필드의 색상. 값 없으면 기본(흰색 또는 CSS) 사용.
+   */
+  studioCardTextColors: Record<string, string>;
+  /**
+   * 현재 선택된 카드 텍스트 필드 (color picker 등이 이 필드에 적용됨).
+   * 어떤 카드 텍스트를 탭하면 그 필드가 active 가 되고, 색상 변경 가능.
+   */
+  studioActiveCardField: string | null;
   studioRecordIdx: number;
   studioRecordPickerOpen: boolean;
+  /**
+   * 현재 캔버스에서 드래그되고 있는 콘텐츠 (텍스트/스티커/말풍선).
+   * null = 드래그 안 함. 값 있으면 TrashZone 이 노출되어 그 위에 떨어뜨리면 삭제.
+   * "bubble" 은 카드의 말풍선+마스코트 묶음(rc-bubble-wrap) — id는 0 으로 고정.
+   */
+  studioDraggingContent:
+    | { kind: "text" | "sticker"; id: number }
+    | { kind: "bubble" }
+    | null;
+  /** 말풍선+마스코트 묶음의 위치 (퍼센트). null이면 CSS 기본 위치(우측 하단). */
+  studioBubblePos: { x: number; y: number } | null;
+  /** 드래그 중 pointer가 trash zone 위에 있는지 — 트래시 강조용 */
+  studioDraggingOverTrash: boolean;
   /** 스튜디오에서 "스타일 불러오기" 시트 열림 여부. */
   studioStylePickerOpen: boolean;
   studioStatsOffset: { x: number; y: number };
@@ -202,6 +225,12 @@ type State = {
   moveStudioTextTo: (id: number, toIndex: number) => void;
   /** 스티커 레이어를 특정 array index로 이동 (drag reorder 용). */
   movePlacedStickerTo: (id: number, toIndex: number) => void;
+  /**
+   * 통합 layerOrder 안에서 layer key를 다른 위치로 이동.
+   * 텍스트/스티커 cross-kind reorder 지원.
+   * toVisibleIdx: 화면 표시 순서(맨 위 = 0). 내부에서 storage idx 로 변환.
+   */
+  moveStudioLayer: (key: string, toVisibleIdx: number) => void;
   /** 레이어 불투명도 설정 (0~100). */
   setLayerOpacity: (key: string, value: number) => void;
   setStudioDesignSubmenu: (m: State["studioDesignSubmenu"]) => void;
@@ -211,9 +240,17 @@ type State = {
   /** 테마 오버레이를 설정 (배경 위에 얹힘). null이면 해제. */
   setStudioThemeOverlay: (overlay: string | null) => void;
   setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
+  /** 카드 빌트인 텍스트 필드의 색상 설정. */
+  setStudioCardTextColor: (field: string, color: string) => void;
+  /** 현재 활성 카드 텍스트 필드 설정 (null이면 해제). */
+  setStudioActiveCardField: (field: string | null) => void;
   loadNextStudioRecord: () => string | null;
   loadStudioRecord: (date: string) => void;
   setStudioRecordPickerOpen: (open: boolean) => void;
+  setStudioDraggingContent: (item: State["studioDraggingContent"]) => void;
+  setStudioDraggingOverTrash: (over: boolean) => void;
+  /** 말풍선+마스코트 위치 (퍼센트 또는 null=기본). */
+  setStudioBubblePos: (pos: { x: number; y: number } | null) => void;
   /** 스타일 picker 열기/닫기. */
   setStudioStylePickerOpen: (open: boolean) => void;
   /** 보관함의 저장된 StyleCard를 스튜디오 카드에 적용. 배경·제목·거리·통계 모두 반영. */
@@ -315,10 +352,17 @@ export const useAppStore = create<State>()(
         time: "00:32:45",
         pace: "6'12\"",
         calories: "368",
-        bubble: "처음 발걸음이\n큰 변화를 만들어요! 💜",
+        // 말풍선은 처음에 비어있어 카드에 안 보임. AI 오늘의 러닝일지를 마치면
+        // 그 요약이 채워지면서 자동으로 카드에 등장.
+        bubble: "",
       },
+      studioCardTextColors: {},
+      studioActiveCardField: null,
       studioRecordIdx: -1,
       studioRecordPickerOpen: false,
+      studioDraggingContent: null,
+      studioDraggingOverTrash: false,
+      studioBubblePos: null,
       studioStylePickerOpen: false,
       studioStatsOffset: { x: 0, y: 0 },
       studioHistory: [],
@@ -420,10 +464,13 @@ export const useAppStore = create<State>()(
             font: "var(--font-noto-kr), 'Noto Sans KR', system-ui, sans-serif",
             color: "#FFFFFF",
           };
+          // 통합 layerOrder 에도 추가. 마지막 = 가장 앞(top).
+          const key = `text-${id}`;
           return {
             studioTexts: [...s.studioTexts, t],
             studioActiveTextId: id,
-            studioSelectedLayerKey: `text-${id}`,
+            studioSelectedLayerKey: key,
+            studioLayerOrder: [...s.studioLayerOrder, key],
           };
         });
       },
@@ -433,12 +480,16 @@ export const useAppStore = create<State>()(
         })),
       removeStudioText: (id) => {
         get().pushStudioHistory();
-        set((s) => ({
-          studioTexts: s.studioTexts.filter((t) => t.id !== id),
-          studioActiveTextId: s.studioActiveTextId === id ? null : s.studioActiveTextId,
-          studioSelectedLayerKey:
-            s.studioSelectedLayerKey === `text-${id}` ? null : s.studioSelectedLayerKey,
-        }));
+        set((s) => {
+          const key = `text-${id}`;
+          return {
+            studioTexts: s.studioTexts.filter((t) => t.id !== id),
+            studioActiveTextId: s.studioActiveTextId === id ? null : s.studioActiveTextId,
+            studioSelectedLayerKey:
+              s.studioSelectedLayerKey === key ? null : s.studioSelectedLayerKey,
+            studioLayerOrder: s.studioLayerOrder.filter((k) => k !== key),
+          };
+        });
       },
       setActiveStudioText: (id) =>
         set({
@@ -534,6 +585,38 @@ export const useAppStore = create<State>()(
           return { placedStickers: arr };
         });
       },
+      /**
+       * 통합 layerOrder 내 cross-kind 이동.
+       * toVisibleIdx = 0 이면 패널의 최상단(=배열의 마지막=top z-index).
+       * 내부 배열은 back-to-front이므로 storeIdx = order.length - 1 - visibleIdx.
+       *
+       * layerOrder가 비어있으면 (마이그레이션 안 된 상태) 현재 stickers + texts
+       * 로부터 자동 구축한 뒤 적용.
+       */
+      moveStudioLayer: (key, toVisibleIdx) => {
+        get().pushStudioHistory();
+        set((s) => {
+          // 마이그레이션: layerOrder가 비었으면 현재 데이터로 채움
+          let order = [...s.studioLayerOrder];
+          if (order.length === 0) {
+            // 기본 순서: 스티커가 텍스트보다 위 (back→front 순서로 배열)
+            const textKeys = s.studioTexts.map((t) => `text-${t.id}`);
+            const stickerKeys = s.placedStickers.map((p) => `sticker-${p.id}`);
+            order = [...textKeys, ...stickerKeys];
+          }
+          const fromIdx = order.indexOf(key);
+          if (fromIdx === -1) return s;
+
+          // visibleIdx: 0 = 가장 위(front-most) = order의 마지막 인덱스
+          const visibleCount = order.length;
+          let toStoreIdx = visibleCount - 1 - toVisibleIdx;
+          toStoreIdx = Math.max(0, Math.min(order.length - 1, toStoreIdx));
+          if (toStoreIdx === fromIdx) return s;
+          const [item] = order.splice(fromIdx, 1);
+          order.splice(toStoreIdx, 0, item!);
+          return { studioLayerOrder: order };
+        });
+      },
       setLayerOpacity: (key, value) =>
         set((s) => {
           const v = Math.max(0, Math.min(100, Math.round(value)));
@@ -563,6 +646,18 @@ export const useAppStore = create<State>()(
       },
       setStudioCardData: (patch) =>
         set((s) => ({ studioCardData: { ...s.studioCardData, ...patch } })),
+      setStudioCardTextColor: (field, color) => {
+        get().pushStudioHistory();
+        set((s) => ({
+          studioCardTextColors: { ...s.studioCardTextColors, [field]: color },
+        }));
+      },
+      setStudioActiveCardField: (field) =>
+        set({
+          studioActiveCardField: field,
+          // 카드 필드 활성화 시 텍스트 오버레이 활성은 해제 (둘 중 하나만)
+          ...(field ? { studioActiveTextId: null, studioSelectedLayerKey: null } : {}),
+        }),
       loadNextStudioRecord: () => {
         // userRecords + archiveRecords 머지본 사용 — 사용자가 직접입력/타사앱연동/
         // 캡쳐스캔으로 저장한 기록도 스튜디오에서 동등하게 불러올 수 있도록 함.
@@ -591,15 +686,40 @@ export const useAppStore = create<State>()(
         const rec = userRec || archiveRecords[date];
         if (!rec) return;
         get().pushStudioHistory();
+
+        // 같은 날짜에 저장된 AI 러닝일지가 있으면 가장 최근 것을 말풍선으로 가져옴.
+        // 그러면 보관함에서 AI 챗봇 마쳤을 때처럼 카드 우측 하단에 마스코트+말풍선이
+        // 자동으로 등장한다. 없으면 기존 bubble 유지(빈 문자열이면 그대로 숨김).
+        const journalsForDate = get()
+          .aiJournals.filter((j) => j.date === date)
+          .sort(
+            (a, b) =>
+              new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
+          );
+        const latestJournal = journalsForDate[0];
+
+        // record 의 시간/칼로리 등도 함께 카드 데이터에 반영해서 모든 레이아웃에서 가져온
+        // 기록이 일관되게 보이도록.
+        const nextBubble = latestJournal ? latestJournal.summary : "";
         set((s) => ({
           studioCardData: {
             ...s.studioCardData,
             distance: rec.dist,
             pace: rec.pace,
+            time: rec.time ?? s.studioCardData.time,
+            calories:
+              rec.kcal != null ? String(rec.kcal) : s.studioCardData.calories,
+            // AI 일지가 있을 땐 그걸로 채워서 자동 노출, 없을 땐 비워서 숨김.
+            bubble: nextBubble,
           },
+          // 기록을 새로 불러왔으니 bubble 의 사용자 지정 위치도 초기화 → 기본 위치로
+          studioBubblePos: null,
         }));
       },
       setStudioRecordPickerOpen: (open) => set({ studioRecordPickerOpen: open }),
+      setStudioDraggingContent: (item) => set({ studioDraggingContent: item }),
+      setStudioDraggingOverTrash: (over) => set({ studioDraggingOverTrash: over }),
+      setStudioBubblePos: (pos) => set({ studioBubblePos: pos }),
       setStudioStylePickerOpen: (open) => set({ studioStylePickerOpen: open }),
       applyStudioStyle: (style) => {
         // 스타일의 모든 정보(배경·제목·거리·통계)를 스튜디오 카드에 한 번에 적용.
@@ -698,21 +818,29 @@ export const useAppStore = create<State>()(
         set((s) => {
           const x = 15 + Math.random() * 60;
           const y = 15 + Math.random() * 50;
+          const id = Date.now() + Math.floor(Math.random() * 1000);
+          const key = `sticker-${id}`;
           return {
             placedStickers: [
               ...s.placedStickers,
-              { id: Date.now() + Math.floor(Math.random() * 1000), emoji, x, y },
+              { id, emoji, x, y },
             ],
+            // 통합 layerOrder 에 추가 — 마지막 = top.
+            studioLayerOrder: [...s.studioLayerOrder, key],
           };
         });
       },
       removeSticker: (id) => {
         get().pushStudioHistory();
-        set((s) => ({
-          placedStickers: s.placedStickers.filter((p) => p.id !== id),
-          studioSelectedLayerKey:
-            s.studioSelectedLayerKey === `sticker-${id}` ? null : s.studioSelectedLayerKey,
-        }));
+        set((s) => {
+          const key = `sticker-${id}`;
+          return {
+            placedStickers: s.placedStickers.filter((p) => p.id !== id),
+            studioSelectedLayerKey:
+              s.studioSelectedLayerKey === key ? null : s.studioSelectedLayerKey,
+            studioLayerOrder: s.studioLayerOrder.filter((k) => k !== key),
+          };
+        });
       },
       setArchiveMainTab: (t) => set({ archiveMainTab: t, gallerySheet: null, modal: null }),
       setArchiveView: (v) =>

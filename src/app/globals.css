@@ -1722,6 +1722,61 @@ textarea:focus { border-color: var(--primary); }
   flex: 1;
   min-height: 0;
 }
+/* ──────────────────────────────────────────────────────────
+ * 통합 휴지통 영역 — 캔버스 하단.
+ *
+ * 텍스트/스티커를 끌어 떨어뜨리면 삭제. studioDraggingContent != null 일 때만 나타남.
+ * pointer가 위에 있을 땐(.over) 빨강 톤으로 강조.
+ * ────────────────────────────────────────────────────────── */
+/* 카드 빌트인 텍스트 — 클릭 시 선택된 상태(activeCardField) 표시.
+ * 보라 dashed outline으로 어느 필드가 색상 변경 대상인지 알려줌. */
+.card-text-active {
+  outline: 1.5px dashed var(--primary, #8b5cf6);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.studio-trash-zone {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(40, 30, 60, 0.85);
+  color: #fff;
+  border: 1.5px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none; /* 드래그 중인 요소가 캡처 중이라 자기 이벤트는 안 받음 — hit-test 만 사용 */
+  animation: stz-in 0.18s ease;
+  user-select: none;
+}
+@keyframes stz-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.studio-trash-zone.over {
+  background: #DC2626;
+  border-color: #fff;
+  color: #fff;
+  box-shadow:
+    0 0 0 4px rgba(220, 38, 38, 0.25),
+    0 10px 28px rgba(220, 38, 38, 0.45);
+  transform: translate(-50%, -2px) scale(1.04);
+}
+.studio-trash-zone .stz-label {
+  white-space: nowrap;
+}
+
 .st-fab-stack {
   position: absolute;
   right: 10px; bottom: -16px;
@@ -2553,6 +2608,18 @@ textarea:focus { border-color: var(--primary); }
   right: 8px; bottom: 8px;
   z-index: 3;
   display: flex; align-items: flex-end; gap: 0;
+  /* 드래그 인디케이션 — 잡고 끌 수 있는 영역임을 표시 */
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.08s ease;
+}
+.running-card .rc-bubble-wrap:active {
+  cursor: grabbing;
+}
+/* 사용자가 드래그로 위치 지정한 상태 — left/top 인라인 값 기반. */
+.running-card .rc-bubble-wrap.positioned {
+  right: auto;
+  bottom: auto;
 }
 .running-card .rc-bubble {
   background: rgba(255,255,255,0.95);
@@ -2745,60 +2812,147 @@ textarea:focus { border-color: var(--primary); }
 }
 
 /* ──────────────────────────────────────────────────────────
- * RunningCard layout variants — Design > 스타일 그리드에서 고른 레이아웃에 따라
- * 카드 안의 필드 가시성/배치를 바꿈.
+ * RunningCard layout variants — selectedLayoutId 에 따라 stats-group 의
+ * 내용 JSX 가 다르게 렌더된다. 각 .rc-lay-{n} 컨테이너에 맞는 텍스트 사이즈
+ * /정렬/색상 등을 정의.
  *
- * 각 layout-* 클래스는 .running-card 에 붙어서 자식 요소 일부를 숨기거나 강조.
- * 기본 (default)은 모든 필드 노출, 다른 레이아웃은 일부만.
+ * 모든 레이아웃은 .rc-stats-group 안에 들어가므로 외부 위치(.rc-stats-group 의
+ * top/left)는 기존 그대로. 안쪽 컴포지션만 교체.
  * ────────────────────────────────────────────────────────── */
-.running-card.layout-time-only .rc-distance,
-.running-card.layout-time-only .rc-week,
-.running-card.layout-time-only .rc-stats .rc-stat:not(:nth-child(1)) {
-  display: none;
-}
-.running-card.layout-time-only .rc-stats { justify-content: flex-start; }
+.rc-lay { display: flex; flex-direction: column; }
 
-.running-card.layout-date-distance .rc-week,
-.running-card.layout-date-distance .rc-stats {
-  display: none;
+/* 공통 유틸 */
+.rc-lay-big {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #fff;
+}
+.rc-lay-big small {
+  font-size: 18px;
+  font-weight: 700;
+  margin-left: 4px;
+  opacity: 0.92;
+}
+.rc-lay-mid {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #fff;
+  display: inline-flex;
+  align-items: baseline;
+}
+.rc-lay-mid small {
+  font-size: 14px;
+  font-weight: 700;
+  margin-left: 3px;
+  opacity: 0.92;
+}
+.rc-lay-sub {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin-top: 6px;
+  opacity: 0.95;
+}
+.rc-lay-unit {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+.rc-lay-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
 }
 
-.running-card.layout-time-distance .rc-week,
-.running-card.layout-time-distance .rc-stats .rc-stat:not(:nth-child(1)) {
-  display: none;
+/* layout-1: 거리 중심 */
+.rc-lay-1 { align-items: flex-start; }
+
+/* layout-2: 시간 중심 */
+.rc-lay-2 { align-items: flex-start; }
+.rc-lay-2 .rc-lay-big { font-size: 44px; letter-spacing: -0.02em; }
+
+/* layout-3: 날짜 + 거리 */
+.rc-lay-3 { align-items: flex-start; gap: 4px; }
+
+/* layout-4: 시간 / 거리 한 줄 */
+.rc-lay-4 .rc-lay-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.rc-lay-4 .rc-lay-sep {
+  font-size: 24px;
+  color: rgba(255,255,255,0.6);
+  font-weight: 600;
+}
+.rc-lay-4 .rc-lay-mid { font-size: 28px; }
+
+/* layout-5: 거리 + 페이스 */
+.rc-lay-5 { align-items: flex-start; gap: 2px; }
+
+/* layout-6: 아이콘 하단 */
+.rc-lay-6 {
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.rc-lay-6 .rc-lay-icons {
+  display: flex;
+  gap: 14px;
+  font-size: 36px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
 }
 
-.running-card.layout-distance-pace .rc-week,
-.running-card.layout-distance-pace .rc-stats .rc-stat:not(:nth-child(2)) {
-  display: none;
+/* layout-7 & layout-8: 세로 통계 (시간/거리/페이스/칼로리) */
+.rc-lay-7,
+.rc-lay-8 {
+  align-items: flex-start;
+  gap: 8px;
+}
+.rc-lay-7 .rc-lay-line,
+.rc-lay-8 .rc-lay-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.rc-lay-7 .rc-lay-ic,
+.rc-lay-8 .rc-lay-ic {
+  font-size: 14px;
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+}
+.rc-lay-7 .rc-lay-i,
+.rc-lay-8 .rc-lay-i {
+  font-size: 10px;
+  font-weight: 600;
+  font-style: normal;
+  color: rgba(255,255,255,0.7);
+  margin-left: 2px;
 }
 
-.running-card.layout-stats-row .rc-distance,
-.running-card.layout-stats-row .rc-week {
-  display: none;
-}
-
-.running-card.layout-icons-pair .rc-distance,
-.running-card.layout-icons-pair .rc-stats,
-.running-card.layout-icons-pair .rc-week {
-  display: none;
-}
-
-.running-card.layout-minimal-icons .rc-distance,
-.running-card.layout-minimal-icons .rc-stats,
-.running-card.layout-minimal-icons .rc-week {
-  display: none;
-}
-
-.running-card.layout-stacked .rc-week {
-  display: none;
-}
-
-.running-card.layout-full .rc-week {
-  display: none;
-}
-
-.running-card.layout-summary .rc-week { opacity: 0.7; }
+/* small 모드 — 모든 레이아웃에서 텍스트 비례 축소 (record picker 미리보기 등) */
+.running-card.small .rc-lay-big { font-size: 28px; }
+.running-card.small .rc-lay-big small { font-size: 10px; }
+.running-card.small .rc-lay-mid { font-size: 18px; }
+.running-card.small .rc-lay-mid small { font-size: 8px; }
+.running-card.small .rc-lay-sub { font-size: 10px; }
+.running-card.small .rc-lay-date { font-size: 8px; }
+.running-card.small .rc-lay-line { font-size: 11px; }
+.running-card.small .rc-lay-line .rc-lay-i { font-size: 7px; }
+.running-card.small .rc-lay-6 .rc-lay-icons { font-size: 20px; gap: 8px; }
+.running-card.small .rc-lay-4 .rc-lay-mid { font-size: 14px; }
+.running-card.small .rc-lay-4 .rc-lay-sep { font-size: 14px; }
 
 .sp-sticker {
   height: 44px;
@@ -3599,6 +3753,94 @@ textarea:focus { border-color: var(--primary); }
 }
 .rd-note-text.muted { color: var(--text-muted); }
 .rd-note-empty { background: var(--primary-softer); border-color: var(--primary-soft); }
+
+/* ──────────────────────────────────────────────────────────
+ * 기록 상세 — AI 오늘의 러닝일지 섹션 (메모 아래)
+ *
+ * 보관함에서 AI 챗 마치고 저장하면 그날짜의 기록 상세에 카드 형태로 누적.
+ * 여러 개 있으면 위에서 아래로 시간순(저장 순서) 노출.
+ * ────────────────────────────────────────────────────────── */
+.rd-ai-journals {
+  margin-top: 4px;
+}
+.rd-ai-journals-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.rd-ai-journals-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 999px;
+  padding: 2px 8px;
+  min-width: 20px;
+  text-align: center;
+}
+.rd-ai-journals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd-ai-journal-card {
+  position: relative;
+  background: var(--primary-softer);
+  border: 1px solid var(--primary-soft);
+  border-radius: 14px;
+  padding: 14px 36px 12px 16px;
+}
+.rd-ai-journal-remove {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.rd-ai-journal-remove:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+.rd-ai-journal-quote {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.55;
+  position: relative;
+  padding: 0 4px;
+}
+.rd-ai-journal-q {
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+.rd-ai-journal-q.open { margin-right: 3px; }
+.rd-ai-journal-q.close { margin-left: 3px; }
+.rd-ai-journal-quote p {
+  display: inline;
+  margin: 0;
+}
+.rd-ai-journal-time {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+}
 
 .rd-actions {
   display: flex;
@@ -5187,6 +5429,25 @@ textarea:focus { border-color: var(--primary); }
   font-size: 13px;
   font-weight: 600;
 }
+/* 요약을 스튜디오로 바로 가져가는 강조 버튼 — 첫 두 버튼 아래 한 줄 전체 차지. */
+.aij-result-studio {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--primary, #8b5cf6) 0%, var(--primary-dark, #7c3aed) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.4);
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
+}
+.aij-result-studio:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(139, 92, 246, 0.5);
+}
+.aij-result-studio:active { transform: translateY(0); }
 
 /* === 갤러리 보관소 === */
 .gallery-area {
@@ -5881,7 +6142,17 @@ textarea:focus { border-color: var(--primary); }
   justify-content: center;
   background: transparent;
   border: none;
-  padding: 4px;
+  /* 모바일 터치가 스크롤로 해석되지 않도록 — pointermove 가 sticker 에 그대로 전달됨.
+   * 이게 없으면 손가락 터치 시 브라우저가 스크롤을 시도하면서 pointermove 가 끊어져
+   * 드래그가 안 시작됨. */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 작은 사이즈 sticker 의 hit-area 확장 — 안쪽 padding을 늘려 손가락 잡기 쉽게.
+   * 시각 크기는 image 의 object-fit:contain 이 알아서 맞춤. */
+  padding: 8px;
   cursor: pointer;
   pointer-events: auto;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
@@ -5918,22 +6189,23 @@ textarea:focus { border-color: var(--primary); }
   cursor: default;
 }
 .layer-panel {
-  /* 라이트 라벤더 톤 — #F2E4FE 바탕. 텍스트는 진한 보라로 또렷하게.
-   * 어두운 패널에서 라이트 패널로 전환되었기 때문에 모든 토큰을 light variant로 매핑. */
-  --lp-bg: #F2E4FE;            /* 메인 panel 바탕 (요청한 컬러) */
-  --lp-bg-elev: #E8D6F8;       /* row hover — 살짝 진한 라벤더 */
-  --lp-bg-sel: #D9BFF3;        /* 선택된 row — 더 진한 라벤더, 텍스트는 그대로 유지 */
-  --lp-border: #DCC8F0;        /* 일반 구분선 */
-  --lp-border-strong: #C9ADE6; /* 강조 구분선 */
-  --lp-text: #2D1B4E;          /* 메인 텍스트 — 진한 보라(가독성) */
+  /* 라이트 라벤더 톤 — 100% 불투명으로 복원. 캔버스 가독성 우선. */
+  --lp-bg: #F2E4FE;
+  --lp-bg-elev: #E8D6F8;
+  --lp-bg-sel: #D9BFF3;
+  --lp-border: #DCC8F0;
+  --lp-border-strong: #C9ADE6;
+  --lp-text: #2D1B4E;
   --lp-text-soft: #5C4682;
   --lp-text-muted: #8B7AA8;
-  --lp-accent: #8B5CF6;        /* primary 보라 — 선택 stripe, drop indicator 등 강조 */
+  --lp-accent: #8B5CF6;
 
   position: absolute;
+  /* 우측 상단에 붙되 *세로 절반* 만 차지하도록 — 캔버스 하단을 가리지 않음. */
   top: 8px;
   right: 8px;
-  bottom: 8px;
+  bottom: auto;
+  height: 50%;
   width: 240px;
   max-width: calc(100vw - 16px);
   background: var(--lp-bg);
@@ -5957,6 +6229,7 @@ textarea:focus { border-color: var(--primary); }
   padding: 10px 12px 9px;
   border-bottom: 1px solid var(--lp-border);
   background: linear-gradient(180deg, #F8EEFF 0%, #F2E4FE 100%);
+  flex-shrink: 0;
 }
 .lp-header-title {
   flex: 1;
@@ -6043,14 +6316,20 @@ textarea:focus { border-color: var(--primary); }
   font-weight: 600;
 }
 
-/* 레이어 리스트 */
+/* 레이어 리스트 — flex:1 + overflow-y:auto 로 자체 스크롤. 패널이 좁아져도
+ * 리스트가 넘치면 자체 스크롤바로 처리. */
 .lp-list {
   list-style: none;
   margin: 0;
   padding: 4px 0;
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
-  background: var(--lp-bg);
+  overflow-x: hidden;
+  background: transparent;
+  /* 모바일 momentum scroll */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .lp-list::-webkit-scrollbar { width: 6px; }
 .lp-list::-webkit-scrollbar-thumb {
@@ -6062,8 +6341,8 @@ textarea:focus { border-color: var(--primary); }
 .lp-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 2px;
+  padding: 4px 6px;
   min-height: 36px;
   cursor: pointer;
   transition: background 0.12s ease;
@@ -6230,6 +6509,7 @@ textarea:focus { border-color: var(--primary); }
   padding: 8px 12px;
   border-top: 1px solid var(--lp-border);
   background: linear-gradient(180deg, #F2E4FE 0%, #ECD8F9 100%);
+  flex-shrink: 0;
 }
 .lp-footer-btn {
   display: inline-flex;

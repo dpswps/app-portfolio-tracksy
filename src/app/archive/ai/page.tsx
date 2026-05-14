@@ -360,6 +360,16 @@ function Result() {
     useAppStore.getState().setAIStep("chat");
   };
 
+  /**
+   * 요약된 한 줄을 스튜디오 카드의 말풍선으로 가져가서 바로 디자인 시작.
+   * 1) studioCardData.bubble 는 채팅 흐름에서 이미 setStudioCardData 로 채워져 있음.
+   * 2) resetAI 로 AI 상태 정리 후 /studio 로 이동.
+   */
+  const onGoStudio = () => {
+    resetAI();
+    router.push("/studio");
+  };
+
   return (
     <section className="aij-screen aij-overlay-screen">
       <AIHeader />
@@ -386,6 +396,10 @@ function Result() {
           </button>
           <button className="aij-result-retry" onClick={onRetry}>
             다시하기
+          </button>
+          {/* 요약을 스튜디오 카드 말풍선으로 바로 가져가서 디자인 이어가기. */}
+          <button className="aij-result-studio" onClick={onGoStudio}>
+            ✨ 스튜디오로 바로가기
           </button>
         </div>
       </div>

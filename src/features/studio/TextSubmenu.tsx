@@ -221,15 +221,40 @@ export default function TextSubmenu() {
   const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
   const showToast = useAppStore((s) => s.showToast);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
+  // 카드 빌트인 텍스트(weekTitle/distance/time/pace/calories/bubble) 색상 지원.
+  // 사용자가 카드 텍스트를 탭하면 activeCardField 가 설정되고, 그 상태에서
+  // 색상 picker를 누르면 그 필드의 색이 바뀐다.
+  const activeCardField = useAppStore((s) => s.studioActiveCardField);
+  const cardTextColors = useAppStore((s) => s.studioCardTextColors);
+  const setCardTextColor = useAppStore((s) => s.setStudioCardTextColor);
   const sliderRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ active: boolean }>({ active: false });
 
   const active = texts.find((t) => t.id === activeId);
+  // 색상 picker 대상: 텍스트 오버레이가 active 면 그쪽, 아니면 카드 빌트인 필드.
+  const colorTarget: "overlay" | "card" | null =
+    active ? "overlay" : activeCardField ? "card" : null;
+  const currentColor =
+    colorTarget === "overlay"
+      ? active!.color
+      : colorTarget === "card"
+        ? cardTextColors[activeCardField!] ?? "#FFFFFF"
+        : "#FFFFFF";
 
-  // Hide submenu if no active text
+  // 색상/폰트/사이즈 submenu 는 텍스트 오버레이가 있을 때 + 카드 필드 active 일 때
+  // 모두 노출. 폰트/사이즈는 텍스트 오버레이 전용이라 카드 필드만 active 면 색상만 표시.
   useEffect(() => {
-    if (!active && submenu !== "none") setSubmenu("none");
-  }, [active, submenu, setSubmenu]);
+    if (!active && !activeCardField && submenu !== "none") setSubmenu("none");
+  }, [active, activeCardField, submenu, setSubmenu]);
+
+  const applyColor = (c: string) => {
+    pushHistory();
+    if (colorTarget === "overlay" && active) {
+      updateText(active.id, { color: c });
+    } else if (colorTarget === "card" && activeCardField) {
+      setCardTextColor(activeCardField, c);
+    }
+  };
 
   const setSize = (clientY: number) => {
     if (!active || !sliderRef.current) return;
@@ -269,11 +294,12 @@ export default function TextSubmenu() {
     return Math.max(0, Math.min(1, (active.size - min) / (max - min)));
   })();
 
-  if (!active) return null;
+  // 텍스트 오버레이도 카드 필드도 active 가 아니면 어떤 submenu 도 표시 안 함.
+  if (!active && !activeCardField) return null;
 
   return (
     <>
-      {submenu === "size" && (
+      {submenu === "size" && active && (
         <div
           ref={sliderRef}
           className="text-size-slider"
@@ -294,7 +320,7 @@ export default function TextSubmenu() {
         </div>
       )}
 
-      {submenu === "font" && (
+      {submenu === "font" && active && (
         <div className="text-font-row">
           <HScroller>
             {FONTS.map((f) => {
@@ -324,26 +350,20 @@ export default function TextSubmenu() {
         </div>
       )}
 
-      {submenu === "color" && (
+      {submenu === "color" && (colorTarget === "overlay" || colorTarget === "card") && (
         <div className="text-color-row">
           <HScroller>
             <EyedropperButton
-              currentColor={active.color}
-              onPick={(c) => {
-                pushHistory();
-                updateText(active.id, { color: c });
-              }}
+              currentColor={currentColor}
+              onPick={(c) => applyColor(c)}
             />
             {COLORS.map((c) => (
               <button
                 key={c}
-                className={`tcolor${active.color === c ? " active" : ""}`}
+                className={`tcolor${currentColor === c ? " active" : ""}`}
                 style={{ background: c }}
                 aria-label={c}
-                onClick={() => {
-                  pushHistory();
-                  updateText(active.id, { color: c });
-                }}
+                onClick={() => applyColor(c)}
               />
             ))}
           </HScroller>

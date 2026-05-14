@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/stores/useAppStore";
+import { layoutTemplates } from "./layoutTemplates";
 
 /**
  * 스튜디오 스티커 풀 — Tracksy 마스코트 캐릭터 12종.
@@ -268,116 +269,11 @@ function DesignTab() {
 /* ──────────────────────────────────────────────────────────
  * 스타일 → 레이아웃 그리드.
  *
- * 8개의 레이아웃 프리셋을 보여주고, 클릭하면 그 레이아웃이 카드에 적용됨.
- * 우측 하단에는 "저장한 스타일 사용하기" 버튼 — 보관함의 저장된 스타일 picker 열기.
+ * layoutTemplates 모듈에서 8개 프리셋(layout-1 ~ layout-8)을 가져와서
+ * 썸네일로 표시. 클릭하면 selectedLayoutId(=studioLayoutId)가 바뀌고,
+ * RunningCard 의 stats-group JSX 가 즉시 그 레이아웃으로 교체됨.
+ * 우측 하단에는 "저장한 스타일 사용하기" 버튼 — 보관함 picker 열기.
  * ────────────────────────────────────────────────────────── */
-type LayoutPreset = {
-  id: string;
-  name: string;
-  /** 작은 미리보기 — 실제 카드와 비슷한 정보 구성으로 표시 */
-  preview: React.ReactNode;
-};
-
-const LAYOUTS: LayoutPreset[] = [
-  {
-    id: "default",
-    name: "기본",
-    preview: (
-      <>
-        <span className="lyp-distance">0.00km</span>
-      </>
-    ),
-  },
-  {
-    id: "time-only",
-    name: "시간",
-    preview: <span className="lyp-time">00:00</span>,
-  },
-  {
-    id: "date-distance",
-    name: "날짜+거리",
-    preview: (
-      <>
-        <span className="lyp-date">YYYY.MM.DD</span>
-        <span className="lyp-small">0.00km</span>
-      </>
-    ),
-  },
-  {
-    id: "time-distance",
-    name: "시간+거리",
-    preview: (
-      <>
-        <span className="lyp-small">00:00 / 0.00km</span>
-      </>
-    ),
-  },
-  {
-    id: "distance-pace",
-    name: "거리+페이스",
-    preview: (
-      <>
-        <span className="lyp-small">0.0km</span>
-        <span className="lyp-small">00&apos;20&quot;</span>
-      </>
-    ),
-  },
-  {
-    id: "stats-row",
-    name: "통계 한 줄",
-    preview: (
-      <>
-        <span className="lyp-tiny">00:00 · 00.0km/h · 00.0km/h</span>
-      </>
-    ),
-  },
-  {
-    id: "icons-pair",
-    name: "아이콘",
-    preview: <span className="lyp-icons">♥ 🏃</span>,
-  },
-  {
-    id: "minimal-icons",
-    name: "심플 아이콘",
-    preview: <span className="lyp-icons">🏃 ♥</span>,
-  },
-  {
-    id: "stacked",
-    name: "스택",
-    preview: (
-      <>
-        <span className="lyp-tiny">00:00</span>
-        <span className="lyp-tiny">0.00km</span>
-        <span className="lyp-tiny">00&apos;20&quot;</span>
-        <span className="lyp-tiny">00.0km/h</span>
-      </>
-    ),
-  },
-  {
-    id: "full",
-    name: "풀",
-    preview: (
-      <>
-        <span className="lyp-tiny">00:00</span>
-        <span className="lyp-tiny">0.00km</span>
-        <span className="lyp-tiny">00&apos;20&quot;</span>
-        <span className="lyp-tiny">0kcal</span>
-      </>
-    ),
-  },
-  {
-    id: "summary",
-    name: "요약",
-    preview: (
-      <>
-        <span className="lyp-date">YYYY.MM.DD</span>
-        <span className="lyp-tiny">0.00km · 00&apos;20&quot;</span>
-        <span className="lyp-tiny">0kcal · ♥ 🏃</span>
-      </>
-    ),
-  },
-];
-
 function StyleLayoutGrid() {
   const layoutId = useAppStore((s) => s.studioLayoutId);
   const setLayout = useAppStore((s) => s.setStudioLayoutId);
@@ -386,7 +282,7 @@ function StyleLayoutGrid() {
 
   return (
     <div className="sp-layout-grid">
-      {LAYOUTS.map((ly) => {
+      {layoutTemplates.map((ly) => {
         const active = layoutId === ly.id;
         return (
           <button
@@ -397,7 +293,7 @@ function StyleLayoutGrid() {
               showToast(`${ly.name} 레이아웃 적용됨`);
             }}
             aria-label={`${ly.name} 레이아웃`}
-            title={ly.name}
+            title={ly.desc}
           >
             <div className="sp-layout-preview">{ly.preview}</div>
           </button>

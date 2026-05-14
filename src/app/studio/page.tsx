@@ -12,6 +12,7 @@ import EyedropperLoupe from "@/features/studio/EyedropperLoupe";
 import RecordPicker from "@/features/studio/RecordPicker";
 import StylePicker from "@/features/studio/StylePicker";
 import PlacedStickers from "@/features/studio/PlacedStickers";
+import TrashZone from "@/features/studio/TrashZone";
 import LayerPanel from "@/features/studio/LayerPanel";
 import DesignSubmenu from "@/features/studio/DesignSubmenu";
 import { useAppStore } from "@/stores/useAppStore";
@@ -120,6 +121,8 @@ export default function StudioPage() {
             <EyedropperLoupe />
           </div>
         </div>
+        {/* 통합 휴지통 — 텍스트/스티커를 드래그할 때만 나타남. 위로 끌어 떨어뜨리면 삭제. */}
+        <TrashZone />
         <div className="st-fab-stack">
           {/* AI 오늘의 러닝일지 — 보관함의 동일 버튼과 똑같이 동작.
               둘 다 /archive/ai 로 가고, 진입 직전 resetAI()로 이전 세션 잔재를 정리해서
