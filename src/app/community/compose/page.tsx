@@ -38,7 +38,7 @@ export default function CommunityComposePage() {
   };
 
   return (
-    <>
+    <div className="comm-compose-screen">
       <div className="app-header comm-post-header">
         <button className="back-btn" onClick={back}>
           ‹
@@ -136,6 +136,6 @@ export default function CommunityComposePage() {
           </button>
         </div>
       </section>
-    </>
+    </div>
   );
 }

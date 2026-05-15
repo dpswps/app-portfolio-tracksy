@@ -2046,16 +2046,28 @@ textarea:focus { border-color: var(--primary); }
 }
 
 /* === COMPOSE === */
+/* 글쓰기 화면 전체 — 스크롤 없이 한 화면에 모두 보이도록 flex column 으로
+ * #screen 의 높이를 가득 채운다. 헤더는 고정, compose 본문이 남는 공간을
+ * 전부 차지하고 그 안에서 canvas 가 flex:1 로 늘어난다. */
+.comm-compose-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
 .comm-compose {
   padding: 0 16px 16px;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .compose-canvas {
   position: relative;
   background: var(--primary-softer);
   border-radius: 18px;
-  height: 470px;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   margin-bottom: 10px;
@@ -2095,10 +2107,14 @@ textarea:focus { border-color: var(--primary); }
 .cc-plus svg { width: 18px; height: 18px; }
 
 /* "카드 가져오기" 영역의 메인 일러스트 — 트랙시 마스코트가 카드 액자를 들고 있는
- * 단일 PNG. 이전엔 Mascot + 별도 SVG 카드 아이콘 두 개를 겹쳐 썼지만 이제 한 장. */
+ * 단일 PNG. 이전엔 Mascot + 별도 SVG 카드 아이콘 두 개를 겹쳐 썼지만 이제 한 장.
+ * canvas 가 flex 로 줄어들 때 일러스트도 같이 줄어들도록 min-height:0 + max-* 로 한도 지정. */
 .cc-tracksy {
-  width: 180px;
-  height: 130px;
+  width: min(180px, 50%);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 60%;
+  aspect-ratio: 18 / 13;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2120,7 +2136,8 @@ textarea:focus { border-color: var(--primary); }
   align-items: center;
   justify-content: center;
   position: relative;
-  min-height: 200px;
+  flex: 1 1 0;
+  min-height: 0;
 }
 .cc-card-sprite {
   width: 100%;
