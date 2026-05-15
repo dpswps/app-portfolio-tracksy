@@ -1198,8 +1198,9 @@ textarea:focus { border-color: var(--primary); }
   flex: 1;
   height: 38px;
   border-radius: 999px;
-  background: var(--primary-softer);
-  border: 1px solid var(--primary-soft);
+  /* 사용자 지정 라이트 라벤더 — 검색 페이지(.cs-search-box)와도 톤 통일 */
+  background: #F4F3FE;
+  border: 1px solid #E5DBFB;
   display: flex; align-items: center; gap: 8px;
   padding: 0 14px;
 }
@@ -1219,10 +1220,478 @@ textarea:focus { border-color: var(--primary); }
 .comm-bookmark.saved { color: #765EE6; }
 .comm-bookmark.saved svg { fill: #765EE6; stroke: #765EE6; }
 
+/* ──────────────────────────────────────────────────────────
+ * 커뮤니티 → 검색 페이지 (/community/search)
+ *
+ * 컬러:
+ *   --cs-bg: #F4F3FE  (라이트 라벤더 배경)
+ *   --cs-accent: #723BE4  (보라 강조 — 인기 검색어 해시태그)
+ * ────────────────────────────────────────────────────────── */
+.cs-screen {
+  min-height: 100%;
+  background: #fff;
+  padding-bottom: 24px;
+  --cs-bg: #F4F3FE;
+  --cs-accent: #723BE4;
+}
+
+/* 상단: 검색 입력 + 취소 */
+.cs-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 12px;
+}
+.cs-search-box {
+  flex: 1;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--cs-bg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+.cs-search-ic {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted, #888);
+  flex-shrink: 0;
+}
+.cs-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  min-width: 0;
+}
+.cs-search-input::placeholder {
+  color: var(--text-muted, #999);
+}
+.cs-clear {
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cs-cancel {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+/* 공통 섹션 */
+.cs-section {
+  padding: 12px 14px 14px;
+}
+/* 카드형 섹션 (인기 검색어 / 추천 사용자) — 라이트 라벤더 배경 */
+.cs-section-card {
+  background: var(--cs-bg);
+  margin: 4px 14px 0;
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+}
+.cs-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+/* 인기 검색어 — 순위 + 보라 해시태그 */
+.cs-popular-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cs-popular-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 7px 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.cs-popular-item:hover { background: rgba(114, 59, 228, 0.06); border-radius: 6px; }
+.cs-rank {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cs-accent);
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.cs-keyword {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cs-accent);
+}
+
+/* 최근 검색어 — 칩 */
+.cs-recent-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cs-recent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-radius: 999px;
+  padding: 0 4px 0 10px;
+  height: 30px;
+}
+.cs-recent-text {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.cs-recent-x {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cs-recent-x:hover { background: rgba(0, 0, 0, 0.06); }
+.cs-empty {
+  font-size: 12px;
+  color: var(--text-muted, #999);
+  padding: 6px 4px 2px;
+}
+
+/* 추천 사용자 — 프로필 스프라이트 3등분 슬라이스 */
+.cs-user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cs-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+/* community-profiles.png 는 가로 3등분 — 좌/중/우 프로필.
+ * 컨테이너 48x48 원형, 안에서 600x200 비율 sprite를 background-position 으로 슬라이스. */
+.cs-user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-image: url("/community-profiles.png");
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.cs-user-avatar-0 { background-position: 0% 50%; }
+.cs-user-avatar-1 { background-position: 50% 50%; }
+.cs-user-avatar-2 { background-position: 100% 50%; }
+.cs-user-info {
+  flex: 1;
+  min-width: 0;
+}
+.cs-user-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.cs-user-desc {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-top: 2px;
+}
+.cs-follow-btn {
+  background: var(--cs-accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.cs-follow-btn:hover { opacity: 0.88; }
+
+/* 인기 게시글 — 가로 스크롤 3개 카드 */
+.cs-hot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.cs-hot-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--border-soft, #E5E7EB);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.cs-hot-card:hover { border-color: var(--cs-accent); }
+.cs-hot-img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background-image: url("/community-hot.png");
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+}
+.cs-hot-img-0 { background-position: 0% 50%; }
+.cs-hot-img-1 { background-position: 50% 50%; }
+.cs-hot-img-2 { background-position: 100% 50%; }
+.cs-hot-info {
+  /* 흰 정보 영역 padding 축소 — 한 화면에 다 들어가도록 컴팩트 */
+  padding: 6px 7px 7px;
+}
+.cs-hot-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 닉네임 + 좋아요 한 줄 정렬 — @ prefix 제거, space-between 으로 좌우 분리 */
+.cs-hot-author {
+  margin-top: 3px;
+  font-size: 9.5px;
+  color: var(--text-muted, #888);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.cs-hot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.cs-hot-likes {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--cs-accent, #723BE4);
+}
+/* 인기 게시글 섹션 자체도 카드형 라벤더 배경 (추천 사용자 자리 차지).
+ * cs-section-card 의 lavender bg 를 상속받음. */
+.cs-section-posts { padding-bottom: 14px; }
+
+/* ──────────────────────────────────────────────────────────
+ * 커뮤니티 NEW 탭 — 최근 업로드 러닝 카드 2열 그리드.
+ *
+ * 카드 사진은 /community-cards.png 한 장에 4x2 배열로 들어있어
+ * background-size: 400% 200% + background-position 으로 1/8 슬라이스.
+ *
+ * 카드 색감: 보라 accent (#723BE4) · 라이트 라벤더 배경(#F4F3FE).
+ * ────────────────────────────────────────────────────────── */
+.cnew-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 16px 10px;
+}
+.cnew-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 14px 24px;
+}
+.cnew-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 9 / 14;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #F4F3FE;
+  box-shadow: 0 4px 14px rgba(76, 41, 138, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: pointer;
+}
+.cnew-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(76, 41, 138, 0.2);
+}
+.cnew-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url("/community-cards.png");
+  background-size: 400% 200%;
+  background-repeat: no-repeat;
+}
+/* 4x2 스프라이트 슬라이스 — col(0~3), row(0~1)
+ *   idx 0 = (col 0, row 0)
+ *   idx 1 = (col 1, row 0)
+ *   idx 2 = (col 2, row 0)
+ *   idx 3 = (col 3, row 0)
+ *   idx 4 = (col 0, row 1)
+ *   idx 5 = (col 1, row 1)
+ *   idx 6 = (col 2, row 1)
+ *   idx 7 = (col 3, row 1)
+ * background-position 의 첫 값 = col / (cols-1) * 100%,
+ *                      두 번째 값 = row / (rows-1) * 100%. */
+.cnew-bg-0 { background-position: 0%   0%; }
+.cnew-bg-1 { background-position: 33.333% 0%; }
+.cnew-bg-2 { background-position: 66.666% 0%; }
+.cnew-bg-3 { background-position: 100%   0%; }
+.cnew-bg-4 { background-position: 0%   100%; }
+.cnew-bg-5 { background-position: 33.333% 100%; }
+.cnew-bg-6 { background-position: 66.666% 100%; }
+.cnew-bg-7 { background-position: 100%   100%; }
+
+/* 사진 위에 어두운 하단 그라데이션 — 텍스트 가독성 보장 */
+.cnew-grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+}
+.cnew-info {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  color: #fff;
+  z-index: 2;
+}
+.cnew-dist {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.cnew-dist small {
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 2px;
+  opacity: 0.92;
+}
+.cnew-stats {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.cnew-stats b {
+  font-weight: 700;
+  margin-right: 2px;
+}
+.cnew-user {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #C4B5FD;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* ──────────────────────────────────────────────────────────
+ * 커뮤니티 → 즐겨찾기 페이지
+ *
+ * 헤더 + 2열 그리드. 그리드/카드 스타일은 NEW 탭의 .cnew-* 재사용.
+ * ────────────────────────────────────────────────────────── */
+.cfav-screen {
+  min-height: 100%;
+  background: #fff;
+  padding-bottom: 24px;
+}
+.cfav-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 14px;
+}
+.cfav-back {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cfav-title-wrap {
+  flex: 1;
+  text-align: center;
+}
+.cfav-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.cfav-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted, #888);
+}
+.cfav-spacer {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
 .comm-tabs {
   display: flex; gap: 16px;
+  align-items: center;
   padding: 4px 18px 12px;
   border-bottom: 1px solid var(--border-soft);
+}
+/* 탭 라인 안쪽에 들어간 글쓰기 버튼 — 우측 정렬 + 컴팩트 사이즈 */
+.comm-tabs .cc-write {
+  padding: 6px 12px;
+  font-size: 12px;
 }
 .ct-tab {
   font-size: 14px; font-weight: 700;
@@ -1375,9 +1844,12 @@ textarea:focus { border-color: var(--primary); }
   text-shadow: 0 1px 2px rgba(0,0,0,0.4);
   z-index: 2;
 }
+/* Hot 탭 카드의 사용자 표시 — 아바타 + 닉네임 좌측 상단.
+ * "+" 팔로우 버튼은 제거되었지만 아바타 자체와 닉네임은 유지. */
 .fc-userline {
   position: absolute;
-  top: 10px; left: 10px;
+  top: 10px;
+  left: 10px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -1386,10 +1858,12 @@ textarea:focus { border-color: var(--primary); }
 }
 .fc-avatar {
   position: relative;
-  width: 26px; height: 26px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid #fff;
 }
 .fc-username-text {
   font-size: 11px;
@@ -1399,8 +1873,8 @@ textarea:focus { border-color: var(--primary); }
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1;
-  max-width: 80px;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  max-width: 100px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 .fc-userline.dark .fc-username-text {
   color: #1F1F23;
@@ -1619,6 +2093,168 @@ textarea:focus { border-color: var(--primary); }
   box-shadow: 0 6px 14px rgba(139,92,246,0.4);
 }
 .cc-plus svg { width: 18px; height: 18px; }
+
+/* "카드 가져오기" 영역의 메인 일러스트 — 트랙시 마스코트가 카드 액자를 들고 있는
+ * 단일 PNG. 이전엔 Mascot + 별도 SVG 카드 아이콘 두 개를 겹쳐 썼지만 이제 한 장. */
+.cc-tracksy {
+  width: 180px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cc-tracksy img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* compose 페이지에서 선택된 카드 미리보기 — 픽커와 동일한 card_2 스프라이트 슬라이스. */
+.compose-canvas.has-card-sprite {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 200px;
+}
+.cc-card-sprite {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  background-image: url("/community-mycards.png");
+  background-size: 100% 300%;
+  background-repeat: no-repeat;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.cc-card-sprite-0 { background-position: center 0%; }
+.cc-card-sprite-1 { background-position: center 50%; }
+.cc-card-sprite-2 { background-position: center 100%; }
+
+/* ──────────────────────────────────────────────────────────
+ * 커뮤니티 → 글쓰기 → 카드 가져오기 페이지 (/community/compose/cards)
+ *
+ * 한 화면에 3장의 카드가 스크롤 없이 모두 보이도록 컴팩트 레이아웃.
+ * 카드 사진은 /community-mycards.png (3장 세로 스프라이트) 슬라이스.
+ * 원본 이미지에 있던 우측 상단 북마크는 .mc2-bookmark-mask 로 가림.
+ * ────────────────────────────────────────────────────────── */
+.mc2-screen {
+  padding: 8px 16px 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mc2-sub {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+.mc2-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mc2-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc2-card {
+  position: relative;
+  flex: 1;
+  /* 명시적 비율 — card_2.png 원본 cell 비율(686:383 ≈ 16:9)에 맞춤. */
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #F4F3FE;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+.mc2-row.selected .mc2-card {
+  border-color: var(--primary, #8B5CF6);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
+}
+.mc2-card:active { transform: scale(0.99); }
+/* 카드 사진 — 스프라이트 슬라이스. card_2.png 한 장에 3개 카드가 세로로 들어있어
+ * background-size: 100% 300% (세로 3배 확대) + background-position 으로 1/3 선택. */
+.mc2-photo {
+  position: absolute;
+  inset: 0;
+  background-image: url("/community-mycards.png");
+  background-size: 100% 300%;
+  background-repeat: no-repeat;
+}
+.mc2-photo-0 { background-position: center 0%; }
+.mc2-photo-1 { background-position: center 50%; }
+.mc2-photo-2 { background-position: center 100%; }
+
+/* (legacy) 이전 card_2.png 에 있던 북마크 아이콘을 가리던 마스크. 새 이미지엔 북마크가
+ * 없어서 더 이상 노출 안 함. 안전망으로 display: none 유지. */
+.mc2-bookmark-mask { display: none; }
+
+.mc2-radio {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid #D1D5DB;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mc2-radio.selected {
+  background: var(--primary, #8B5CF6);
+  border-color: var(--primary, #8B5CF6);
+}
+.mc2-radio svg { width: 16px; height: 16px; }
+
+/* 하단 CTA — 선택 완료 버튼 */
+.mc2-cta-wrap {
+  flex-shrink: 0;
+  padding-top: 10px;
+}
+.mc2-cta {
+  width: 100%;
+  background: var(--primary, #8B5CF6);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
+  transition: opacity 0.12s ease;
+}
+.mc2-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.mc2-cta-count {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+  min-width: 20px;
+  text-align: center;
+}
 
 .compose-fields {
   display: flex; flex-direction: column; gap: 8px;
@@ -2522,19 +3158,11 @@ textarea:focus { border-color: var(--primary); }
   z-index: 1;
 }
 
-/* 카드 가운데 메인 캐릭터 — 보라 러닝 마스코트(main-character.png).
- * 이전: 검은 러너 실루엣 SVG가 카드 폭의 70% 차지.
- * 이제: 같은 위치에 보라 마스코트. 통계 텍스트와 겹치지 않도록 사이즈를 작게(폭 42%) 맞춤.
- * 말풍선/메모 영역과 겹치지 않도록 bottom 비율을 키워 살짝 위로 올려둠. */
+/* .rc-runner 데드 CSS — 자동 렌더링 제거됨. (사진 배경 위에 캐릭터 겹침 이슈 방지)
+ * 캐릭터가 필요하면 스티커/테마 오버레이/AI 일지 마스코트로 직접 추가.
+ * 만약 다시 자동 노출 기능이 필요하면 RunningCard.tsx 의 JSX 와 함께 이 규칙도 복원. */
 .running-card .rc-runner {
-  position: absolute;
-  right: 10px; bottom: 28%;
-  width: 42%; height: 48%;
-  background-image: url("/main-character.png");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: bottom right;
-  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.35));
+  display: none;
 }
 
 .running-card .rc-top {
@@ -3477,8 +4105,12 @@ textarea:focus { border-color: var(--primary); }
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-/* "자세히 보기 ›" 링크 hint (캘린더 선택 블록 / 리스트 확장 블록 공용) */
+/* "자세히 보기 ›" 링크 hint (캘린더 선택 블록 / 리스트 확장 블록 공용).
+ * Calendar.tsx 는 className="sel-record-link" (sel- prefix) 를 사용하고,
+ * 기존 CSS 는 sr- prefix 로 정의되어 있어 매칭이 안 됐음 → 연보라 배경이
+ * 깨져 보였음. 두 selector 모두 받도록 추가. */
 .sr-record-link,
+.sel-record-link,
 .lr-rec-link {
   display: block;
   text-decoration: none;
@@ -3487,6 +4119,7 @@ textarea:focus { border-color: var(--primary); }
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .sr-record-link:hover,
+.sel-record-link:hover,
 .lr-rec-link:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(124, 58, 237, 0.08);
@@ -5650,6 +6283,35 @@ textarea:focus { border-color: var(--primary); }
 }
 
 .g-detail { padding: 0 14px 24px; }
+
+/* 스튜디오에서 저장한 카드 — snapshot 으로 편집한 모습 그대로 재현하는 wrapper.
+ * RunningCard 의 자체 비율/CSS 를 사용하므로 외부에서는 wrapping 만 담당. */
+.g-detail-snapshot {
+  position: relative;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+.g-detail-snapshot .running-card {
+  width: 100%;
+  aspect-ratio: 9 / 14;
+  max-width: none;
+  border-radius: 18px;
+  margin: 0;
+  box-shadow: none;
+}
+/* 날짜 라벨 — 갤러리 디테일 좌상단에 떠 있는 형태 */
+.g-detail-snapshot .gd-meta-floating {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 30;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
 
 .g-detail-card {
   position: relative;

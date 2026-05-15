@@ -60,6 +60,47 @@ export type Partner = {
   desc: string;
 };
 
+/**
+ * 스튜디오에서 사용자가 편집한 카드의 전체 시각 스냅샷.
+ * 갤러리에 저장될 때 함께 캡쳐되어, 갤러리 상세 페이지에서 편집한 그대로 다시 그릴 수 있도록 함.
+ */
+export type StudioCardSnapshot = {
+  bg: string | null;
+  themeOverlay: string | null;
+  layoutId: string;
+  ratio: string;
+  rotate: number;
+  flipH: boolean;
+  flipV: boolean;
+  crop: number;
+  cardData: {
+    weekTitle: string;
+    distance: string;
+    time: string;
+    pace: string;
+    calories: string;
+    bubble: string;
+  };
+  cardTextColors: Record<string, string>;
+  bubblePos: { x: number; y: number } | null;
+  statsOffset: { x: number; y: number };
+  texts: Array<{
+    id: number;
+    text: string;
+    x: number;
+    y: number;
+    size: number;
+    font: string;
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string;
+  }>;
+  stickers: Array<{ id: number; emoji: string; x: number; y: number }>;
+  layerOrder: string[];
+  layerOpacities: Record<string, number>;
+  hiddenLayers: Record<string, boolean>;
+};
+
 export type GalleryCard = {
   id: number;
   /** Year of this run (used for filtering) */
@@ -78,6 +119,8 @@ export type GalleryCard = {
   likes: number;
   comments: number;
   bg: string;
+  /** 스튜디오에서 저장한 카드의 전체 시각 스냅샷 (있으면 갤러리 상세에서 그대로 재현). */
+  snapshot?: StudioCardSnapshot;
 };
 
 export type StyleStat = { v: string; l: string };

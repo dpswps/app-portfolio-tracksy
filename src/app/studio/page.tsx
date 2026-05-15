@@ -33,10 +33,108 @@ export default function StudioPage() {
   const layerPanelOpen = useAppStore((s) => s.studioLayerPanelOpen);
   const toggleLayerPanel = useAppStore((s) => s.toggleStudioLayerPanel);
   const resetAI = useAppStore((s) => s.resetAI);
+  // 저장 기능에 필요한 store 데이터 — 스냅샷에 포함되는 모든 시각 상태.
+  const studioCardData = useAppStore((s) => s.studioCardData);
+  const studioBackground = useAppStore((s) => s.studioBackground);
+  const studioLayoutId = useAppStore((s) => s.studioLayoutId);
+  const studioThemeOverlay = useAppStore((s) => s.studioThemeOverlay);
+  const studioRotate = useAppStore((s) => s.studioRotate);
+  const studioFlipH = useAppStore((s) => s.studioFlipH);
+  const studioFlipV = useAppStore((s) => s.studioFlipV);
+  const studioCrop = useAppStore((s) => s.studioCrop);
+  const studioRatio = useAppStore((s) => s.studioRatio);
+  const studioTexts = useAppStore((s) => s.studioTexts);
+  const placedStickers = useAppStore((s) => s.placedStickers);
+  const studioLayerOrder = useAppStore((s) => s.studioLayerOrder);
+  const studioLayerOpacities = useAppStore((s) => s.studioLayerOpacities);
+  const studioHiddenLayers = useAppStore((s) => s.studioHiddenLayers);
+  const studioCardTextColors = useAppStore((s) => s.studioCardTextColors);
+  const studioBubblePos = useAppStore((s) => s.studioBubblePos);
+  const studioStatsOffset = useAppStore((s) => s.studioStatsOffset);
+  const addUserGalleryCard = useAppStore((s) => s.addUserGalleryCard);
+  const setGalleryFilter = useAppStore((s) => s.setGalleryFilter);
+  const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onLoadRecord = () => {
     setRecordPickerOpen(true);
+  };
+
+  /**
+   * 스튜디오의 현재 카드 상태를 GalleryCard 로 캡쳐해서 갤러리 보관소(userGalleryCards)에 저장.
+   *
+   * - id: 현재 시각(ms) — 충돌 방지를 위해 Date.now() 사용.
+   * - y/m/date: 오늘 날짜로 채워서 그 월 필터에 자동 노출.
+   * - title/dist/pace/time/kcal: studioCardData 에서 그대로 가져옴.
+   *   사용자가 EditableText 로 카드에 직접 입력한 값이 반영됨.
+   * - bg: 현재 배경 (사진 dataURL 또는 기본 그라데이션 CSS).
+   *   배경이 없으면 카드의 기본 그라데이션을 사용.
+   * - 저장 후 갤러리 필터를 오늘 월로 점프시켜서 사용자가 보관함→갤러리 진입 시
+   *   바로 자기 카드를 볼 수 있게 함.
+   */
+  const onSaveCard = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const d = now.getDate();
+    const dows = ["일", "월", "화", "수", "목", "금", "토"];
+    const dateStr = `${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")} (${dows[now.getDay()]})`;
+
+    // calories 는 숫자 — studioCardData.calories 는 문자열이라 parseInt
+    const kcalNum = parseInt(studioCardData.calories.replace(/\D/g, ""), 10);
+
+    // 갤러리 그리드에서 미리보기로 쓰일 단순 bg — 사진/그라데이션 둘 다 호환되는 CSS.
+    const cardBg = studioBackground
+      ? `url("${studioBackground}") center / cover no-repeat`
+      : "linear-gradient(180deg,#FFC18D 0%,#DDA9C9 25%,#A989B8 50%,#4D3F62 80%,#2A2536 100%)";
+
+    // 전체 시각 상태 스냅샷 — 갤러리 상세에서 편집한 모습 그대로 재현하는 데 사용.
+    const snapshot = {
+      bg: studioBackground,
+      themeOverlay: studioThemeOverlay,
+      layoutId: studioLayoutId,
+      ratio: studioRatio,
+      rotate: studioRotate,
+      flipH: studioFlipH,
+      flipV: studioFlipV,
+      crop: studioCrop,
+      cardData: { ...studioCardData },
+      cardTextColors: { ...studioCardTextColors },
+      bubblePos: studioBubblePos,
+      statsOffset: studioStatsOffset,
+      // 깊은 복사 — 향후 store 가 mutate 되어도 스냅샷은 그대로 유지.
+      texts: studioTexts.map((t) => ({ ...t })),
+      stickers: placedStickers.map((p) => ({ ...p })),
+      layerOrder: [...studioLayerOrder],
+      layerOpacities: { ...studioLayerOpacities },
+      hiddenLayers: { ...studioHiddenLayers },
+    };
+
+    addUserGalleryCard({
+      id: Date.now(),
+      y,
+      m,
+      date: dateStr,
+      title: studioCardData.weekTitle?.trim() || "내 러닝 카드",
+      dist: studioCardData.distance || "0.00",
+      pace: studioCardData.pace || "—",
+      time: studioCardData.time || "—",
+      kcal: isFinite(kcalNum) ? kcalNum : 0,
+      elev: "—",
+      bpm: 0,
+      cadence: 0,
+      likes: 0,
+      comments: 0,
+      bg: cardBg,
+      snapshot,
+    });
+
+    // 갤러리 보관소 필터를 오늘 월로 맞춰서 보관함 진입 시 즉시 노출
+    setGalleryFilter({ y, m });
+    setArchiveMainTab("gallery");
+    showToast("갤러리 보관소에 저장되었습니다");
+    // 저장 후 공유/저장 옵션 화면으로 이동 (사용자가 그리워한 popup 화면).
+    router.push("/studio/export");
   };
 
   const back = () => {
@@ -99,14 +197,11 @@ export default function StudioPage() {
           </svg>
         </button>
         <span style={{ flex: 1 }} />
-        <Link
-          href="/studio/export"
-          className="st-export"
-          style={{ textDecoration: "none" }}
-          onClick={() => showToast("갤러리 보관소에 저장되었습니다")}
-        >
+        {/* 저장하기 — 현재 카드를 GalleryCard 로 변환해 갤러리 보관소에 저장.
+            오늘 날짜로 저장되며, 보관함 → 갤러리 보관소에서 오늘 월에 자동 노출됨. */}
+        <button type="button" className="st-export" onClick={onSaveCard}>
           저장하기
-        </Link>
+        </button>
       </div>
 
       <div className="studio-canvas">

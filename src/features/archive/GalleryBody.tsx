@@ -10,8 +10,11 @@ export default function GalleryBody() {
   const router = useRouter();
   const { y, m } = useAppStore((s) => s.galleryFilter);
   const setSheet = useAppStore((s) => s.setGallerySheet);
-
-  const filteredCards = galleryCards.filter((c) => c.y === y && c.m === m);
+  // 사용자가 스튜디오에서 저장한 카드들과 기본 샘플을 함께 노출.
+  // 사용자 카드는 항상 위쪽(=최신순)에 먼저, 그 뒤에 샘플 카드.
+  const userGalleryCards = useAppStore((s) => s.userGalleryCards);
+  const allCards = [...userGalleryCards, ...galleryCards];
+  const filteredCards = allCards.filter((c) => c.y === y && c.m === m);
 
   return (
     <div className="gallery-area">

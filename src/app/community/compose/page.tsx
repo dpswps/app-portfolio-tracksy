@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
-import Mascot from "@/components/ui/Mascot";
 import { myCards } from "@/data/myCards";
 
 export default function CommunityComposePage() {
@@ -19,6 +18,12 @@ export default function CommunityComposePage() {
   const selectedCard = composeSelectedCardId
     ? myCards.find((c) => c.id === composeSelectedCardId) ?? null
     : null;
+  // 카드 픽커에서 선택된 카드의 sprite index — myCards 배열 안에서의 위치(0/1/2).
+  // 픽커 페이지와 동일한 community-mycards.png 스프라이트의 같은 슬라이스를 보여줘서
+  // 미리보기가 픽커에서 본 모습 그대로 노출되도록.
+  const selectedSpriteIdx = selectedCard
+    ? myCards.findIndex((c) => c.id === selectedCard.id)
+    : -1;
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -45,72 +50,23 @@ export default function CommunityComposePage() {
           />
           <span>{user.name || "김러너"}</span>
         </div>
-        <button className="comm-bookmark" style={{ marginLeft: "auto" }} aria-label="저장">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M6 3h12v18l-6-4-6 4z" />
-          </svg>
-        </button>
+        {/* 우측 상단 북마크 버튼 제거. 헤더 균형 유지를 위해 spacer 만 둠. */}
+        <span style={{ marginLeft: "auto", width: 32, height: 32 }} aria-hidden="true" />
       </div>
       <section className="comm-compose">
         {selectedCard ? (
+          /* 선택된 카드 미리보기 — 픽커에서 본 동일한 card_2 스프라이트 슬라이스를 사용.
+             텍스트 오버레이는 이미 이미지에 포함되어 있으므로 별도 렌더 안 함. */
           <div
-            className="compose-canvas has-card"
+            className="compose-canvas has-card-sprite"
             onClick={goToPicker}
             role="button"
             tabIndex={0}
           >
-            <img
-              className="cc-card-image"
-              src={selectedCard.portraitImage}
-              alt="러닝 카드"
+            <div
+              className={`cc-card-sprite cc-card-sprite-${selectedSpriteIdx}`}
+              aria-label={`${selectedCard.title} 카드`}
             />
-            <div className="cc-card-shade" />
-            <span className="cc-card-bm" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                <path d="M6 3h12v18l-6-4-6 4z" />
-              </svg>
-            </span>
-            <div className="cc-card-text">
-              <div className="cc-card-date">{selectedCard.date}</div>
-              <div className="cc-card-title">{selectedCard.title}</div>
-              <div
-                className="cc-card-dist"
-                style={{ color: selectedCard.distColor }}
-              >
-                {selectedCard.dist}
-              </div>
-              <div className="cc-card-distunit">킬로미터</div>
-              <div className="cc-card-stats">
-                <div className="cc-card-stat-row">
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.pace}</b>
-                    <i>평균 페이스</i>
-                  </div>
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.time}</b>
-                    <i>시간</i>
-                  </div>
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.kcal}</b>
-                    <i>칼로리</i>
-                  </div>
-                </div>
-                <div className="cc-card-stat-row">
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.elev}</b>
-                    <i>누적 상승</i>
-                  </div>
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.cadence}</b>
-                    <i>평균 케이던스</i>
-                  </div>
-                  <div className="cc-card-stat">
-                    <b>{selectedCard.bpm}</b>
-                    <i>평균 심박</i>
-                  </div>
-                </div>
-              </div>
-            </div>
             <button
               type="button"
               className="cc-card-remove"
@@ -124,15 +80,12 @@ export default function CommunityComposePage() {
           </div>
         ) : (
           <div className="compose-canvas">
-            <div className="cc-mascot">
-              <Mascot />
-              <div className="cc-card-icon">
-                <svg viewBox="0 0 48 48" fill="none" stroke="#8B5CF6" strokeWidth="2">
-                  <rect x="6" y="6" width="36" height="36" rx="6" />
-                  <circle cx="18" cy="18" r="3" />
-                  <path d="M6 32l10-8 8 6 8-6 10 8" />
-                </svg>
-              </div>
+            {/* 캐릭터 + 카드 아이콘 — public/tracksy-card.png (트랙시 마스코트가 카드 액자
+                를 들고 있는 단일 일러스트). 이전 Mascot + 별도 카드 SVG 두 개를 합쳐
+                하나의 이미지로 대체. */}
+            <div className="cc-tracksy">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/tracksy-card.png" alt="" draggable={false} />
             </div>
             <div className="cc-bring">카드 가져오기</div>
             <button

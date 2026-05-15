@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ArchiveRecords, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
+import type { ArchiveRecords, GalleryCard, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 import { archiveRecords } from "@/data/archiveRecords";
 
@@ -183,6 +183,12 @@ type State = {
 
   removedSavedStyleIds: string[];
   userSavedStyles: StyleCard[];
+  /**
+   * 사용자가 스튜디오에서 "저장하기" 로 만든 러닝 카드들.
+   * 보관함 → 갤러리 보관소에서 기본 샘플(galleryCards)과 함께 노출된다.
+   * 각 카드는 만들어진 날짜(y/m/date)를 가지므로 그 월/연도 필터에서 보임.
+   */
+  userGalleryCards: GalleryCard[];
 
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
@@ -283,6 +289,10 @@ type State = {
   removeSavedStyle: (id: string) => void;
   restoreSavedStyle: (id: string) => void;
   addUserSavedStyle: (style: StyleCard) => void;
+  /** 사용자가 만든 카드를 갤러리 보관소에 저장. */
+  addUserGalleryCard: (card: GalleryCard) => void;
+  /** 사용자가 저장한 카드 삭제. */
+  removeUserGalleryCard: (id: number) => void;
   setCommunityTab: (t: State["communityTab"]) => void;
   connectPartner: (id: string) => void;
   togglePostSaved: (id: string | number) => boolean;
@@ -388,6 +398,7 @@ export const useAppStore = create<State>()(
 
       removedSavedStyleIds: [],
       userSavedStyles: [],
+      userGalleryCards: [],
 
       communityTab: "hot",
       savedPosts: {},
@@ -922,6 +933,15 @@ export const useAppStore = create<State>()(
             removedSavedStyleIds: s.removedSavedStyleIds.filter((x) => x !== style.id),
           };
         }),
+      addUserGalleryCard: (card) =>
+        set((s) => ({
+          // 새 카드를 맨 앞에 — 같은 날 저장한 여러 카드도 시간순으로 정렬됨.
+          userGalleryCards: [card, ...s.userGalleryCards],
+        })),
+      removeUserGalleryCard: (id) =>
+        set((s) => ({
+          userGalleryCards: s.userGalleryCards.filter((c) => c.id !== id),
+        })),
       setCommunityTab: (t) => set({ communityTab: t }),
       connectPartner: (id) =>
         set((s) => ({
@@ -974,6 +994,7 @@ export const useAppStore = create<State>()(
         userRecords: s.userRecords,
         removedSavedStyleIds: s.removedSavedStyleIds,
         userSavedStyles: s.userSavedStyles,
+        userGalleryCards: s.userGalleryCards,
       }),
     },
   ),
