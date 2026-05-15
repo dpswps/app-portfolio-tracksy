@@ -32,32 +32,40 @@ function StyleCardEl({ c, isSavedTab }: { c: StyleCard; isSavedTab: boolean }) {
           </button>
         )}
         <div className="sc-content">
-          <div className="sc-meta">{c.date}</div>
-          <div className="sc-title">{c.title}</div>
-          <div className="sc-dist" style={{ color: c.distColor || "#fff" }}>
-            {c.dist}
-          </div>
-          <div className="sc-dist-unit" style={{ color: c.distColor || "#fff" }}>
-            킬로미터
-          </div>
-          <div className="sc-stats">
-            <div className="sc-stat-row">
-              {c.stats.slice(0, 3).map((s, i) => (
-                <div key={i} className="sc-stat">
-                  <b>{s.v}</b>
-                  <i>{s.l}</i>
-                </div>
-              ))}
+          {c.date && <div className="sc-meta">{c.date}</div>}
+          {c.title && <div className="sc-title">{c.title}</div>}
+          {/* dist 가 비어있는 경우(커뮤니티 게시글에서 저장한 스타일 등 — 이미지 자체에
+              거리/통계가 인쇄돼 있음) 큰 숫자 + "킬로미터" 라벨 + 통계 그리드를 모두 숨김. */}
+          {c.dist && (
+            <>
+              <div className="sc-dist" style={{ color: c.distColor || "#fff" }}>
+                {c.dist}
+              </div>
+              <div className="sc-dist-unit" style={{ color: c.distColor || "#fff" }}>
+                킬로미터
+              </div>
+            </>
+          )}
+          {c.stats.length > 0 && (
+            <div className="sc-stats">
+              <div className="sc-stat-row">
+                {c.stats.slice(0, 3).map((s, i) => (
+                  <div key={i} className="sc-stat">
+                    <b>{s.v}</b>
+                    <i>{s.l}</i>
+                  </div>
+                ))}
+              </div>
+              <div className="sc-stat-row">
+                {c.stats.slice(3, 6).map((s, i) => (
+                  <div key={i} className="sc-stat">
+                    <b>{s.v}</b>
+                    <i>{s.l}</i>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="sc-stat-row">
-              {c.stats.slice(3, 6).map((s, i) => (
-                <div key={i} className="sc-stat">
-                  <b>{s.v}</b>
-                  <i>{s.l}</i>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       </div>
       <button

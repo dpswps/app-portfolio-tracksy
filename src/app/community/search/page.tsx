@@ -19,12 +19,13 @@ import { useState } from "react";
  *   - 보라 강조 텍스트: #723BE4
  * ────────────────────────────────────────────────────────── */
 
-const POPULAR_SEARCHES = [
-  "#한강러닝",
-  "#5km도전",
-  "#모닝런",
-  "#러닝메이트",
-  "#서울러닝코스",
+/* 인기 검색어 — 각 키워드에 대응되는 게시글 ID. 클릭 시 해당 게시글 상세로 이동. */
+const POPULAR_SEARCHES: Array<{ keyword: string; postId: number }> = [
+  { keyword: "#한강러닝", postId: 101 },     // 한강에서 만난 새벽 풍경
+  { keyword: "#5km도전", postId: 102 },     // 숲길 따라 10km 완주
+  { keyword: "#모닝런", postId: 101 },       // 새벽 풍경
+  { keyword: "#러닝메이트", postId: 4 },     // 이용민 게시글
+  { keyword: "#서울러닝코스", postId: 103 }, // 야경 러닝의 묘미
 ];
 
 const RECENT_SEARCHES_DEFAULT = [
@@ -34,25 +35,25 @@ const RECENT_SEARCHES_DEFAULT = [
   "야간 러닝",
 ];
 
-/* 인기 게시글 — 사진은 public/community-hot.png 한 장에 3개 가로로 들어있음.
- * background-position 으로 슬라이스. 추천 사용자 섹션은 제거됨. */
+/* 인기 게시글 — communityPosts 에 추가된 id 101/102/103 과 일대일 대응.
+ * 썸네일을 클릭하면 동일한 게시글이 열리도록 ID 가 정확히 매칭됨. */
 const POPULAR_POSTS = [
   {
-    id: 1,
+    id: 101,
     title: "한강에서 만난 새벽 풍경",
     author: "이른새벽러너",
     likes: 1342,
     spriteIdx: 0,
   },
   {
-    id: 2,
+    id: 102,
     title: "숲길 따라 10km 완주",
     author: "초록숲러닝",
     likes: 987,
     spriteIdx: 1,
   },
   {
-    id: 3,
+    id: 103,
     title: "야경 러닝의 묘미",
     author: "달빛러너",
     likes: 1521,
@@ -78,6 +79,15 @@ export default function CommunitySearchPage() {
     setQuery(kw);
     // 최근 검색어 맨 앞에 옮기기 (이미 있으면 중복 제거)
     setRecents((prev) => [kw, ...prev.filter((r) => r !== kw)].slice(0, 10));
+  };
+
+  /** 인기 검색어/최근 검색어/태그 칩 클릭 시 → 키워드를 최근 검색어로 등록하고
+   *  연결된 게시글 상세로 이동. postId 가 없으면 그냥 검색어만 입력창에 채움. */
+  const onPickPopularSearch = (keyword: string, postId?: number) => {
+    onPickKeyword(keyword);
+    if (postId != null) {
+      router.push(`/community/${postId}`);
+    }
   };
 
   const removeRecent = (kw: string) => {
@@ -123,19 +133,19 @@ export default function CommunitySearchPage() {
         </button>
       </div>
 
-      {/* 1) 인기 검색어 */}
+      {/* 1) 인기 검색어 — 클릭 시 해당 키워드와 연관된 게시글 상세 페이지로 이동 */}
       <div className="cs-section cs-section-card">
         <div className="cs-section-title">인기 검색어</div>
         <ol className="cs-popular-list">
-          {POPULAR_SEARCHES.map((kw, i) => (
-            <li key={kw}>
+          {POPULAR_SEARCHES.map((entry, i) => (
+            <li key={entry.keyword}>
               <button
                 type="button"
                 className="cs-popular-item"
-                onClick={() => onPickKeyword(kw)}
+                onClick={() => onPickPopularSearch(entry.keyword, entry.postId)}
               >
                 <span className="cs-rank">{i + 1}</span>
-                <span className="cs-keyword">{kw}</span>
+                <span className="cs-keyword">{entry.keyword}</span>
               </button>
             </li>
           ))}

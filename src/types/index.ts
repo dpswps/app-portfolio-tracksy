@@ -165,4 +165,10 @@ export type CommunityPost = {
   pace?: string;
   cal?: string;
   extra?: string;
+  /** 게시글이 올라온 날짜 (YYYY-MM-DD). 상세 페이지에 표시. */
+  date?: string;
+  /** 작성자가 입력한 캡션 — 상세 페이지의 제목/본문에 노출. */
+  caption?: string;
+  /** 작성자가 입력한 해시태그 문자열 — 상세 페이지의 태그 영역에 노출. */
+  tags?: string;
 };

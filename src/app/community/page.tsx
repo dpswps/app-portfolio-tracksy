@@ -5,29 +5,37 @@ import FeedCard from "@/features/community/FeedCard";
 import { communityPosts } from "@/data/communityPosts";
 import { useAppStore } from "@/stores/useAppStore";
 
+/* 인기 모음집 — 각 타일 클릭 시 /community/[postId] 로 이동.
+ * 썸네일 이미지(img)와 연결된 게시글의 이미지가 동일하도록 communityPosts.ts 의
+ * id 201/202/203/204 와 매칭해두었음. */
 const collections = [
-  { title: "오늘 러닝 무드", emoji: "🎧", img: "/collection1.jpg" },
-  { title: "데일리 러닝", emoji: "📅", img: "/collection2.jpg" },
-  { title: "야경 러닝", emoji: "🌙", img: "/collection3.jpg" },
-  { title: "감성 러닝", emoji: "💜", img: "/collection4.jpg" },
+  { postId: 201, title: "오늘 러닝 무드", emoji: "🎧", img: "/card_3-1.png" },
+  { postId: 202, title: "데일리 러닝",   emoji: "📅", img: "/card_3-3.png" },
+  { postId: 203, title: "야경 러닝",     emoji: "🌙", img: "/card_3-4.png" },
+  { postId: 204, title: "감성 러닝",     emoji: "💜", img: "/card_3-2.png" },
 ];
 
 /* NEW 탭에서 보여줄 러닝 카드들 — public/community-cards.png 한 장에 4x2 = 8개
- * 카드 사진이 들어있어 background-position 으로 슬라이스. spriteIdx 0~7. */
+ * 카드 사진이 들어있어 background-position 으로 슬라이스. spriteIdx 0~7.
+ * 거리/페이스/시간 정보는 배경 사진 자체에 이미 인쇄돼 있으므로 별도 텍스트 오버레이는 하지 않는다.
+ * 좌측 상단 닉네임만 표시. */
 const NEW_RUNNING_CARDS = [
-  { id: 1, dist: "8.24", pace: "5'12\"", time: "42:55", user: "달리는하늘", spriteIdx: 0 },
-  { id: 2, dist: "6.47", pace: "5'46\"", time: "37:21", user: "한강러너", spriteIdx: 1 },
-  { id: 3, dist: "10.18", pace: "5'02\"", time: "51:13", user: "마라톤준비", spriteIdx: 2 },
-  { id: 4, dist: "12.33", pace: "5'30\"", time: "1:07:42", user: "트레일러너", spriteIdx: 3 },
-  { id: 5, dist: "7.15", pace: "6'05\"", time: "43:30", user: "초록숲러닝", spriteIdx: 4 },
-  { id: 6, dist: "9.01", pace: "5'24\"", time: "48:39", user: "야경러너", spriteIdx: 5 },
-  { id: 7, dist: "5.21", pace: "6'12\"", time: "32:18", user: "달빛러너", spriteIdx: 6 },
-  { id: 8, dist: "11.27", pace: "5'18\"", time: "59:42", user: "이른새벽러너", spriteIdx: 7 },
+  { id: 1, user: "달리는하늘", avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)", spriteIdx: 0 },
+  { id: 2, user: "한강러너",   avatarBg: "linear-gradient(135deg,#34D399,#10B981)", spriteIdx: 1 },
+  { id: 3, user: "마라톤준비", avatarBg: "linear-gradient(135deg,#FBBF24,#F59E0B)", spriteIdx: 2 },
+  { id: 4, user: "트레일러너", avatarBg: "linear-gradient(135deg,#F472B6,#EC4899)", spriteIdx: 3 },
+  { id: 5, user: "초록숲러닝", avatarBg: "linear-gradient(135deg,#60A5FA,#3B82F6)", spriteIdx: 4 },
+  { id: 6, user: "야경러너",   avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)", spriteIdx: 5 },
+  { id: 7, user: "달빛러너",   avatarBg: "linear-gradient(135deg,#FB923C,#F97316)", spriteIdx: 6 },
+  { id: 8, user: "이른새벽러너", avatarBg: "linear-gradient(135deg,#22D3EE,#0891B2)", spriteIdx: 7 },
 ];
 
 export default function CommunityPage() {
   const tab = useAppStore((s) => s.communityTab);
   const setTab = useAppStore((s) => s.setCommunityTab);
+  const userPosts = useAppStore((s) => s.userCommunityPosts);
+  // 사용자가 직접 올린 게시글이 항상 기본 게시글보다 위(최신)에 오도록 앞에 붙여서 머지.
+  const allPosts = [...userPosts, ...communityPosts];
 
   return (
     <section className="community-screen">
@@ -43,12 +51,6 @@ export default function CommunityPage() {
             <path d="M21 21l-4.3-4.3" />
           </svg>
           <span className="search-tags">#오운완  #생활런  #응원해</span>
-        </Link>
-        {/* 북마크 버튼 — 즐겨찾기 페이지로 이동 */}
-        <Link href="/community/favorites" className="comm-bookmark" aria-label="즐겨찾기">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M6 3h12v18l-6-4-6 4z" />
-          </svg>
         </Link>
       </div>
 
@@ -78,7 +80,12 @@ export default function CommunityPage() {
             </div>
             <div className="cc-grid">
               {collections.map((c) => (
-                <div key={c.title} className="cc-tile">
+                <Link
+                  key={c.title}
+                  href={`/community/${c.postId}`}
+                  className="cc-tile"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   <div
                     className="cc-thumb"
                     style={{ background: `url(${c.img}) center/cover no-repeat` }}
@@ -86,20 +93,21 @@ export default function CommunityPage() {
                   <div className="cc-label">
                     {c.title} <span>{c.emoji}</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
 
           <div className="comm-feed">
-            {communityPosts.map((p) => (
+            {allPosts.map((p) => (
               <FeedCard key={p.id} p={p} />
             ))}
           </div>
         </>
       ) : (
         /* NEW 탭 — 최근 업로드된 러닝 카드들을 2열 그리드로 노출.
-         * 카드 배경 사진은 public/community-cards.png 스프라이트(4x2)에서 슬라이스. */
+         * 카드 배경 사진은 public/community-cards.png 스프라이트(4x2)에서 슬라이스.
+         * Hot 탭 thumbnail 과 동일한 구성: 좌상단 닉네임 + 우상단 북마크 + 좌하단 좋아요. */
         <>
           <div className="cnew-grid">
             {NEW_RUNNING_CARDS.map((c) => (
@@ -111,20 +119,13 @@ export default function CommunityPage() {
               >
                 <div className={`cnew-bg cnew-bg-${c.spriteIdx}`} aria-hidden="true" />
                 <div className="cnew-grad" />
-                <div className="cnew-info">
-                  <div className="cnew-dist">
-                    {c.dist}
-                    <small>km</small>
-                  </div>
-                  <div className="cnew-stats">
-                    <span>
-                      <b>{c.pace}</b> /km
-                    </span>
-                    <span>
-                      <b>{c.time}</b>
-                    </span>
-                  </div>
-                  <div className="cnew-user">@{c.user}</div>
+                {/* 좌측 상단 — 닉네임 + 아바타 */}
+                <div className="cnew-userline">
+                  <div
+                    className="cnew-avatar"
+                    style={{ background: c.avatarBg }}
+                  />
+                  <span className="cnew-username">{c.user}</span>
                 </div>
               </Link>
             ))}

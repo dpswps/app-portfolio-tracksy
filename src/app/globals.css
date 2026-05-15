@@ -1469,14 +1469,15 @@ textarea:focus { border-color: var(--primary); }
 .cs-hot-img {
   width: 100%;
   aspect-ratio: 3 / 4;
-  background-image: url("/community-hot.png");
-  background-size: 300% 100%;
+  background-size: cover;
   background-repeat: no-repeat;
-  background-position: 0% 50%;
+  background-position: center;
 }
-.cs-hot-img-0 { background-position: 0% 50%; }
-.cs-hot-img-1 { background-position: 50% 50%; }
-.cs-hot-img-2 { background-position: 100% 50%; }
+/* 인기 게시글 썸네일 — communityPosts id 101/102/103 의 image 와 동일한 파일을 사용해
+ * 검색에서 본 사진 그대로 게시글 상세에서도 노출되도록 한다. */
+.cs-hot-img-0 { background-image: url("/card_2-1.png"); }
+.cs-hot-img-1 { background-image: url("/card_2-2.png"); }
+.cs-hot-img-2 { background-image: url("/card_2-3.png"); }
 .cs-hot-info {
   /* 흰 정보 영역 padding 축소 — 한 화면에 다 들어가도록 컴팩트 */
   padding: 6px 7px 7px;
@@ -1591,45 +1592,78 @@ textarea:focus { border-color: var(--primary); }
   );
   pointer-events: none;
 }
-.cnew-info {
+/* (legacy) — 이전엔 카드 하단에 거리/페이스/시간/유저명을 또 한 번 그려서
+ * 배경 사진에 인쇄된 정보와 중복됐다. 지금은 사용 안 함. 안전망으로 display: none. */
+.cnew-info, .cnew-dist, .cnew-stats, .cnew-user { display: none; }
+
+/* NEW 탭 카드 — Hot 탭 thumbnail 구성과 동일.
+ * 좌상단: 아바타 + 닉네임 / 우상단: 북마크 / 좌하단: 좋아요 */
+.cnew-userline {
   position: absolute;
+  top: 10px;
   left: 10px;
-  right: 10px;
-  bottom: 10px;
-  color: #fff;
   z-index: 2;
-}
-.cnew-dist {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-}
-.cnew-dist small {
-  font-size: 12px;
-  font-weight: 700;
-  margin-left: 2px;
-  opacity: 0.92;
-}
-.cnew-stats {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  font-size: 10px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  max-width: calc(100% - 50px);
 }
-.cnew-stats b {
+.cnew-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid #fff;
+}
+.cnew-username {
+  font-size: 11px;
   font-weight: 700;
-  margin-right: 2px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  max-width: 100px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
-.cnew-user {
-  margin-top: 4px;
-  font-size: 10px;
+/* 북마크 — Hot 탭 fc-bm 과 동일한 둥근 배경 버튼 모양 */
+.cnew-bm {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  color: var(--primary, #8B5CF6);
+  z-index: 3;
+}
+.cnew-bm svg { width: 14px; height: 14px; }
+/* 좋아요 — Hot 탭 fc-likes 와 동일한 보라 하트 + 흰 카운트 */
+.cnew-likes {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 600;
-  color: #C4B5FD;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.cnew-likes-heart {
+  color: #723BE4;
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.cnew-likes-count {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -2028,17 +2062,19 @@ textarea:focus { border-color: var(--primary); }
 }
 
 .post-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 8px;
 }
 .post-act {
+  flex: 1;
+  width: 100%;
   background: var(--primary-soft);
   color: var(--primary-dark);
   padding: 11px 12px;
   border-radius: 10px;
   font-size: 13px; font-weight: 600;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  text-align: center;
 }
 .post-act.primary {
   background: var(--primary);
@@ -2127,8 +2163,10 @@ textarea:focus { border-color: var(--primary); }
   pointer-events: none;
 }
 
-/* compose 페이지에서 선택된 카드 미리보기 — 픽커와 동일한 card_2 스프라이트 슬라이스. */
-.compose-canvas.has-card-sprite {
+/* compose 페이지에서 선택된 카드 미리보기 — 보관함 갤러리 카드와 동일한 콘텐츠를
+ * 세로형(portrait) 컨테이너에 렌더링. 별도 이미지 파일 없이 GalleryCard 데이터로
+ * 카드 시각을 만들기 때문에 사용자가 스튜디오에서 저장한 카드 그대로 미리보기 가능. */
+.compose-canvas.has-card-preview {
   background: transparent;
   border: none;
   padding: 0;
@@ -2139,19 +2177,97 @@ textarea:focus { border-color: var(--primary); }
   flex: 1 1 0;
   min-height: 0;
 }
-.cc-card-sprite {
-  width: 100%;
-  max-width: 360px;
-  aspect-ratio: 16 / 9;
-  border-radius: 14px;
-  background-image: url("/community-mycards.png");
-  background-size: 100% 300%;
-  background-repeat: no-repeat;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+.cc-gcard {
+  /* 세로형 카드: 캔버스 높이를 가득 채우는 9:16 portrait. 폭은 aspect-ratio 로
+   * 자동 계산. max-width: 100% 로 좌우 폭이 부모 폭을 넘지 않도록. */
+  position: relative;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
-.cc-card-sprite-0 { background-position: center 0%; }
-.cc-card-sprite-1 { background-position: center 50%; }
-.cc-card-sprite-2 { background-position: center 100%; }
+.cc-gcard-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.cc-gcard-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+}
+.cc-gcard-content {
+  position: absolute;
+  inset: 0;
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
+}
+.cc-gcard-meta { font-size: 11px; opacity: 0.9; }
+.cc-gcard-title { font-size: 16px; font-weight: 700; }
+.cc-gcard-dist {
+  margin-top: 6px;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.cc-gcard-dist small { font-size: 14px; font-weight: 700; opacity: 0.92; }
+.cc-gcard-stats {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 8px;
+  font-size: 11px;
+}
+.cc-gcard-stats > div { display: flex; flex-direction: column; }
+.cc-gcard-stats b { font-weight: 800; font-size: 16px; }
+.cc-gcard-stats i { font-style: normal; font-size: 10px; opacity: 0.8; margin-top: 1px; }
+/* "카드 제거" X 버튼 — 미리보기 우측 상단. */
+.cc-card-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  color: #1F1F23;
+  z-index: 3;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.cc-card-remove svg { width: 14px; height: 14px; }
+
+/* 카드 픽커가 비어있을 때 안내문 */
+.mc2-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 16px;
+  color: var(--text-muted, #888);
+  text-align: center;
+  font-size: 13px;
+}
+.mc2-empty p { margin: 0; }
+.mc2-empty-sub { font-size: 12px; opacity: 0.8; }
 
 /* ──────────────────────────────────────────────────────────
  * 커뮤니티 → 글쓰기 → 카드 가져오기 페이지 (/community/compose/cards)
@@ -2160,40 +2276,75 @@ textarea:focus { border-color: var(--primary); }
  * 카드 사진은 /community-mycards.png (3장 세로 스프라이트) 슬라이스.
  * 원본 이미지에 있던 우측 상단 북마크는 .mc2-bookmark-mask 로 가림.
  * ────────────────────────────────────────────────────────── */
+/* mc2-page — AppHeader + mc2-screen 을 한 묶음의 flex column 으로 묶어서
+ * #screen 의 전체 높이를 채운다. (이전엔 mc2-screen 만 height:100% 였는데
+ * AppHeader 가 별도 block 으로 위에 추가되어서 합 높이가 100% 를 넘어
+ * #screen 이 스크롤되는 문제가 있었음.) */
+.mc2-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
 .mc2-screen {
-  padding: 8px 16px 12px;
+  /* AppHeader 가 차지하고 남은 공간을 모두 차지 — 안에서 다시 flex column 으로
+   * subtitle / 카드리스트 / CTA 를 배치. 카드리스트는 mc2-list 의 flex:1 로
+   * subtitle + CTA 사이 남는 공간을 흡수하고, 그 안의 row 3개가 1:1:1 로 나눔.
+   *
+   * 좌우 padding 은 .app-header 의 padding-left/right(20px) 와 맞춰서
+   * 카드 좌측 가장자리가 헤더의 뒤로가기 버튼(‹) 좌측과 정확히 정렬되도록 한다. */
+  padding: 6px 20px 10px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .mc2-sub {
   font-size: 12px;
   color: var(--text-muted, #888);
-  margin-bottom: 2px;
+  margin: 0;
   flex-shrink: 0;
 }
 .mc2-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  /* 카드가 많을 때(보관함이 많은 사용자) 안에서 스크롤. CTA 와 subtitle 은
+   * 바깥 mc2-screen 의 flex column 에 있어서 항상 보임. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+.mc2-list::-webkit-scrollbar { display: none; }
+/* 각 row 는 mc2-list 의 남는 높이를 균등 분배하지만 최소 120px 보장 →
+ * 카드가 1~3장이면 한 화면에 들어오고, 4장 이상이면 자연스럽게 스크롤. */
 .mc2-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
+  flex: 1 1 120px;
+  min-height: 120px;
 }
 .mc2-card {
   position: relative;
   flex: 1;
-  /* 명시적 비율 — card_2.png 원본 cell 비율(686:383 ≈ 16:9)에 맞춤. */
-  aspect-ratio: 16 / 9;
+  /* row 가 자기 높이를 결정하므로 카드는 그 row 의 100% 를 사용 — 고정 비율 제거.
+   * 갤러리 카드와 동일한 콘텐츠를 가로형(landscape) 비율로 렌더링. */
+  height: 100%;
   border-radius: 14px;
   overflow: hidden;
   background: #F4F3FE;
   border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
+  text-align: left;
+  color: #fff;
   transition: border-color 0.15s ease, transform 0.08s ease;
 }
 .mc2-row.selected .mc2-card {
@@ -2201,18 +2352,54 @@ textarea:focus { border-color: var(--primary); }
   box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
 }
 .mc2-card:active { transform: scale(0.99); }
-/* 카드 사진 — 스프라이트 슬라이스. card_2.png 한 장에 3개 카드가 세로로 들어있어
- * background-size: 100% 300% (세로 3배 확대) + background-position 으로 1/3 선택. */
-.mc2-photo {
+
+/* 가로형 카드 콘텐츠 — bg(그라데이션/사진) + 어두운 좌측 오버레이 + 텍스트
+ * (갤러리 보관소 카드와 동일한 시각 정보를 가로형 비율로 보여줌). */
+.mc2-cbg {
   position: absolute;
   inset: 0;
-  background-image: url("/community-mycards.png");
-  background-size: 100% 300%;
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
 }
-.mc2-photo-0 { background-position: center 0%; }
-.mc2-photo-1 { background-position: center 50%; }
-.mc2-photo-2 { background-position: center 100%; }
+.mc2-coverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0) 100%);
+  pointer-events: none;
+}
+.mc2-ccontent {
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 2;
+}
+.mc2-cmeta { font-size: 10px; opacity: 0.85; }
+.mc2-ctitle { font-size: 12px; font-weight: 700; line-height: 1.2; }
+.mc2-cdist {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.mc2-cdist small { font-size: 10px; font-weight: 700; opacity: 0.9; }
+.mc2-cstats {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 4px 14px;
+  font-size: 10px;
+}
+.mc2-cstats > div { display: flex; flex-direction: column; }
+.mc2-cstats b { font-weight: 800; font-size: 11px; }
+.mc2-cstats i { font-style: normal; font-size: 9px; opacity: 0.78; }
 
 /* (legacy) 이전 card_2.png 에 있던 북마크 아이콘을 가리던 마스크. 새 이미지엔 북마크가
  * 없어서 더 이상 노출 안 함. 안전망으로 display: none 유지. */
@@ -2229,6 +2416,9 @@ textarea:focus { border-color: var(--primary); }
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  /* 부모 row 가 align-items: stretch 라서 카드는 row 높이를 가득 채우는데,
+   * radio 는 가운데 정렬되도록 align-self 로 별도 지정. */
+  align-self: center;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .mc2-radio.selected {
@@ -2240,7 +2430,7 @@ textarea:focus { border-color: var(--primary); }
 /* 하단 CTA — 선택 완료 버튼 */
 .mc2-cta-wrap {
   flex-shrink: 0;
-  padding-top: 10px;
+  padding-top: 6px;
 }
 .mc2-cta {
   width: 100%;
@@ -2248,7 +2438,7 @@ textarea:focus { border-color: var(--primary); }
   color: #fff;
   border: none;
   border-radius: 999px;
-  padding: 14px;
+  padding: 12px;
   font-size: 14px;
   font-weight: 700;
   display: inline-flex;

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ArchiveRecords, GalleryCard, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
+import type { ArchiveRecords, CommunityPost, GalleryCard, Inquiry, RunningRecord, ScanResult, StyleCard } from "@/types";
 import type { AIMessage, AIStep } from "@/types";
 import { archiveRecords } from "@/data/archiveRecords";
 
@@ -193,6 +193,12 @@ type State = {
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
   composeSelectedCardId: string | null;
+  /**
+   * 사용자가 커뮤니티 글쓰기에서 직접 올린 게시글들.
+   * 새 게시글은 배열의 맨 앞에 추가되어 Hot 피드 최상단에 노출된다.
+   * persist 되어 새로고침/탭이동 후에도 유지.
+   */
+  userCommunityPosts: CommunityPost[];
 
   aiStep: AIStep;
   aiMessages: AIMessage[];
@@ -297,6 +303,17 @@ type State = {
   connectPartner: (id: string) => void;
   togglePostSaved: (id: string | number) => boolean;
   setComposeSelectedCardId: (id: string | null) => void;
+  /**
+   * 커뮤니티 글쓰기에서 등록하기 누르면 호출.
+   * 오늘 날짜로 게시글을 만들어 userCommunityPosts 맨 앞에 추가.
+   * 반환값은 새로 만들어진 게시글의 id (페이지 이동에 사용 가능).
+   */
+  addCommunityPost: (input: {
+    caption: string;
+    tags: string;
+    image?: string;
+    bg?: string;
+  }) => number;
   setBestMetric: (m: State["bestMetric"]) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
@@ -403,6 +420,7 @@ export const useAppStore = create<State>()(
       communityTab: "hot",
       savedPosts: {},
       composeSelectedCardId: null,
+      userCommunityPosts: [],
 
       aiStep: "intro",
       aiMessages: DEFAULT_AI_MESSAGES,
@@ -956,6 +974,29 @@ export const useAppStore = create<State>()(
         return next;
       },
       setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+      addCommunityPost: ({ caption, tags, image, bg }) => {
+        const id = Date.now();
+        const newPost: CommunityPost = {
+          id,
+          type: "photo",
+          user: get().user.name || "김러너",
+          avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+          likes: 0,
+          date: todayKey(),
+          caption: caption.trim(),
+          tags: tags.trim(),
+          image: image,
+          bg: bg || "linear-gradient(180deg,#DDD6FE 0%,#A78BFA 100%)",
+          tall: true,
+        };
+        set((s) => ({
+          // 새 게시글이 맨 앞에 → Hot 피드 최상단에 노출
+          userCommunityPosts: [newPost, ...s.userCommunityPosts],
+          // 글쓰기 화면 정리 — 다음에 글 쓸 때 깨끗한 상태로 시작
+          composeSelectedCardId: null,
+        }));
+        return id;
+      },
       setBestMetric: (m) => set({ bestMetric: m }),
       setAIStep: (s) => set({ aiStep: s }),
       pushAIMessage: (m) =>
@@ -995,6 +1036,7 @@ export const useAppStore = create<State>()(
         removedSavedStyleIds: s.removedSavedStyleIds,
         userSavedStyles: s.userSavedStyles,
         userGalleryCards: s.userGalleryCards,
+        userCommunityPosts: s.userCommunityPosts,
       }),
     },
   ),

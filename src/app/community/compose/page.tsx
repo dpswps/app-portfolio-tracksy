@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
-import { myCards } from "@/data/myCards";
+import { galleryCards } from "@/data/galleryCards";
 
 export default function CommunityComposePage() {
   const router = useRouter();
@@ -11,19 +11,19 @@ export default function CommunityComposePage() {
   const showToast = useAppStore((s) => s.showToast);
   const composeSelectedCardId = useAppStore((s) => s.composeSelectedCardId);
   const setComposeSelectedCardId = useAppStore((s) => s.setComposeSelectedCardId);
+  const addCommunityPost = useAppStore((s) => s.addCommunityPost);
+  const userGalleryCards = useAppStore((s) => s.userGalleryCards);
 
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
 
+  // 카드 픽커에서 선택된 GalleryCard 를 보관함(userGalleryCards) + sample(galleryCards)
+  // 양쪽에서 조회. id 는 문자열로 저장되므로 String() 비교.
   const selectedCard = composeSelectedCardId
-    ? myCards.find((c) => c.id === composeSelectedCardId) ?? null
+    ? [...userGalleryCards, ...galleryCards].find(
+        (c) => String(c.id) === String(composeSelectedCardId),
+      ) ?? null
     : null;
-  // 카드 픽커에서 선택된 카드의 sprite index — myCards 배열 안에서의 위치(0/1/2).
-  // 픽커 페이지와 동일한 community-mycards.png 스프라이트의 같은 슬라이스를 보여줘서
-  // 미리보기가 픽커에서 본 모습 그대로 노출되도록.
-  const selectedSpriteIdx = selectedCard
-    ? myCards.findIndex((c) => c.id === selectedCard.id)
-    : -1;
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -35,6 +35,33 @@ export default function CommunityComposePage() {
   const removeCard = (e: React.MouseEvent) => {
     e.stopPropagation();
     setComposeSelectedCardId(null);
+  };
+
+  /**
+   * 등록하기 — 사용자가 입력한 캡션 + 해시태그 + 선택한 카드의 bg(그라데이션/사진)
+   * 로 오늘 날짜 게시글을 만들어 store 에 추가하고 커뮤니티 메인으로 이동.
+   * 갤러리 카드는 별도 이미지 URL 이 없어서 bg(CSS string) 만 넘기면 FeedCard 가
+   * 그대로 background 로 그려준다.
+   */
+  const onSubmit = () => {
+    if (!caption.trim() && !tags.trim() && !selectedCard) {
+      showToast("내용을 입력하거나 카드를 가져와주세요");
+      return;
+    }
+    addCommunityPost({
+      caption,
+      tags,
+      // bg 가 "url(...)" 형식이면 image 로, 아니면 (그라데이션 등) bg 로 넘김.
+      // FeedCard 는 image 가 있으면 url(image) cover 로, 없으면 bg 를 그대로 사용.
+      image: selectedCard?.bg?.startsWith("url(")
+        ? selectedCard.bg.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+        : undefined,
+      bg: selectedCard?.bg,
+    });
+    setCaption("");
+    setTags("");
+    showToast("게시글이 등록되었어요");
+    router.push("/community");
   };
 
   return (
@@ -55,18 +82,35 @@ export default function CommunityComposePage() {
       </div>
       <section className="comm-compose">
         {selectedCard ? (
-          /* 선택된 카드 미리보기 — 픽커에서 본 동일한 card_2 스프라이트 슬라이스를 사용.
-             텍스트 오버레이는 이미 이미지에 포함되어 있으므로 별도 렌더 안 함. */
+          /* 선택된 카드 미리보기 — 갤러리 카드와 동일한 콘텐츠를 세로형(portrait)
+             컨테이너에 렌더링. 보관함의 카드 시각을 그대로 가져오면서, 글쓰기 화면에
+             맞게 카드 비율만 세로형으로 변경. */
           <div
-            className="compose-canvas has-card-sprite"
+            className="compose-canvas has-card-preview"
             onClick={goToPicker}
             role="button"
             tabIndex={0}
           >
-            <div
-              className={`cc-card-sprite cc-card-sprite-${selectedSpriteIdx}`}
-              aria-label={`${selectedCard.title} 카드`}
-            />
+            <div className="cc-gcard" aria-label={`${selectedCard.title} 카드`}>
+              <div className="cc-gcard-bg" style={{ background: selectedCard.bg }} />
+              <div className="cc-gcard-overlay" />
+              <div className="cc-gcard-content">
+                <div className="cc-gcard-meta">{selectedCard.date}</div>
+                <div className="cc-gcard-title">{selectedCard.title}</div>
+                <div className="cc-gcard-dist">
+                  {selectedCard.dist}
+                  <small>킬로미터</small>
+                </div>
+                <div className="cc-gcard-stats">
+                  <div><b>{selectedCard.pace}</b><i>평균 페이스</i></div>
+                  <div><b>{selectedCard.time}</b><i>시간</i></div>
+                  <div><b>{selectedCard.kcal}</b><i>칼로리</i></div>
+                  <div><b>{selectedCard.elev}</b><i>누적 상승</i></div>
+                  <div><b>{selectedCard.cadence}</b><i>케이던스</i></div>
+                  <div><b>{selectedCard.bpm}</b><i>평균 심박</i></div>
+                </div>
+              </div>
+            </div>
             <button
               type="button"
               className="cc-card-remove"
@@ -127,7 +171,7 @@ export default function CommunityComposePage() {
           </button>
           <button
             className="compose-submit-btn"
-            onClick={() => showToast("등록되었어요")}
+            onClick={onSubmit}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
