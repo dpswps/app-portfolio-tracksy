@@ -3608,22 +3608,13 @@ textarea:focus { border-color: var(--primary); }
 }
 
 /* Card stage — wraps RunningCard so overlays (crop) can sit on top
- * without being clipped by .running-card's overflow:hidden.
- *
- * 9:16 비율을 모든 화면에서 안정적으로 유지하기 위해 **height 를 기준**으로
- * 잡고 width 는 aspect-ratio 로 derive 한다.
- *  - height: 86%  → 부모(canvas) 높이의 86% 를 차지
- *  - aspect-ratio: 9/16 → width = height * 9/16
- *  - max-width: 290px → 데스크탑처럼 부모가 너무 넓을 땐 width 캡 (height 도
- *    함께 비례 축소되어 비율 보존)
- *
- * (이전엔 width: 100% + max-height: 86% 였는데, 모바일처럼 부모가 좁고 짧으면
- *  max-height 가 width 와 충돌해서 비율이 ~3:4 로 어그러지는 문제가 있었음.) */
+   without being clipped by .running-card's overflow:hidden */
 .card-stage {
   position: relative;
-  height: 86%;
-  aspect-ratio: 9 / 16;
+  width: 100%;
   max-width: 290px;
+  max-height: 86%;
+  aspect-ratio: 9 / 16;
   display: flex;
 }
 
