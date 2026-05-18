@@ -24,6 +24,7 @@ function StxItem({
   onChange,
   onBlur,
   onCommit,
+  onEditRequest,
 }: {
   t: TextItem;
   isActive: boolean;
@@ -35,6 +36,8 @@ function StxItem({
   onChange: (text: string) => void;
   onBlur: () => void;
   onCommit: () => void;
+  /** 더블클릭으로 명시적 편집 모드 진입 요청. */
+  onEditRequest: () => void;
 }) {
   const editRef = useRef<HTMLDivElement>(null);
   const editedRef = useRef(false);
@@ -57,11 +60,17 @@ function StxItem({
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);
-    range.collapse(false);
+    // 기본 placeholder("텍스트 입력") 상태로 처음 활성화된 경우엔 전체 선택을
+    // 유지해서 사용자가 타이핑하면 바로 덮어써지게 한다 (placeholder 가 뒤에
+    // 남는 어색한 동작 제거). 이미 사용자가 편집한 텍스트는 cursor 를 끝으로
+    // 보내서 이어쓰기 편하게.
+    if (t.text !== "텍스트 입력") {
+      range.collapse(false);
+    }
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
-  }, [isActive]);
+  }, [isActive, t.text]);
 
   return (
     <div
@@ -79,6 +88,14 @@ function StxItem({
         zIndex,
       }}
       onPointerDown={onPointerDown}
+      onDoubleClick={(e) => {
+        // 더블클릭 — 명시적으로 편집 모드로 진입한다.
+        // (블러 후 active 가 해제되어 outline 이 사라진 상태에서, 다시 편집하려면
+        //  더블클릭으로 명확하게 의도를 표시. 단순 탭은 드래그 후보로 남겨두고
+        //  편집과는 분리되는 자연스러운 UX.)
+        e.stopPropagation();
+        onEditRequest();
+      }}
     >
       <div
         ref={editRef}
@@ -330,7 +347,13 @@ export default function TextOverlay() {
                 const current = useAppStore
                   .getState()
                   .studioTexts.find((x) => x.id === t.id);
-                if (current && current.text.trim() === "") removeText(t.id);
+                if (current && current.text.trim() === "") {
+                  removeText(t.id);
+                } else {
+                  // 입력 완료 — active 를 해제해서 `.stx.active` 점선 outline 이
+                  // 사라지게 한다. 다시 편집하려면 더블클릭으로 진입.
+                  setActive(null);
+                }
               }}
               onCommit={() => {
                 const current = useAppStore
@@ -342,6 +365,7 @@ export default function TextOverlay() {
                   setActive(null);
                 }
               }}
+              onEditRequest={() => setActive(t.id)}
             />
           );
         })}

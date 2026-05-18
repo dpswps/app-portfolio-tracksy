@@ -2736,11 +2736,20 @@ textarea:focus { border-color: var(--primary); }
 
 .studio-canvas {
   position: relative;
-  padding: 4px 22px 0;
-  display: flex; justify-content: center; align-items: center;
+  padding: 4px 22px 20px;
+  display: flex; justify-content: center; align-items: flex-start;
   flex: 1;
   min-height: 0;
+  /* 카드가 canvas 보다 크면 스크롤로 전체를 볼 수 있도록.
+   * (이전엔 align-items: center + max-height 로 카드를 캔버스 안에 강제로
+   *  맞췄지만, 모바일에선 캔버스가 너무 작아져서 카드가 손바닥만하게 보였음.
+   *  이제 카드는 max-width 기준 9:16 으로 충분한 크기를 가지고, 캔버스가
+   *  내부 스크롤로 영역을 조절.) */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+.studio-canvas::-webkit-scrollbar { display: none; }
+.studio-canvas { scrollbar-width: none; }
 /* ──────────────────────────────────────────────────────────
  * 통합 휴지통 영역 — 캔버스 하단.
  *
@@ -3610,15 +3619,19 @@ textarea:focus { border-color: var(--primary); }
 /* Card stage — wraps RunningCard so overlays (crop) can sit on top
  * without being clipped by .running-card's overflow:hidden.
  *
- * 9:16 비율을 모든 화면에서 안정적으로 유지하기 위해 **height 를 기준**으로
- * 잡고 width 는 aspect-ratio 로 derive. 카드가 항상 캔버스 안에 들어와서
- * 하단 panel 영역으로 넘쳐 흘러서 가려지는 문제 없음. */
+ * 9:16 비율을 명시적으로 강제 — width 와 height 를 직접 계산해서 flex 컨테이너
+ * 안에서도 비율이 깨지지 않도록 한다.
+ *  - width: 290px 또는 viewport 80% 중 작은 값 → 데스크탑에선 max 290 캡,
+ *    모바일에선 viewport 의 80% 차지 (좌우 여백 확보)
+ *  - height: 그 width × 16/9 → 정확히 9:16 비율
+ * (이전엔 width:100% + aspect-ratio 였는데 flex 안에서 가끔 무시되어 모바일에서
+ *  비율이 3:4 로 어그러지는 케이스가 있었음.) */
 .card-stage {
   position: relative;
-  height: 86%;
-  aspect-ratio: 9 / 16;
-  max-width: 290px;
+  width: min(290px, 80vw);
+  height: calc(min(290px, 80vw) * 16 / 9);
   display: flex;
+  flex-shrink: 0;
 }
 
 /* Running card
