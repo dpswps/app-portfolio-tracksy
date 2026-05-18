@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import DeviceFrame from "@/components/chrome/DeviceFrame";
 import "./globals.css";
@@ -15,9 +15,26 @@ export const metadata: Metadata = {
   description: "러닝 기록을 한곳에 모으고 예쁜 러닝카드로 꾸며 저장/공유할 수 있는 앱.",
 };
 
+/* viewport-fit=cover — iOS safe-area (노치/다이나믹 아일랜드/제스처바)
+ * env(safe-area-inset-*) 값이 0 이 아닌 실제 값으로 계산되도록 활성화. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={notoKr.variable}>
+      <head>
+        {/* Pretendard 가변 폰트 — jsDelivr CDN 에서 비동기 로드.
+         * (CSS @import 는 파싱을 블록해서 첫 페이지 로드가 매우 느려지므로
+         *  여기 <link> 로 받아서 CSS 와 병렬 다운로드되게 한다.) */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+        />
+      </head>
       <body>
         <DeviceFrame>{children}</DeviceFrame>
       </body>

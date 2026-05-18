@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Mascot from "@/components/ui/Mascot";
 import { useAppStore } from "@/stores/useAppStore";
 
 /**
@@ -10,6 +9,8 @@ import { useAppStore } from "@/stores/useAppStore";
  * 진입 직전 resetAI()를 호출해서 이전 세션의 stale 상태(끊긴 chat 메시지,
  * loading/result 잔재 등)를 정리한다. 스튜디오의 동일 버튼(/studio FAB)도
  * 같은 패턴을 써서 두 진입점이 똑같이 "처음부터 새로" 시작되도록 통일.
+ *
+ * 마스코트 자리에는 트랙시 챗봇 일러스트(/tracksy-chatbot.png)를 사용.
  */
 export default function AICard() {
   const resetAI = useAppStore((s) => s.resetAI);
@@ -23,7 +24,8 @@ export default function AICard() {
         onClick={resetAI}
       >
         <div className="ajc-mascot">
-          <Mascot />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
         </div>
         <div className="ajc-text">
           <b>AI 오늘의 러닝일지</b>

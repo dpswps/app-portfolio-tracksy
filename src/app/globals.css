@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pretendard 폰트는 src/app/layout.tsx 의 <link> 태그로 비동기 로드.
+ * (이전엔 여기서 @import 로 받았는데, CSS 파싱을 블록해서 첫 로딩이
+ *  매우 느려지는 문제가 있었음 → layout.tsx 의 <head> 로 이동.) */
+
 :root {
   --primary: #8B5CF6;
   --primary-dark: #7C3AED;
@@ -19,12 +23,19 @@
   --naver: #03C75A;
   --google: #FFFFFF;
   --apple: #000000;
+  /* 'Pretendard Variable' — Pretendard CDN 의 variable font 패밀리명.
+   * 실패 시 정적 Pretendard → 시스템 한글 폰트 순으로 fallback. */
+  --font-pretendard: 'Pretendard Variable', Pretendard, -apple-system,
+    BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI',
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  font-family: var(--font-noto-kr), 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  /* 앱 전체 기본 폰트 — Pretendard 우선, 실패 시 Noto Sans KR → 시스템 한글 폰트.
+   * 특정 셀렉터에서 명시적으로 다른 font-family 를 지정한 곳만 예외. */
+  font-family: var(--font-pretendard);
   background: #C7C7CC;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -68,21 +79,23 @@ input, textarea, select {
 
 @media (max-width: 440px) {
   .device-wrapper { padding: 0; }
-  .device { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; box-shadow: none; }
+  .device {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    /* 실제 모바일 기기의 시스템 상태바 영역(노치/Dynamic Island 포함) 만큼
+     * 상단 padding 을 주어 콘텐츠가 상태바 아래부터 시작되도록.
+     * 데스크탑 미리보기에서는 env() 가 0 으로 평가되어 영향 없음. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+  }
 }
 
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 28px 6px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #000;
-  flex-shrink: 0;
-  z-index: 5;
-}
-.status-bar .indicators { display: inline-flex; gap: 5px; align-items: center; }
+/* (legacy) 시뮬레이션 status bar — 더 이상 렌더하지 않음. 안전망으로 display: none. */
+.status-bar { display: none; }
 
 #screen {
   flex: 1;
@@ -267,22 +280,30 @@ input, textarea, select {
 .home-screen { padding: 0 0 24px; background: #fff; }
 
 /* Greeting */
+/* 화면 너비를 꽉 채우는 풀폭 배경 프레임 — 좌우 여백/코너 래디어스 없음.
+ * 내부 padding 으로 콘텐츠와 가장자리 간격만 유지 (이전 spacing 구조 유지). */
 .home-greeting {
-  margin: 4px 16px 16px;
+  margin: 4px 0 16px;
   background: var(--primary-soft);
-  border-radius: 18px;
+  border-radius: 0;
   padding: 14px 16px;
   display: flex; align-items: center; gap: 12px;
 }
+/* 기본 프로필 이미지 51×51 (basic_pro.png 가 자체 squircle 형태라 wrapper 의
+ * 별도 배경/모양 없이 그대로 노출). */
 .greet-avatar {
-  width: 50px; height: 50px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #C4B5FD, #A78BFA);
+  width: 51px; height: 51px;
+  background: transparent;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
 }
-.greet-avatar img { width: 44px; height: 44px; object-fit: contain; }
+.greet-avatar img {
+  width: 51px;
+  height: 51px;
+  object-fit: contain;
+}
+/* 사용자가 업로드한 프로필 사진은 51×51 원형(살짝 둥근 사각) 으로 cover. */
 .greet-avatar .greet-avatar-img {
   width: 100%;
   height: 100%;
@@ -290,9 +311,30 @@ input, textarea, select {
   object-fit: cover;
 }
 .greet-text { flex: 1; min-width: 0; }
-.greet-name { font-size: 16px; font-weight: 700; color: var(--text); }
-.greet-name span { font-weight: 500; color: var(--text-soft); margin-left: 2px; }
-.greet-sub { font-size: 12px; color: var(--text-soft); margin-top: 3px; }
+/* HOME_프로필 파트 — Pretendard 적용.
+ * 제목(닉네임): Bold 20px / line-height 1.3.
+ * 내용(부제): Regular 13px / line-height 1.5. */
+.greet-name {
+  font-family: var(--font-pretendard);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+.greet-name span {
+  font-family: var(--font-pretendard);
+  font-weight: 400;
+  color: var(--text-soft);
+  margin-left: 4px;
+}
+.greet-sub {
+  font-family: var(--font-pretendard);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
 .greet-settings {
   width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
@@ -361,21 +403,35 @@ input, textarea, select {
   color: #fff;
   z-index: 2;
   display: flex; flex-direction: column;
+  /* HOME_러닝카드 — Pretendard 폰트 패밀리 통일 적용 */
+  font-family: var(--font-pretendard);
 }
+/* 카드 상단 라벨+날짜 — 내용 텍스트(Regular 13px) */
 .hp-top {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
 }
 .hp-label {
   background: rgba(167,139,250,0.25);
   color: #DDD6FE;
   padding: 4px 10px;
   border-radius: 999px;
-  font-weight: 600;
+  font-family: var(--font-pretendard);
+  font-weight: 500;
   letter-spacing: 0.02em;
 }
-.hp-date { color: #C4B5FD; opacity: 0.9; font-weight: 500; }
+.hp-date {
+  color: #C4B5FD;
+  opacity: 0.9;
+  font-family: var(--font-pretendard);
+  font-weight: 400;
+}
+/* 큰 거리 숫자 — 카드의 시각적 focal point. 폰트 패밀리만 Pretendard 로
+ * 통일하고 크기/굵기는 유지 (의도된 큰 헤드라인 역할). */
 .hp-distance {
+  font-family: var(--font-pretendard);
   font-size: 44px; font-weight: 800;
   line-height: 1;
   margin-top: 18px;
@@ -383,6 +439,7 @@ input, textarea, select {
   color: #fff;
 }
 .hp-distance small {
+  font-family: var(--font-pretendard);
   font-size: 18px; font-weight: 600;
   margin-left: 4px;
   color: #C4B5FD;
@@ -394,21 +451,28 @@ input, textarea, select {
   margin-bottom: 8px;
   opacity: 0.95;
 }
+/* 시간/페이스 메타 — 내용 텍스트(Regular 13px / line-height 1.5) */
 .hp-meta {
   display: flex; gap: 16px;
-  font-size: 12px;
+  font-family: var(--font-pretendard);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
   color: #E9D5FF;
 }
 .hp-meta-item {
   display: inline-flex; align-items: center; gap: 4px;
-  font-weight: 500;
+  font-weight: 400;
 }
 .hp-ic { font-size: 13px; opacity: 0.85; }
 
-/* Main slide (center, focused) */
+/* Main slide (center, focused)
+ * 카드 영역을 꽉 채우도록 runcard_bg.png 를 cover 로 깔고, 그 위에 runcard_cha.png
+ * 캐릭터를 hm-mascot 으로 올림.
+ * (runcard_bg.png 가 아직 없으면 기존 primary-softer 그라데이션이 fallback) */
 .hero-main {
   flex: 0 0 250px;
-  background: var(--primary-softer);
+  background: url("/runcard_bg.png") center bottom / cover no-repeat, var(--primary-softer);
   border: 2px solid var(--primary);
   cursor: pointer;
   display: flex; flex-direction: column;
@@ -417,13 +481,21 @@ input, textarea, select {
   text-align: center;
 }
 .hm-content { position: relative; z-index: 2; }
+/* HOME_러닝카드 (메인 카드) — 제목 Bold 20px / 내용 Regular 13px */
 .hm-content h2 {
-  font-size: 20px; font-weight: 800;
+  font-family: var(--font-pretendard);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
   color: var(--primary-dark);
   margin-bottom: 6px;
 }
 .hm-content p {
-  font-size: 12px; color: var(--text-soft);
+  font-family: var(--font-pretendard);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-soft);
   margin-bottom: 16px;
 }
 .hm-plus {
@@ -435,14 +507,24 @@ input, textarea, select {
   box-shadow: 0 6px 14px rgba(139,92,246,0.4);
 }
 .hm-plus svg { width: 20px; height: 20px; }
+/* runcard_cha 캐릭터 — 카드 좌우 끝에 맞춰서 100% 폭으로 확대.
+ * 높이는 이미지 자연 비율(240:145)을 그대로 사용해 왜곡 방지.
+ * 위치는 카드 가장 아래에 정렬 (bottom: 0). */
 .hm-mascot {
   position: absolute;
-  left: 50%; bottom: 8px;
-  transform: translateX(-50%);
-  width: 130px; height: 130px;
+  left: 0; right: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
   z-index: 2;
+  pointer-events: none;
 }
-.hm-mascot img { width: 100%; height: 100%; object-fit: contain; }
+.hm-mascot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
 .hm-wave {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -459,23 +541,43 @@ input, textarea, select {
   padding: 14px 14px;
   color: #1F2937;
 }
-.hs-meta { margin-bottom: 6px; }
-.hs-date { font-size: 11px; font-weight: 600; }
+/* HOME_러닝카드 (우측 stats 카드) — Pretendard 통일. 메타/내용 13px Regular,
+ * 큰 거리 숫자는 시각 focal point 로 크기 유지. */
+.hs-meta { margin-bottom: 6px; font-family: var(--font-pretendard); }
+.hs-date {
+  font-family: var(--font-pretendard);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
 .hs-date span { font-weight: 400; opacity: 0.8; }
-.hs-weather { font-size: 10px; opacity: 0.75; margin-top: 2px; }
+.hs-weather {
+  font-family: var(--font-pretendard);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  opacity: 0.8;
+  margin-top: 2px;
+}
 .hero-stats .hs-distance {
+  font-family: var(--font-pretendard);
   font-size: 56px; font-weight: 800; line-height: 1;
   margin: 6px 0 16px;
   letter-spacing: -0.04em;
 }
-.hero-stats .hs-distance small { font-size: 22px; font-weight: 600; margin-left: 2px; }
-.hs-rows { display: flex; flex-direction: column; gap: 8px; }
+.hero-stats .hs-distance small {
+  font-family: var(--font-pretendard);
+  font-size: 22px; font-weight: 600; margin-left: 2px;
+}
+.hs-rows { display: flex; flex-direction: column; gap: 8px; font-family: var(--font-pretendard); }
 .hs-row {
   display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
 }
-.hs-row b { font-size: 14px; font-weight: 700; }
-.hs-row i { font-style: normal; font-size: 10px; color: #4B5563; }
+.hs-row b { font-size: 13px; font-weight: 700; }
+.hs-row i { font-style: normal; font-size: 13px; font-weight: 400; color: #4B5563; }
 .hs-row .hs-ic { font-size: 13px; }
 
 /* Week section */
@@ -486,15 +588,30 @@ input, textarea, select {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 14px;
 }
-.week-header h3 { font-size: 15px; font-weight: 800; }
-.week-header .cal { margin-left: 2px; }
+/* HOME_이번주 러닝 기록 — 제목 Pretendard Bold 14px / line-height 1.4 */
+.week-header h3 {
+  font-family: var(--font-pretendard);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+/* weekly_cal.png 아이콘 — 렌더 기준 13×14px, 텍스트와 baseline 정렬. */
+.week-header .cal {
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.week-header .cal img { width: 13px; height: 14px; display: block; }
 .week-header .week-title-btn {
   background: transparent;
   border: 0;
   padding: 4px 6px;
   margin: -4px -6px;
-  font: inherit;
-  font-weight: 800;
+  font-family: var(--font-pretendard);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
   color: inherit;
   cursor: pointer;
   display: inline-flex;
@@ -505,9 +622,13 @@ input, textarea, select {
 }
 .week-header .week-title-btn:hover { background: var(--primary-soft); }
 .week-header .week-title-btn:active { transform: scale(0.97); }
+/* 범례/요일/날짜 — 내용 Pretendard SemiBold 12px / line-height 1.45 */
 .week-legend {
   display: flex; gap: 10px;
-  font-size: 11px;
+  font-family: var(--font-pretendard);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
   color: var(--text-soft);
 }
 .legend-item { display: inline-flex; align-items: center; gap: 4px; }
@@ -550,8 +671,21 @@ input, textarea, select {
 .week-day.today .dom { color: #fff; }
 .week-day.today .dot.dot-off { border-color: rgba(255,255,255,0.7); }
 .week-day.today .dot.dot-on { background: #fff; }
-.week-day .dow { font-size: 11px; font-weight: 700; color: var(--text); }
-.week-day .dom { font-size: 13px; color: var(--text); font-weight: 500; }
+/* 요일/날짜 셀 텍스트 — 내용 Pretendard 12px (요일 SemiBold, 날짜 Medium) */
+.week-day .dow {
+  font-family: var(--font-pretendard);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+.week-day .dom {
+  font-family: var(--font-pretendard);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+}
 .week-day .dot { width: 8px; height: 8px; }
 
 /* Bottom stats row */
@@ -561,9 +695,10 @@ input, textarea, select {
   gap: 10px;
   margin: 0 16px;
 }
+/* HOME_세번째 섹션 카드 공통 — 박스 배경 #FCFAFE, 선 #E8E7F9. */
 .hs-card {
-  background: #F5F3FF;
-  border: 0;
+  background: #FCFAFE;
+  border: 1px solid #E8E7F9;
   border-radius: 18px;
   padding: 16px 16px 14px;
   position: relative;
@@ -685,30 +820,35 @@ button.hs-card:disabled:hover { box-shadow: none; }
   box-shadow: inset 0 0 0 3px #fff;
 }
 .bm-apply { margin-top: 0; }
+/* head 영역 — 아이콘 상단 + 제목 텍스트가 그 아래 줄에 표시되도록 세로 배치. */
 .hs-card .hs-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 10px;
   position: relative;
   z-index: 1;
 }
+/* 아이콘 wrapper — 이미지의 자연 비율을 유지하기 위해 width/height auto.
+ * (이미지에 width 가 명시되어 있으므로 wrapper 는 inline-flex 만 담당.) */
 .hs-card .hs-ico {
-  width: 22px;
-  height: 22px;
-  color: var(--primary);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.hs-card .hs-ico svg { width: 100%; height: 100%; }
+.hs-card .hs-ico img { display: block; }
+.hs-card .hs-ico svg { width: 22px; height: 22px; color: var(--primary); }
 .hs-card .hs-label {
   font-size: 12.5px;
   color: var(--text);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+/* 아이콘 사이즈 — month_run 16×22, best_run 20×22 */
+.hs-month .hs-ico img { width: 16px; height: 22px; }
+.hs-best .hs-ico img { width: 20px; height: 22px; }
 .hs-card .hs-value {
   font-size: 26px;
   font-weight: 800;
@@ -724,29 +864,19 @@ button.hs-card:disabled:hover { box-shadow: none; }
   color: var(--text-soft);
   margin-left: 3px;
 }
+/* 카드 우측 하단 배경 이미지 — 실제 PNG 파일을 자연 사이즈로 노출.
+ * month_run_bg 61×49, best_run_bg 52×49 */
 .hs-card .hs-bg-art {
   position: absolute;
-  right: -10px;
-  bottom: -10px;
-  width: 96px;
-  height: 96px;
-  color: var(--primary);
-  opacity: 0.10;
+  right: 10px;
+  bottom: 10px;
   pointer-events: none;
   z-index: 0;
+  opacity: 1;
 }
-.hs-month .hs-bg-art {
-  width: 110px;
-  height: 70px;
-  right: -8px;
-  bottom: 12px;
-}
-.hs-best .hs-bg-art {
-  width: 100px;
-  height: 100px;
-  right: -14px;
-  bottom: -10px;
-}
+.hs-month .hs-bg-art { width: 61px; height: 49px; }
+.hs-best .hs-bg-art { width: 52px; height: 49px; }
+/* 카드 좌측 하단의 둥근 직사각 배지 — 배경 #F2F0FC, 선 #DFDCF6, 글자 #A08DE5 */
 .hs-badge {
   display: inline-flex;
   align-items: center;
@@ -757,15 +887,16 @@ button.hs-card:disabled:hover { box-shadow: none; }
   font-weight: 600;
   position: relative;
   z-index: 1;
+  background: #F2F0FC;
+  border: 1px solid #DFDCF6;
+  color: #A08DE5;
 }
-.hs-badge.pink {
-  background: #FCE7F3;
-  color: #DB2777;
-}
+/* 색상은 통일된 라벤더 톤. pink/gray 변형도 동일 컬러팔레트로 묶음. */
+.hs-badge.pink,
 .hs-badge.gray {
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--text-soft);
-  border: 1px solid rgba(139, 92, 246, 0.08);
+  background: #F2F0FC;
+  border-color: #DFDCF6;
+  color: #A08DE5;
 }
 
 /* === PROFILE === */
@@ -1185,6 +1316,8 @@ textarea:focus { border-color: var(--primary); }
 
 /* Hide bottom nav on certain screens */
 .hide-nav .bottom-nav { display: none; }
+/* (legacy) — 스플래시 화면일 때 status-bar 색상을 흰색으로 바꾸던 규칙.
+ * status-bar 제거되었으므로 더 이상 효과 없음. 안전망으로 남겨둠. */
 .hide-nav .status-bar { color: #fff; }
 
 /* === COMMUNITY === */
@@ -3596,7 +3729,7 @@ textarea:focus { border-color: var(--primary); }
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  font-family: var(--font-noto-kr), system-ui, sans-serif;
+  font-family: var(--font-pretendard);
   line-height: 1.1;
 }
 .lyp-distance {
@@ -7085,7 +7218,7 @@ textarea:focus { border-color: var(--primary); }
   z-index: 19;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-noto-kr), -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-pretendard);
   font-size: 12px;
   overflow: hidden;
   user-select: none;

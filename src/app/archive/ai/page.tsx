@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import AIHeader from "@/features/ai-journal/AIHeader";
-import Mascot from "@/components/ui/Mascot";
 
 const MOOD_LABEL: Record<string, string> = {
   good: "좋아",
@@ -80,7 +79,8 @@ function BgChatPreview() {
     <div className="aij-bg">
       <div className="aij-bg-msg-row">
         <div className="aij-bg-mascot">
-          <Mascot />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
         </div>
         <div className="aij-bg-bubble">오늘 러닝 어땠어? 컨디션 좀 얘기해줘 🏃‍♀️</div>
       </div>
@@ -96,7 +96,8 @@ function BlurredChat() {
         m.from === "bot" ? (
           <div key={i} className="aij-row left">
             <div className="aij-mascot-sm">
-              <Mascot />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
             </div>
             <div className="aij-bubble">{m.text}</div>
           </div>
@@ -239,7 +240,8 @@ function Chat() {
           m.from === "bot" ? (
             <div key={i} className="aij-row left">
               <div className="aij-mascot-sm">
-                <Mascot />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
               </div>
               <div className="aij-bubble">{m.text}</div>
             </div>
@@ -252,7 +254,8 @@ function Chat() {
         {isReplying && (
           <div className="aij-row left">
             <div className="aij-mascot-sm">
-              <Mascot />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
             </div>
             <div className="aij-bubble typing">
               <span />
@@ -324,7 +327,8 @@ function Loading() {
       <div className="aij-loading-modal">
         <div className="aij-loading-circle">
           <div className="aij-loading-mascot">
-            <Mascot />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
             <span className="aij-q">?</span>
           </div>
         </div>
@@ -385,7 +389,8 @@ function Result() {
           </div>
           <div className="aij-result-mascot-row">
             <div className="aij-result-mascot">
-              <Mascot />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
             </div>
             <div className="aij-cheer-bubble">오늘도 수고했어! 😊</div>
           </div>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
-import Mascot from "@/components/ui/Mascot";
 import { archiveRecords } from "@/data/archiveRecords";
 import { KO_DOW, parseKey, pad2 } from "@/lib/date";
 
@@ -356,7 +355,9 @@ const getSnapTarget = (velocity: number) => {
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="프로필" className="greet-avatar-img" />
           ) : (
-            <Mascot />
+            /* 기본 프로필 — basic_pro 이미지 사용. 51x51 렌더. */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/basic_pro.png" alt="" className="greet-avatar-img" draggable={false} />
           )}
         </Link>
         <div className="greet-text">
@@ -434,8 +435,10 @@ const getSnapTarget = (velocity: number) => {
                 </svg>
               </div>
             </div>
+            {/* 기존 Mascot 제거. runcard_cha 캐릭터 이미지(86×116px)를 카드 하단에 배치. */}
             <div className="hm-mascot">
-              <Mascot />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/runcard_cha.png" alt="" draggable={false} />
             </div>
             <div className="hm-wave" />
           </div>
@@ -493,7 +496,11 @@ const getSnapTarget = (velocity: number) => {
               onClick={goToRecordsArchive}
               aria-label="내 기록 보관소로 이동"
             >
-              이번주 러닝 기록 <span className="cal">📅</span>
+              이번주 러닝 기록{" "}
+              <span className="cal" aria-hidden="true">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/weekly_cal.png" alt="" draggable={false} />
+              </span>
             </button>
           </h3>
           <div className="week-legend">
@@ -531,18 +538,14 @@ const getSnapTarget = (velocity: number) => {
           onClick={goToRecordsArchive}
           aria-label="이번달 러닝 기록 보러가기"
         >
-          <svg className="hs-bg-art" viewBox="0 0 100 60" aria-hidden fill="currentColor">
-            <path d="M4 38c0-3 2-6 5-7l10-2c3-1 5-3 7-6l4-7c2-3 5-5 9-5h4c3 0 5 2 6 5l1 5 28 8c5 1 8 5 8 10v3c0 4-3 7-7 7H11c-4 0-7-3-7-7v-4z" />
-            <path d="M21 27l8-5h5l-1 4-8 4z" opacity="0.55" />
-            <circle cx="22" cy="48" r="3" fill="#fff" opacity="0.7" />
-            <circle cx="68" cy="48" r="3" fill="#fff" opacity="0.7" />
-          </svg>
+          {/* 우측 하단 배경 이미지 — month_run_bg.png (61×49px) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="hs-bg-art" src="/month_run_bg.png" alt="" aria-hidden draggable={false} />
           <div className="hs-head">
+            {/* 아이콘 상단 배치 — month_run.png (16×22px) */}
             <span className="hs-ico">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="13.5" cy="4" r="2" />
-                <path d="M13.49 5.48c-1.1 0-2.04.86-2.13 1.96l-1.06 4.84-3.1 7.27 1.84.78 2.95-6.91 2.1 1.13L13 18.5v3h2v-4.5l-2.1-2.7.7-3.6 1.83 2.4 2.6 1.2.86-1.84-2.05-.92-1.56-1.94c-.5-.6-1.22-.9-1.93-.9-.04-.04.14-.04.14-.04z" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/month_run.png" alt="" draggable={false} />
             </span>
             <span className="hs-label">이번달 러닝 횟수</span>
           </div>
@@ -575,14 +578,14 @@ const getSnapTarget = (velocity: number) => {
             aria-label="최고 기록 보러가기"
             disabled={!bestRecord}
           >
-            <svg className="hs-bg-art" viewBox="0 0 24 24" aria-hidden fill="currentColor">
-              <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
-            </svg>
+            {/* 우측 하단 배경 이미지 — best_run_bg.png (52×49px) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="hs-bg-art" src="/best_run_bg.png" alt="" aria-hidden draggable={false} />
             <div className="hs-head">
+              {/* 아이콘 상단 배치 — best_run.png (20×22px) */}
               <span className="hs-ico">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v2c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 17.93V20H7v2h10v-2h-4v-2.07a5.01 5.01 0 0 0 3.61-3.99C19.08 13.63 21 11.55 21 9V7c0-1.1-.9-2-2-2zM5 9V7h2v3.82C5.84 10.4 5 9.3 5 9zm14 0c0 .3-.84 1.4-2 1.82V7h2v2z" />
-                </svg>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/best_run.png" alt="" draggable={false} />
               </span>
               <span className="hs-label">최고 {bestActiveLabel}(90일간)</span>
             </div>
