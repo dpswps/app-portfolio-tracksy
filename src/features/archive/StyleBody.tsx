@@ -1,13 +1,18 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import { styleCards } from "@/data/styleCards";
 import type { StyleCard } from "@/types";
 import Mascot from "@/components/ui/Mascot";
+import StylePreviewCard from "./StylePreviewCard";
 
 function StyleCardEl({ c, isSavedTab }: { c: StyleCard; isSavedTab: boolean }) {
+  const router = useRouter();
   const showToast = useAppStore((s) => s.showToast);
   const removeSavedStyle = useAppStore((s) => s.removeSavedStyle);
+  const applyStudioStyle = useAppStore((s) => s.applyStudioStyle);
+  const setStudioTab = useAppStore((s) => s.setStudioTab);
 
   const onBookmarkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -15,63 +20,30 @@ function StyleCardEl({ c, isSavedTab }: { c: StyleCard; isSavedTab: boolean }) {
     showToast("저장한 스타일에서 삭제했어요");
   };
 
+  /**
+   * "이 스타일 사용하기" — 보관함 → 스튜디오 진입 플로우.
+   *
+   *  1) applyStudioStyle 로 store 의 텍스트/스티커 레이아웃에 카드의 template
+   *     을 덧붙임. 기존 배경/텍스트/스티커는 보존됨.
+   *  2) 스튜디오의 활성 탭을 "edit" 으로 초기화해서, 진입 시 사용자가 바로
+   *     카드를 보고 추가 편집을 시작할 수 있게 함.
+   *  3) /studio 로 라우팅.
+   */
+  const onUse = () => {
+    applyStudioStyle(c);
+    setStudioTab("edit");
+    showToast(`${c.title} 스타일을 적용했어요`);
+    router.push("/studio");
+  };
+
   return (
     <div className="style-block">
-      <div className="style-card">
-        <div className="sc-bg" style={{ background: c.bg }} />
-        <div className="sc-overlay" />
-        {isSavedTab && (
-          <button
-            className="sc-bookmark saved"
-            aria-label="저장한 스타일에서 삭제"
-            onClick={onBookmarkClick}
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 3h12v18l-6-4-6 4z" />
-            </svg>
-          </button>
-        )}
-        <div className="sc-content">
-          {c.date && <div className="sc-meta">{c.date}</div>}
-          {c.title && <div className="sc-title">{c.title}</div>}
-          {/* dist 가 비어있는 경우(커뮤니티 게시글에서 저장한 스타일 등 — 이미지 자체에
-              거리/통계가 인쇄돼 있음) 큰 숫자 + "킬로미터" 라벨 + 통계 그리드를 모두 숨김. */}
-          {c.dist && (
-            <>
-              <div className="sc-dist" style={{ color: c.distColor || "#fff" }}>
-                {c.dist}
-              </div>
-              <div className="sc-dist-unit" style={{ color: c.distColor || "#fff" }}>
-                킬로미터
-              </div>
-            </>
-          )}
-          {c.stats.length > 0 && (
-            <div className="sc-stats">
-              <div className="sc-stat-row">
-                {c.stats.slice(0, 3).map((s, i) => (
-                  <div key={i} className="sc-stat">
-                    <b>{s.v}</b>
-                    <i>{s.l}</i>
-                  </div>
-                ))}
-              </div>
-              <div className="sc-stat-row">
-                {c.stats.slice(3, 6).map((s, i) => (
-                  <div key={i} className="sc-stat">
-                    <b>{s.v}</b>
-                    <i>{s.l}</i>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      <button
-        className="style-use-btn"
-        onClick={() => showToast(`${c.title} 스타일을 적용했어요`)}
-      >
+      <StylePreviewCard
+        style={c}
+        showBookmark={isSavedTab}
+        onBookmarkClick={onBookmarkClick}
+      />
+      <button className="style-use-btn" onClick={onUse}>
         이 스타일 사용하기
       </button>
     </div>

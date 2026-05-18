@@ -231,6 +231,11 @@ export default function StudioSnapshotCard({ snapshot, small = false }: Props) {
               ? undefined
               : `translate(${snapshot.statsOffset.x}px, ${snapshot.statsOffset.y}px)`,
             opacity: cardOpacity,
+            // card 레이어가 layerOrder 에 포함돼 있으면 그 위치로 z-index 적용
+            // (텍스트/스티커와 같은 reorder 그룹에 통합). 없으면 CSS 기본값(2) 사용.
+            ...(small || !snapshot.layerOrder.includes("card")
+              ? {}
+              : { zIndex: snapshot.layerOrder.indexOf("card") + 1 }),
           }}
         >
           {renderLayoutStatic(snapshot, small)}

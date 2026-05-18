@@ -364,8 +364,14 @@ input, textarea, select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   cursor: grab;
-  touch-action: pan-x;
+  /* touch-action: none — 모바일에서 브라우저의 native pan 과 JS 의 pointer 기반
+   * 드래그가 동시에 동작하지 않도록 차단. JS 가 scrollLeft 를 직접 제어하면서
+   * 부드러운 1:1 추적을 보장. (이전 pan-x 는 두 핸들러가 경합해서 끊김 유발.) */
+  touch-action: none;
   user-select: none;
+  /* 브라우저에 "이 영역은 자주 스크롤된다" 는 힌트 — 별도 compositor layer 로
+   * 분리해서 매 프레임 painting 비용을 줄임. */
+  will-change: scroll-position;
 }
 .hero-track.dragging {
   cursor: grabbing;
@@ -383,6 +389,9 @@ input, textarea, select {
   position: relative;
   overflow: hidden;
   scroll-snap-align: center;
+  /* 각 슬라이드를 GPU 레이어로 promotion — 스크롤 중 paint 캐시 활용. */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Recent run slide (left, dark theme) */
@@ -628,11 +637,11 @@ input, textarea, select {
 }
 .week-header .week-title-btn:hover { background: var(--primary-soft); }
 .week-header .week-title-btn:active { transform: scale(0.97); }
-/* 범례/요일/날짜 — 내용 Pretendard SemiBold 12px / line-height 1.45 */
+/* 범례/요일/날짜 — 내용 Pretendard 13px / line-height 1.45 */
 .week-legend {
   display: flex; gap: 10px;
   font-family: var(--font-pretendard);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.45;
   color: var(--text-soft);
@@ -677,17 +686,17 @@ input, textarea, select {
 .week-day.today .dom { color: #fff; }
 .week-day.today .dot.dot-off { border-color: rgba(255,255,255,0.7); }
 .week-day.today .dot.dot-on { background: #fff; }
-/* 요일/날짜 셀 텍스트 — 내용 Pretendard 12px (요일 SemiBold, 날짜 Medium) */
+/* 요일/날짜 셀 텍스트 — 내용 Pretendard 13px (요일 SemiBold, 날짜 Medium) */
 .week-day .dow {
   font-family: var(--font-pretendard);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--text);
 }
 .week-day .dom {
   font-family: var(--font-pretendard);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
   color: var(--text);
@@ -2664,13 +2673,24 @@ textarea:focus { border-color: var(--primary); }
   width: 14px; height: 14px;
 }
 
-/* === STUDIO (Content Studio) === */
+/* === STUDIO (Content Studio) ===
+ *
+ * 스튜디오 화면은 #screen 안에서 "딱 한 화면" 으로 보이도록 height: 100% +
+ * overflow: hidden 으로 고정. 이렇게 하면:
+ *  1) panel / tabs 가 sticky 없이도 항상 화면 하단에 자연스럽게 위치하고,
+ *  2) 안쪽에서 absolute 로 깔리는 백드롭(예: StylePicker, RecordPicker) 도
+ *     화면 전체를 정확히 덮으면서 시트가 화면 하단에 깔끔하게 떠오른다.
+ *
+ * (이전엔 min-height: 100% 였는데, panel 의 max-height + tabs 합 이 viewport
+ *  를 살짝 넘어가는 케이스에서 studio-screen 이 #screen 보다 더 길어져,
+ *  picker 백드롭이 그 길어진 영역 끝(=화면 밖)에 시트를 떨궈서 잘림 발생.) */
 .studio-screen {
   background: #0E0E11;
-  min-height: 100%;
+  height: 100%;
   color: #fff;
   display: flex; flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .studio-toolbar {
@@ -2719,12 +2739,60 @@ textarea:focus { border-color: var(--primary); }
   border-radius: 2px;
 }
 
+/* 카드 요소 drag-to-trash wrapper — 각 값/라벨/단위/아이콘을 감싸 개별 삭제 지원.
+ *
+ * 드래그 인식을 위해 touch-action: none + user-select: none (브라우저 기본
+ * 텍스트 선택 동작 차단). 안쪽의 contentEditable 자식이 focus 됐을 땐
+ * user-select 를 text 로 풀어줘서 텍스트 편집(타이핑/cursor 이동) 은 정상.
+ *
+ * cursor 도 평소엔 grab, 안쪽 contentEditable 포커스 중엔 text(I-beam) 로 전환. */
+.deletable-slot {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  /* inline 배치 보존 — display 는 컴포넌트에서 inline-block 으로 지정. */
+  /* 드래그 종료 시 transform 이 빠르게 0 으로 돌아오는 짧은 transition.
+   * 드래그 중에는 .dragging 이 transition 을 꺼서 손가락에 즉각 반응. */
+  transition: transform 0.14s ease-out;
+}
+.deletable-slot:active {
+  cursor: grabbing;
+}
+.deletable-slot:focus-within {
+  cursor: text;
+}
+.deletable-slot:focus-within [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* 드래그 중인 슬롯 — 손가락/커서를 1:1 로 따라가도록 transition 끄고
+ * translate 만 적용. opacity + 그림자로 "잡혀 떠 있다" 는 어포던스 제공. */
+.deletable-slot.dragging {
+  transition: none;
+  opacity: 0.92;
+  position: relative;
+  z-index: 100;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+  /* GPU 레이어 분리 + 60fps transform 업데이트. */
+  will-change: transform;
+}
+/* 드래그 중에는 안쪽 contentEditable 이 pointer 이벤트를 가로채지 않도록 차단.
+ * (wrapper 가 이미 pointer capture 를 가지고 있어 모든 이벤트를 받지만,
+ *  보험 차원으로 child 의 hit-test 도 끔.) */
+.deletable-slot.dragging [contenteditable] {
+  pointer-events: none;
+}
+
 .studio-trash-zone {
   position: absolute;
   left: 50%;
   bottom: 14px;
   transform: translateX(-50%);
-  z-index: 12;
+  /* 휴지통은 드래그 중에만 등장하므로 카드 위로 올라와야 사용자에게 보임.
+   * running-card 의 드래그 모드 z-index(20) 보다 높게, 드래그 중인 요소
+   * (.deletable-slot.dragging z-index 100, 카드 아래의 stacking context 안) 보다는
+   * 낮게 두어 자연스럽게: dragged 요소 → 휴지통 → 다른 UI 순으로 쌓이게 함. */
+  z-index: 30;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2813,6 +2881,16 @@ textarea:focus { border-color: var(--primary); }
 .st-fab.st-fab-record svg {
   width: 22px;
   height: 22px;
+}
+/* 기록 불러오기 FAB 이미지 (run.png) — 보라 원형 안쪽에 자연 비율로 표시.
+ * 가로:세로 = 96:70 (가로 더 김) 이라 width 기준으로 맞추고 height 는 auto. */
+.st-fab.st-fab-record .st-fab-record-img {
+  width: 26px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 .st-fab.st-fab-record .st-fab-plus {
   position: absolute;
@@ -2990,6 +3068,34 @@ textarea:focus { border-color: var(--primary); }
   max-height: 92%;
   padding-bottom: 14px;
 }
+/* 픽커 시트 안의 sub-tab — 보관함의 StyleBody 와 동일한 분류 UX. */
+.sp-subtabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px 6px;
+  flex-shrink: 0;
+}
+.sp-subtab {
+  flex: 1;
+  padding: 9px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.sp-subtab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.sp-subtab.active {
+  background: var(--primary, #8b5cf6);
+  border-color: var(--primary, #8b5cf6);
+  color: #fff;
+}
 .sp-stage {
   display: flex;
   align-items: center;
@@ -3002,11 +3108,18 @@ textarea:focus { border-color: var(--primary); }
   justify-content: center;
   align-items: center;
   min-width: 0;
+  min-height: 0;
 }
 .sp-card {
   width: 100%;
   max-width: 320px;
   /* StyleBody의 .style-card 기본 비율을 유지하면서 시트 안에 맞춤 */
+}
+/* 픽커 안에서의 StylePreviewCard — 세로 9/16 비율 유지, 최대 폭 제한.
+ * height 는 aspect-ratio 가 자동 계산. */
+.sp-card-wrap .spv-card {
+  width: 100%;
+  max-width: 220px;
 }
 .sp-arrow {
   width: 32px;
@@ -3182,23 +3295,40 @@ textarea:focus { border-color: var(--primary); }
   box-shadow: 0 4px 14px rgba(139,92,246,0.5);
 }
 
-/* Text overlay (text on background) */
+/* Text overlay (text on background)
+ *
+ * 주의: 여기에 z-index 를 두면 stacking context 가 생성되어, 안쪽의 텍스트
+ * 들이 layerOrder 기반 z-index 로 카드(rc-stats-group)/스티커와 서로
+ * 교차 reorder 할 수 없게 된다. context 만들지 않도록 z-index 를 두지 않음. */
 .text-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 6;
 }
 .stx {
   position: absolute;
   pointer-events: auto;
-  cursor: move;
-  padding: 2px 6px;
+  /* 스티커와 동일한 손가락(=grab) 커서 — "이 요소를 잡고 끌 수 있다" 어포던스.
+   * 드래그 중에는 grabbing 으로 전환되어 "잡은 상태" 시각 피드백. */
+  cursor: grab;
+  /* 작은 텍스트(예: 12px italic "sunset run") 도 손가락으로 정확히 잡을 수
+   * 있도록 hit area 를 padding 으로 확장. */
+  padding: 8px 12px;
+  /* 최소 hit area — 매우 짧은 텍스트("Tr", ".", 짧은 영문 한두 글자) 의
+   * 클릭 영역이 너무 작아지는 걸 방지. translate(-50%, -50%) 기반의 중심 정렬은
+   * 그대로 유지. */
+  min-width: 32px;
+  min-height: 28px;
+  text-align: center;
   line-height: 1.15;
   text-shadow: 0 2px 6px rgba(0,0,0,0.35);
   white-space: nowrap;
   user-select: none;
   touch-action: none;
+  transition: transform 0.12s ease;
+}
+.stx:active {
+  cursor: grabbing;
 }
 .stx.active {
   outline: 1.5px dashed rgba(255,255,255,0.85);
@@ -3472,7 +3602,12 @@ textarea:focus { border-color: var(--primary); }
   display: flex;
 }
 
-/* Running card */
+/* Running card
+ *
+ * 주의: isolation: isolate 를 두지 않는다 — 두면 stacking context 가 생겨서
+ * 안쪽의 rc-stats-group 의 z-index 가 카드 안에 갇혀 외부의 텍스트/스티커
+ * 와 reorder 할 수 없게 된다. 카드를 텍스트/스티커 사이로 자유롭게 옮기려면
+ * 모두가 card-stage 라는 같은 stacking context 안에서 경쟁해야 함. */
 .running-card {
   position: relative;
   width: 100%;
@@ -3480,18 +3615,44 @@ textarea:focus { border-color: var(--primary); }
   border-radius: 22px;
   overflow: hidden;
   color: #fff;
-  isolation: isolate;
   box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+}
+/* 드래그 모드 — 카드 안쪽 요소(빌트인 텍스트 / stats-group) 가 카드 밖
+ * 휴지통까지 시각적으로 이동할 수 있도록 overflow 만 visible 로 풀어줌.
+ * isolation 은 이미 base 에서 제거됐고, rc-stats-group 의 z-index 부스트는
+ * RunningCard 컴포넌트에서 인라인 style 로 처리(드래그 종류별 분기). */
+.running-card.dragging-mode {
+  overflow: visible;
+}
+/* 그룹 드래그 모드 — long-press 로 진입했을 때 rc-stats-group 전체를 강조.
+ * 보라색 점선 outline + 살짝 떠 있는 그림자로 "전체 선택됨" 어포던스.
+ *
+ * width: fit-content 로 콘텐츠 크기에 딱 맞게 박스를 줄여서 outline 이
+ * 우측에 빈 여백을 포함하지 않도록 한다. (rc-stats-group 은 기본 display:block
+ * 으로 부모 너비 전체를 차지하기 때문에, 그냥 outline 만 주면 카드 끝까지
+ * 점선이 늘어남.) */
+.running-card .rc-stats-group.group-selected {
+  width: fit-content;
+  outline: 2px dashed var(--primary, #8b5cf6);
+  outline-offset: 6px;
+  border-radius: 8px;
+  filter: drop-shadow(0 6px 14px rgba(139, 92, 246, 0.4));
+  /* GPU 가속 — 드래그 transform 매끈하게 업데이트. */
+  will-change: transform;
 }
 .running-card.small { max-width: 220px; aspect-ratio: 9 / 16; }
 
 .running-card .rc-photo {
   position: absolute; inset: 0;
+  /* running-card 의 overflow 가 풀려도 배경의 둥근 모서리는 자체 보존. */
+  border-radius: 22px;
+  overflow: hidden;
   background:
     linear-gradient(180deg, #FFC18D 0%, #DDA9C9 25%, #A989B8 50%, #4D3F62 80%, #2A2536 100%);
 }
 .running-card .rc-grad {
   position: absolute; inset: 0;
+  border-radius: 22px;
   background:
     radial-gradient(ellipse at 70% 35%, rgba(255,200,140,0.45) 0%, transparent 55%),
     linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.35) 100%);
@@ -3635,10 +3796,12 @@ textarea:focus { border-color: var(--primary); }
 .running-card.small .rc-bubble { font-size: 8.5px; padding: 6px 8px; }
 
 /* Studio bottom panel
- * 스크롤되어도 항상 보이도록 sticky 고정. 하단 탭(.studio-tabs) 위에 붙어 있어야
- * 하므로 bottom 값 = 탭 컨테이너의 실제 높이(약 82px). 너무 길어질 수 있는
- * 콘텐츠(스티커 그리드/스타일 그리드)는 내부 스크롤로 처리해서 패널 자체가
- * 무한정 커지지 않도록 max-height 도 함께 지정. */
+ * studio-screen 자체가 height:100% + overflow:hidden 으로 화면을 한 페이지로
+ * 고정시켰기 때문에, flex 컬럼 구조에서 자연스럽게 화면 하단에 위치한다
+ * (margin-top:auto 로 위쪽 빈 공간을 모두 차지). sticky 는 더 이상 불필요.
+ *
+ * 콘텐츠가 길어질 수 있는 케이스(스티커 그리드/스타일 그리드)에 대비해
+ * max-height + overflow-y:auto 로 내부 스크롤 유지. */
 .studio-panel {
   margin-top: auto;
   padding: 12px 4px 6px;
@@ -3647,10 +3810,7 @@ textarea:focus { border-color: var(--primary); }
   max-height: 280px;
   display: flex;
   flex-direction: column;
-  position: sticky;
-  bottom: 82px;
   background: #0E0E11;
-  z-index: 5;
   flex-shrink: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -3970,17 +4130,13 @@ textarea:focus { border-color: var(--primary); }
   user-select: none;
 }
 
-/* Studio bottom tabs
- * 스크롤되어도 항상 화면 맨 아래에 고정되도록 sticky 처리. z-index 는 panel
- * 보다 한 단계 높여서 panel 이 아래로 흘러도 탭이 그 위에 깔끔하게 떠 있게 함. */
+/* Studio bottom tabs — studio-screen 이 한 페이지로 고정돼서 자연스럽게
+ * 화면 맨 아래에 위치. flex-shrink: 0 으로 줄어들지 않도록만 보호. */
 .studio-tabs {
   display: flex;
   background: #18181B;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding: 10px 4px 24px;
-  position: sticky;
-  bottom: 0;
-  z-index: 6;
   flex-shrink: 0;
 }
 .st-tab {
@@ -7115,10 +7271,24 @@ textarea:focus { border-color: var(--primary); }
   border-radius: 2px;
 }
 
+/* 스타일 보관소 그리드 — 갤러리 보관소(2열) 와 같은 패턴.
+ * 화면 폭이 좁아도 2열을 유지하도록 1fr 1fr 로 고정. */
 .style-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 10px;
+}
+/* 그리드 안의 카드 블록 — 카드 + "이 스타일 사용하기" 버튼이 세로로 묶임 */
+.style-block {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 6px;
+  min-width: 0;
+}
+/* 2열 그리드 안에서 카드와 버튼이 좁아지므로 폰트도 살짝 축소 */
+.style-list .style-use-btn {
+  font-size: 12px;
+  padding: 10px 8px;
 }
 .style-empty {
   display: flex;
@@ -7150,6 +7320,97 @@ textarea:focus { border-color: var(--primary); }
   line-height: 1.5;
 }
 .style-block { display: flex; flex-direction: column; gap: 8px; }
+
+/* ──────────────────────────────────────────────────────────
+ * 스타일 미리보기 카드 (StylePreviewCard)
+ *
+ * 보관함과 스튜디오 픽커에서 공통 사용. 카드 안에는 텍스트와 스티커를 (x%, y%)
+ * 좌표로 배치 — 스튜디오의 TextOverlay/PlacedStickers 와 동일한 좌표계라서
+ * "미리보기 = 적용 결과" 가 일치.
+ *
+ * 비율 9/16(세로) 으로 고정 — 스튜디오 카드 stage 비율과 동일.
+ * ────────────────────────────────────────────────────────── */
+.spv-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+.spv-bg {
+  position: absolute;
+  inset: 0;
+}
+.spv-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+}
+.spv-bookmark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  color: var(--primary);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.spv-bookmark svg {
+  width: 22px;
+  height: 22px;
+}
+/* 텍스트 — (x%, y%) 의 중앙 정렬. translate(-50%,-50%) 로 좌표를 중심으로 위치. */
+.spv-text {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  line-height: 1.15;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  white-space: pre-wrap;
+  pointer-events: none;
+  user-select: none;
+}
+/* 스티커 — 자연 사이즈 약 40px 정도, 카드 비율에 맞춰 약간 작게.
+ * 이미지/이모지 둘 다 지원. */
+.spv-sticker {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+.spv-sticker-emoji {
+  font-size: 32px;
+  line-height: 1;
+  display: inline-block;
+}
+.spv-fallback-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
 
 .style-card {
   position: relative;
@@ -7277,19 +7538,22 @@ textarea:focus { border-color: var(--primary); }
   width: 100%;
   height: 100%;
 }
+/* Placed stickers container — text-overlay 와 같은 이유로 z-index 두지 않음.
+ * 안쪽 스티커들은 각자 layerOrder 기반 z-index 로 카드/텍스트와 자유롭게
+ * 교차 stacking 가능. */
 .placed-stickers {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 4;
 }
 .placed-sticker {
   position: absolute;
   /* 이모지(텍스트) 스티커용 기본 크기 */
   font-size: 32px;
   line-height: 1;
-  /* 이미지 스티커는 이 박스를 채움. 기존 좌표계(top-left anchor)를 유지하기 위해
-   * transform은 안 쓰고 픽셀 박스로만 크기 지정. */
+  /* 좌표(x%, y%) 를 스티커의 "중심" 으로 해석. translate(-50%, -50%) 로 정확히
+   * 중앙 정렬 — 텍스트 오버레이/미리보기 스티커와 동일한 기준으로 통일.
+   * 예: x=50, y=50 → 카드의 정중앙에 스티커가 위치. */
   width: 64px;
   height: 64px;
   display: inline-flex;
@@ -7297,6 +7561,7 @@ textarea:focus { border-color: var(--primary); }
   justify-content: center;
   background: transparent;
   border: none;
+  transform: translate(-50%, -50%);
   /* 모바일 터치가 스크롤로 해석되지 않도록 — pointermove 가 sticker 에 그대로 전달됨.
    * 이게 없으면 손가락 터치 시 브라우저가 스크롤을 시도하면서 pointermove 가 끊어져
    * 드래그가 안 시작됨. */
@@ -7313,8 +7578,9 @@ textarea:focus { border-color: var(--primary); }
   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
   transition: transform 0.12s ease;
 }
-.placed-sticker:hover { transform: scale(1.15); }
-.placed-sticker:active { transform: scale(0.95); }
+/* hover/active 시 translate 를 유지하면서 scale 만 더해야 위치가 어긋나지 않음. */
+.placed-sticker:hover { transform: translate(-50%, -50%) scale(1.15); }
+.placed-sticker:active { transform: translate(-50%, -50%) scale(0.95); }
 
 /* === Studio: Layer Panel (Photoshop-styled) === */
 .studio-toolbar .st-icon.active {

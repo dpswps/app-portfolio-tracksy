@@ -35,6 +35,9 @@ export default function PlacedStickers() {
   const dragRef = useRef<{
     id: number | null;
     pointerId: number | null;
+    // 드래그 중인 스티커 DOM — pointermove 마다 transform 을 직접 갱신해서
+    // store 재렌더를 우회하기 위한 참조.
+    target: HTMLElement | null;
     startClientX: number;
     startClientY: number;
     startX: number;
@@ -44,6 +47,7 @@ export default function PlacedStickers() {
   }>({
     id: null,
     pointerId: null,
+    target: null,
     startClientX: 0,
     startClientY: 0,
     startX: 0,
@@ -51,6 +55,8 @@ export default function PlacedStickers() {
     moved: false,
     pushed: false,
   });
+  // overTrash 캐시 — 같은 값 연속 set 으로 인한 TrashZone 재렌더 방지.
+  const lastOverRef = useRef(false);
 
   const onPointerDown = (
     id: number,
@@ -77,6 +83,7 @@ export default function PlacedStickers() {
     dragRef.current = {
       id,
       pointerId: e.pointerId,
+      target: e.currentTarget as HTMLElement,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startX: x,
@@ -101,17 +108,20 @@ export default function PlacedStickers() {
       pushHistory();
       d.pushed = true;
     }
-    const container = containerRef.current;
-    if (!container) return;
-    const r = container.getBoundingClientRect();
-    const x = d.startX + (dxPx / r.width) * 100;
-    const y = d.startY + (dyPx / r.height) * 100;
-    updateSticker(d.id, {
-      x: Math.max(0, Math.min(100, x)),
-      y: Math.max(0, Math.min(100, y)),
-    });
-    // trash zone hit-test
-    setOverTrash(isOverRect(getTrashRect(), e.clientX, e.clientY));
+    // 드래그 도중에는 store(=placedStickers) 를 매 프레임 갱신하지 않고
+    // 스티커 DOM 의 transform 만 직접 업데이트 → 컴포넌트 재렌더 없이 60fps
+    // 부드럽게 추적. 기존 CSS 의 `transform: translate(-50%, -50%)` 를 보존하면서
+    // 추가로 translate(dxPx, dyPx) 를 합쳐 적용.
+    if (d.target) {
+      d.target.style.transform =
+        `translate(-50%, -50%) translate(${dxPx}px, ${dyPx}px)`;
+    }
+    // trash zone hit-test — 값 변할 때만 store 갱신해서 TrashZone 재렌더 최소화.
+    const nowOver = isOverRect(getTrashRect(), e.clientX, e.clientY);
+    if (nowOver !== lastOverRef.current) {
+      lastOverRef.current = nowOver;
+      setOverTrash(nowOver);
+    }
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -119,10 +129,37 @@ export default function PlacedStickers() {
     if (d.id == null || d.pointerId !== e.pointerId) return;
     (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
     const id = d.id;
+    const target = d.target;
     const droppedOnTrash = isOverRect(getTrashRect(), e.clientX, e.clientY);
+
+    // 휴지통 위에서 드롭 → 삭제 (위치 commit 불필요).
+    if (droppedOnTrash) {
+      // 인라인 transform 잔상을 제거해서 store 에서 사라지는 사이 잠깐 어색한
+      // 위치로 보이지 않게.
+      if (target) target.style.transform = "";
+      removeSticker(id);
+    } else if (d.moved) {
+      // 드래그 종료 — 누적 픽셀 이동을 % 좌표로 환산해 store 에 한 번만 commit.
+      // DOM transform 을 CSS 기본값으로 복원해서 다음 렌더와 inline 불일치 방지.
+      const container = containerRef.current;
+      if (container) {
+        const r = container.getBoundingClientRect();
+        const dxPx = e.clientX - d.startClientX;
+        const dyPx = e.clientY - d.startClientY;
+        const x = d.startX + (dxPx / r.width) * 100;
+        const y = d.startY + (dyPx / r.height) * 100;
+        if (target) target.style.transform = "";
+        updateSticker(id, {
+          x: Math.max(0, Math.min(100, x)),
+          y: Math.max(0, Math.min(100, y)),
+        });
+      }
+    }
+
     dragRef.current = {
       id: null,
       pointerId: null,
+      target: null,
       startClientX: 0,
       startClientY: 0,
       startX: 0,
@@ -130,12 +167,9 @@ export default function PlacedStickers() {
       moved: false,
       pushed: false,
     };
-    // 휴지통 위에서 드롭 → 삭제. 그 외엔 위치만 변경 + 탭은 무동작(선택만 유지).
-    if (droppedOnTrash) {
-      removeSticker(id);
-    }
     setDragging(null);
     setOverTrash(false);
+    lastOverRef.current = false;
   };
 
   return (

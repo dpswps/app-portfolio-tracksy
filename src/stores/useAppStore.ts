@@ -28,6 +28,17 @@ type StudioSnapshot = {
     color: string;
   }>;
   placedStickers: Array<{ id: number; emoji: string; x: number; y: number }>;
+  // 카드 빌트인 텍스트 커스터마이즈 & 숨김 상태도 undo/redo 로 되돌릴 수 있도록
+  // history 스냅샷에 함께 기록.
+  studioCardTextColors: Record<string, string>;
+  studioCardTextFonts: Record<
+    string,
+    { family: string; weight?: number; style?: string }
+  >;
+  studioCardTextSizes: Record<string, number>;
+  studioHiddenCardFields: Record<string, boolean>;
+  // 레이어 가시성 — drag-to-trash 로 card 레이어 통째 숨김 시 undo 복원에 필요.
+  studioHiddenLayers: Record<string, boolean>;
 };
 
 export type AIJournal = {
@@ -137,6 +148,27 @@ type State = {
    */
   studioCardTextColors: Record<string, string>;
   /**
+   * 카드 빌트인 텍스트 각 필드의 폰트(폰트패밀리 + weight + style).
+   * 값 없으면 CSS 기본을 그대로 사용.
+   * 텍스트 오버레이(studioTexts)의 font/fontWeight/fontStyle 와 같은 구조.
+   */
+  studioCardTextFonts: Record<
+    string,
+    { family: string; weight?: number; style?: string }
+  >;
+  /**
+   * 카드 빌트인 텍스트 각 필드의 폰트 사이즈(px). 값 없으면 CSS 기본 사용.
+   * 텍스트 오버레이의 size 와 동일한 의미(픽셀 단위).
+   */
+  studioCardTextSizes: Record<string, number>;
+  /**
+   * 사용자가 "삭제" 한 카드 빌트인 텍스트 필드 — true 면 그 필드(아이콘/라벨
+   * 포함한 row 전체)가 카드에서 렌더되지 않음.
+   * 키: weekTitle / distance / time / pace / calories / bubble.
+   * undo(또는 명시적 복원 액션) 로 되돌릴 수 있음.
+   */
+  studioHiddenCardFields: Record<string, boolean>;
+  /**
    * 현재 선택된 카드 텍스트 필드 (color picker 등이 이 필드에 적용됨).
    * 어떤 카드 텍스트를 탭하면 그 필드가 active 가 되고, 색상 변경 가능.
    */
@@ -147,10 +179,16 @@ type State = {
    * 현재 캔버스에서 드래그되고 있는 콘텐츠 (텍스트/스티커/말풍선).
    * null = 드래그 안 함. 값 있으면 TrashZone 이 노출되어 그 위에 떨어뜨리면 삭제.
    * "bubble" 은 카드의 말풍선+마스코트 묶음(rc-bubble-wrap) — id는 0 으로 고정.
+   * "cardField" 는 RunningCard 의 빌트인 텍스트(weekTitle/distance/time/...) —
+   *  field 키로 어떤 row 를 삭제할지 결정.
+   * "cardLayer" 는 러닝 기록 전체(rc-stats-group). 휴지통에 떨어뜨리면
+   *  studioHiddenLayers["card"] = true 로 묶어서 한 번에 숨김.
    */
   studioDraggingContent:
     | { kind: "text" | "sticker"; id: number }
     | { kind: "bubble" }
+    | { kind: "cardField"; field: string }
+    | { kind: "cardLayer" }
     | null;
   /** 말풍선+마스코트 묶음의 위치 (퍼센트). null이면 CSS 기본 위치(우측 하단). */
   studioBubblePos: { x: number; y: number } | null;
@@ -228,6 +266,9 @@ type State = {
   setStudioLayerPanelOpen: (open: boolean) => void;
   toggleStudioLayerPanel: () => void;
   toggleLayerVisibility: (key: string) => void;
+  /** 레이어의 가시성을 명시적으로 설정(토글 X). drag-to-trash 처럼 결과 상태가
+   * 항상 hidden 인 경우 사용. */
+  setLayerHidden: (key: string, hidden: boolean) => void;
   toggleLayerLock: (key: string) => void;
   setLayerName: (key: string, name: string) => void;
   setStudioSelectedLayer: (key: string | null) => void;
@@ -254,6 +295,18 @@ type State = {
   setStudioCardData: (patch: Partial<State["studioCardData"]>) => void;
   /** 카드 빌트인 텍스트 필드의 색상 설정. */
   setStudioCardTextColor: (field: string, color: string) => void;
+  /** 카드 빌트인 텍스트 필드의 폰트(family/weight/style) 설정. */
+  setStudioCardTextFont: (
+    field: string,
+    font: { family: string; weight?: number; style?: string },
+  ) => void;
+  /** 카드 빌트인 텍스트 필드의 폰트 사이즈(px) 설정. */
+  setStudioCardTextSize: (field: string, size: number) => void;
+  /**
+   * 카드 빌트인 텍스트 필드 숨김 토글. true 로 설정되면 카드 렌더 시 그 row
+   * 전체(아이콘/라벨 포함)가 빠진다. undo 로 복원 가능.
+   */
+  setCardFieldHidden: (field: string, hidden: boolean) => void;
   /** 현재 활성 카드 텍스트 필드 설정 (null이면 해제). */
   setStudioActiveCardField: (field: string | null) => void;
   loadNextStudioRecord: () => string | null;
@@ -384,6 +437,9 @@ export const useAppStore = create<State>()(
         bubble: "",
       },
       studioCardTextColors: {},
+      studioCardTextFonts: {},
+      studioCardTextSizes: {},
+      studioHiddenCardFields: {},
       studioActiveCardField: null,
       studioRecordIdx: -1,
       studioRecordPickerOpen: false,
@@ -546,6 +602,15 @@ export const useAppStore = create<State>()(
           else next[key] = true;
           return { studioHiddenLayers: next };
         }),
+      setLayerHidden: (key, hidden) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const next = { ...s.studioHiddenLayers };
+          if (hidden) next[key] = true;
+          else delete next[key];
+          return { studioHiddenLayers: next };
+        });
+      },
       toggleLayerLock: (key) =>
         set((s) => {
           const next = { ...s.studioLockedLayers };
@@ -625,13 +690,18 @@ export const useAppStore = create<State>()(
       moveStudioLayer: (key, toVisibleIdx) => {
         get().pushStudioHistory();
         set((s) => {
-          // 마이그레이션: layerOrder가 비었으면 현재 데이터로 채움
+          // 마이그레이션:
+          //  - layerOrder가 비었으면 현재 데이터로 채움
+          //  - "card" 가 빠져있으면 맨 앞(back) 에 추가 — 러닝 기록 레이어도
+          //    다른 텍스트/스티커처럼 reorder 가능하도록 통합 관리.
           let order = [...s.studioLayerOrder];
           if (order.length === 0) {
-            // 기본 순서: 스티커가 텍스트보다 위 (back→front 순서로 배열)
+            // 기본 순서: card 가 맨 아래(back), 텍스트, 스티커 순 (back→front)
             const textKeys = s.studioTexts.map((t) => `text-${t.id}`);
             const stickerKeys = s.placedStickers.map((p) => `sticker-${p.id}`);
-            order = [...textKeys, ...stickerKeys];
+            order = ["card", ...textKeys, ...stickerKeys];
+          } else if (!order.includes("card")) {
+            order = ["card", ...order];
           }
           const fromIdx = order.indexOf(key);
           if (fromIdx === -1) return s;
@@ -680,6 +750,35 @@ export const useAppStore = create<State>()(
         set((s) => ({
           studioCardTextColors: { ...s.studioCardTextColors, [field]: color },
         }));
+      },
+      setStudioCardTextFont: (field, font) => {
+        get().pushStudioHistory();
+        set((s) => ({
+          studioCardTextFonts: { ...s.studioCardTextFonts, [field]: font },
+        }));
+      },
+      setStudioCardTextSize: (field, size) => {
+        // size 슬라이더는 한 번에 여러 번 set 을 부르므로 매번 history push 하면
+        // undo 스택이 폭발한다. 호출자가 슬라이더 시작 시점에 한 번만 pushHistory
+        // 를 부르도록 하고, 여기서는 history 누적 X.
+        set((s) => ({
+          studioCardTextSizes: { ...s.studioCardTextSizes, [field]: size },
+        }));
+      },
+      setCardFieldHidden: (field, hidden) => {
+        get().pushStudioHistory();
+        set((s) => {
+          const next = { ...s.studioHiddenCardFields };
+          if (hidden) next[field] = true;
+          else delete next[field];
+          return {
+            studioHiddenCardFields: next,
+            // 숨긴 필드가 현재 active 였다면 active 도 해제
+            ...(hidden && s.studioActiveCardField === field
+              ? { studioActiveCardField: null }
+              : {}),
+          };
+        });
       },
       setStudioActiveCardField: (field) =>
         set({
@@ -751,30 +850,62 @@ export const useAppStore = create<State>()(
       setStudioBubblePos: (pos) => set({ studioBubblePos: pos }),
       setStudioStylePickerOpen: (open) => set({ studioStylePickerOpen: open }),
       applyStudioStyle: (style) => {
-        // 스타일의 모든 정보(배경·제목·거리·통계)를 스튜디오 카드에 한 번에 적용.
-        // 적용 후 사용자는 텍스트를 클릭해서 그대로 수정할 수 있음 (기존 EditableText 동작).
+        // "스타일" 은 텍스트/스티커 레이아웃(template) 을 의미. 적용 시 사용자가
+        // 이미 캔버스에 올려놓은 배경/텍스트/스티커는 모두 보존되고, 스타일의
+        // 텍스트와 스티커가 새 id 로 덧붙여진다.
+        //
+        // 배경 처리:
+        //  - 사용자가 이미 배경을 올려놨다면(studioBackground != null) 그대로 유지.
+        //  - 비어 있고 스타일에 미리보기용 bg(그라데이션) 가 있으면 폴백으로 적용.
+        //    (대부분의 경우 사용자는 자기 배경을 갖고 들어오므로 이 폴백은 거의
+        //    동작하지 않음 — 그래도 빈 캔버스에 스타일만 적용하는 케이스를 위해
+        //    안전망으로 남겨둠.)
         get().pushStudioHistory();
-        const stats = style.stats || [];
-        // StyleCard의 stats는 자유 형식. 표준 매핑:
-        //   0 → time, 1 → pace, 2 → calories
-        // 나머지는 무시 (스튜디오 카드는 4개 필드만 노출 — bubble은 별도).
-        const get0 = (i: number) => (stats[i]?.v ?? "").toString();
-        set((s) => ({
-          studioBackground: style.bg || s.studioBackground,
-          studioRotate: 0,
-          studioFlipH: false,
-          studioFlipV: false,
-          studioCrop: 1,
-          studioCropMode: false,
-          studioCardData: {
-            ...s.studioCardData,
-            weekTitle: style.title || s.studioCardData.weekTitle,
-            distance: style.dist || s.studioCardData.distance,
-            time: get0(0) || s.studioCardData.time,
-            pace: get0(1) || s.studioCardData.pace,
-            calories: get0(2) || s.studioCardData.calories,
-          },
-        }));
+        set((s) => {
+          let nextTexts = s.studioTexts;
+          let nextStickers = s.placedStickers;
+          let nextLayerOrder = [...s.studioLayerOrder];
+
+          const tpl = style.template;
+          if (tpl) {
+            // 새 id 는 충돌 방지 위해 Date.now() + offset 사용.
+            // 텍스트와 스티커는 id 공간이 분리돼 있어 같은 base 를 써도 무방하지만,
+            // 가독성 / 안전성을 위해 sticker 는 +10000 offset.
+            const baseId = Date.now();
+            const addedTexts = tpl.texts.map((t, i) => ({
+              id: baseId + i,
+              text: t.text,
+              x: t.x,
+              y: t.y,
+              size: t.size,
+              font: t.font,
+              fontWeight: t.fontWeight,
+              fontStyle: t.fontStyle,
+              color: t.color,
+            }));
+            const addedStickers = tpl.stickers.map((p, i) => ({
+              id: baseId + 10000 + i,
+              emoji: p.emoji,
+              x: p.x,
+              y: p.y,
+            }));
+            nextTexts = [...nextTexts, ...addedTexts];
+            nextStickers = [...nextStickers, ...addedStickers];
+            nextLayerOrder = [
+              ...nextLayerOrder,
+              ...addedTexts.map((t) => `text-${t.id}`),
+              ...addedStickers.map((p) => `sticker-${p.id}`),
+            ];
+          }
+
+          return {
+            // 사용자가 이미 배경을 설정했으면 그대로 유지, 아니면 스타일의 bg 적용
+            studioBackground: s.studioBackground ?? style.bg ?? null,
+            studioTexts: nextTexts,
+            placedStickers: nextStickers,
+            studioLayerOrder: nextLayerOrder,
+          };
+        });
       },
       updatePlacedSticker: (id, patch) =>
         set((s) => ({
@@ -794,6 +925,11 @@ export const useAppStore = create<State>()(
             studioRatio: s.studioRatio,
             studioTexts: s.studioTexts.map((t) => ({ ...t })),
             placedStickers: s.placedStickers.map((p) => ({ ...p })),
+            studioCardTextColors: { ...s.studioCardTextColors },
+            studioCardTextFonts: { ...s.studioCardTextFonts },
+            studioCardTextSizes: { ...s.studioCardTextSizes },
+            studioHiddenCardFields: { ...s.studioHiddenCardFields },
+            studioHiddenLayers: { ...s.studioHiddenLayers },
           };
           const next = [...s.studioHistory, snap];
           if (next.length > 50) next.shift();
@@ -813,6 +949,11 @@ export const useAppStore = create<State>()(
             studioRatio: s.studioRatio,
             studioTexts: s.studioTexts.map((t) => ({ ...t })),
             placedStickers: s.placedStickers.map((p) => ({ ...p })),
+            studioCardTextColors: { ...s.studioCardTextColors },
+            studioCardTextFonts: { ...s.studioCardTextFonts },
+            studioCardTextSizes: { ...s.studioCardTextSizes },
+            studioHiddenCardFields: { ...s.studioHiddenCardFields },
+            studioHiddenLayers: { ...s.studioHiddenLayers },
           };
           return {
             ...target,
@@ -834,6 +975,11 @@ export const useAppStore = create<State>()(
             studioRatio: s.studioRatio,
             studioTexts: s.studioTexts.map((t) => ({ ...t })),
             placedStickers: s.placedStickers.map((p) => ({ ...p })),
+            studioCardTextColors: { ...s.studioCardTextColors },
+            studioCardTextFonts: { ...s.studioCardTextFonts },
+            studioCardTextSizes: { ...s.studioCardTextSizes },
+            studioHiddenCardFields: { ...s.studioHiddenCardFields },
+            studioHiddenLayers: { ...s.studioHiddenLayers },
           };
           return {
             ...target,

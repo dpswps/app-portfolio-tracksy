@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { archiveRecords } from "@/data/archiveRecords";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatKoreanDate } from "@/lib/date";
@@ -9,11 +10,15 @@ import { formatKoreanDate } from "@/lib/date";
 /**
  * 페이스 문자열(예: "5'56\"")을 분 단위 숫자로 변환.
  * 페이스 평가용. 실패하면 undefined.
+ *
+ * pace 가 null/undefined/빈문자열인 경우(사용자 수동 입력 누락 등)에 대비해
+ * 타입 가드를 먼저 통과시킨다.
  */
-function paceToMinutes(pace: string): number | undefined {
+function paceToMinutes(pace: string | null | undefined): number | undefined {
+  if (typeof pace !== "string" || pace.length === 0) return undefined;
   const m = pace.match(/(\d+)['′](\d{0,2})(?:["″]?)/);
   if (!m) return undefined;
-  const min = parseInt(m[1], 10);
+  const min = parseInt(m[1]!, 10);
   const sec = m[2] ? parseInt(m[2], 10) : 0;
   return min + sec / 60;
 }
@@ -43,8 +48,16 @@ export default function RecordDetailPage() {
   const deleteUserRecord = useAppStore((s) => s.deleteUserRecord);
   const showToast = useAppStore((s) => s.showToast);
   // 같은 날짜에 저장된 AI 러닝일지들 — 메모 아래에 함께 노출.
-  const aiJournalsForDate = useAppStore((s) =>
-    s.aiJournals.filter((j) => j.date === dateParam),
+  //
+  // ⚠️ Zustand selector 안에서 직접 `.filter(...)` 를 호출하면 매 호출마다 새
+  // 배열을 반환하게 되어 React 가 "getSnapshot should be cached" 무한 루프
+  // 경고를 띄운다. 그래서 selector 는 stable 한 원본 배열 reference 만 꺼내고,
+  // 필터링은 useMemo 로 분리한다. (영구 저장 state 가 오래돼서 aiJournals
+  // 필드가 없을 가능성에 대비해 `?? []` 폴백도 함께 적용.)
+  const aiJournals = useAppStore((s) => s.aiJournals);
+  const aiJournalsForDate = useMemo(
+    () => (aiJournals ?? []).filter((j) => j.date === dateParam),
+    [aiJournals, dateParam],
   );
   const removeAIJournal = useAppStore((s) => s.removeAIJournal);
 
@@ -239,7 +252,7 @@ export default function RecordDetailPage() {
                     <span className="rd-ai-journal-q open">&ldquo;</span>
                     <p
                       dangerouslySetInnerHTML={{
-                        __html: j.summary.replace(/\n/g, "<br/>"),
+                        __html: (j.summary ?? "").replace(/\n/g, "<br/>"),
                       }}
                     />
                     <span className="rd-ai-journal-q close">&rdquo;</span>

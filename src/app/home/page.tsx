@@ -193,12 +193,15 @@ export default function HomePage() {
     const main = mainRef.current;
     if (!track || !main) return;
 
-    const center = () => {
-      const targetLeft = main.offsetLeft - (track.clientWidth - main.clientWidth) / 2;
+    // 초기 중앙 정렬 — 메인 슬라이드(러닝 기록하기)가 가운데로 오도록 한 번만.
+    const centerOnMain = () => {
+      const targetLeft =
+        main.offsetLeft - (track.clientWidth - main.clientWidth) / 2;
       track.scrollTo({ left: targetLeft, behavior: "auto" });
     };
-    requestAnimationFrame(center);
+    requestAnimationFrame(centerOnMain);
 
+    // 마우스 휠: 세로 스크롤을 가로 스크롤로 변환.
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault();
@@ -207,9 +210,15 @@ export default function HomePage() {
     };
     track.addEventListener("wheel", onWheel, { passive: false });
 
-    const snapToNearest = () => {
-      const slides = Array.from(track.querySelectorAll<HTMLElement>(".hero-slide"));
-      if (slides.length === 0) return null;
+    /**
+     * 현재 scrollLeft + velocity 를 보고 가장 가까운 슬라이드로 부드럽게 snap.
+     * 빠른 flick (|v| > FLICK) 이면 한 칸 더 진행 방향으로 보낸다.
+     */
+    const snapWithVelocity = (vel: number) => {
+      const slides = Array.from(
+        track.querySelectorAll<HTMLElement>(".hero-slide"),
+      );
+      if (slides.length === 0) return;
       const viewCenter = track.scrollLeft + track.clientWidth / 2;
       let nearestIdx = 0;
       let minDist = Infinity;
@@ -221,50 +230,20 @@ export default function HomePage() {
           nearestIdx = i;
         }
       });
-      // If user flicks fast enough, advance one slide in the direction of motion.
       const FLICK = 0.45; // px/ms
-      if (velocity < -FLICK && nearestIdx < slides.length - 1) nearestIdx++;
-      else if (velocity > FLICK && nearestIdx > 0) nearestIdx--;
-      return slides[nearestIdx];
-    };
-const getSnapTarget = (velocity: number) => {
-  if (!trackRef.current) return null;
-
-  const track = trackRef.current;
-  const currentLeft = track.scrollLeft;
-  const cards = Array.from(track.children) as HTMLElement[];
-
-  if (cards.length === 0) return null;
-
-  let nearestIndex = 0;
-  let minDistance = Infinity;
-
-  cards.forEach((card, index) => {
-    const cardCenter = card.offsetLeft + card.clientWidth / 2;
-    const trackCenter = currentLeft + track.clientWidth / 2;
-    const distance = Math.abs(cardCenter - trackCenter);
-
-    if (distance < minDistance) {
-      minDistance = distance;
-      nearestIndex = index;
-    }
-  });
-
-  if (velocity > 0.5) {
-    nearestIndex = Math.min(nearestIndex + 1, cards.length - 1);
-  } else if (velocity < -0.5) {
-    nearestIndex = Math.max(nearestIndex - 1, 0);
-  }
-
-  return cards[nearestIndex];
-};
-    const snapWithVelocity = (velocity: number) => {
-      const target = getSnapTarget(velocity);
-      if (!target) return;
-      const targetLeft = target.offsetLeft - (track.clientWidth - target.clientWidth) / 2;
+      if (vel < -FLICK && nearestIdx < slides.length - 1) nearestIdx++;
+      else if (vel > FLICK && nearestIdx > 0) nearestIdx--;
+      const target = slides[nearestIdx]!;
+      const targetLeft =
+        target.offsetLeft - (track.clientWidth - target.clientWidth) / 2;
       track.scrollTo({ left: targetLeft, behavior: "smooth" });
     };
 
+    // ──────────────────────────────────────────────────────────
+    // 드래그 핸들러 — pointermove 가 분당 수백 번 발사돼서 매번 scrollLeft 를
+    // 직접 갱신하면 layout/paint 가 누적되어 끊긴다. requestAnimationFrame 으로
+    // 60fps 로 throttle 해서 1 프레임당 1번만 scrollLeft 를 commit.
+    // ──────────────────────────────────────────────────────────
     let isDown = false;
     let captured = false;
     let startX = 0;
@@ -273,7 +252,17 @@ const getSnapTarget = (velocity: number) => {
     let lastX = 0;
     let lastTime = 0;
     let velocity = 0;
+    let pendingScroll: number | null = null;
+    let rafId: number | null = null;
     const DRAG_THRESHOLD = 4;
+
+    const flushScroll = () => {
+      rafId = null;
+      if (pendingScroll != null) {
+        track.scrollLeft = pendingScroll;
+        pendingScroll = null;
+      }
+    };
 
     const onDown = (e: PointerEvent) => {
       isDown = true;
@@ -281,7 +270,11 @@ const getSnapTarget = (velocity: number) => {
       dragDistance = 0;
       startX = e.clientX;
       startScroll = track.scrollLeft;
+      velocity = 0;
+      lastX = e.clientX;
+      lastTime = performance.now();
     };
+
     const onMove = (e: PointerEvent) => {
       if (!isDown) return;
       const dx = e.clientX - startX;
@@ -289,14 +282,19 @@ const getSnapTarget = (velocity: number) => {
       if (!captured && Math.abs(dx) > DRAG_THRESHOLD) {
         try {
           track.setPointerCapture(e.pointerId);
-        } catch {}
+        } catch {
+          /* noop */
+        }
         captured = true;
         track.classList.add("dragging");
       }
       if (captured) {
-        // 1:1 follow-finger scroll; CSS disables snap while .dragging is set.
-        track.scrollLeft = startScroll - dx;
-        // Smooth (low-pass) velocity sampling — px/ms.
+        // 1:1 follow-finger 스크롤 — 다만 RAF 로 throttle.
+        pendingScroll = startScroll - dx;
+        if (rafId == null) {
+          rafId = requestAnimationFrame(flushScroll);
+        }
+        // 저역통과 필터 기반 velocity 샘플링 (px/ms).
         const now = performance.now();
         const dt = now - lastTime;
         if (dt > 0) {
@@ -307,33 +305,49 @@ const getSnapTarget = (velocity: number) => {
         lastTime = now;
       }
     };
+
     const onUp = (e: PointerEvent) => {
       if (!isDown) return;
       isDown = false;
+      // 보류 중인 RAF scroll 을 즉시 commit — snap 계산이 최신 scrollLeft 를
+      // 보도록.
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        if (pendingScroll != null) {
+          track.scrollLeft = pendingScroll;
+          pendingScroll = null;
+        }
+      }
       if (captured) {
         try {
           track.releasePointerCapture(e.pointerId);
-        } catch {}
-        // Stale velocity guard — if the pointer paused before release, treat as 0.
+        } catch {
+          /* noop */
+        }
+        // Stale velocity 가드 — 손가락이 멈춘 채로 떼면 velocity 0 으로.
         const sinceMove = performance.now() - lastTime;
         if (sinceMove > 80) velocity = 0;
-        // Run snap on the next frame so the browser has up-to-date scrollLeft.
+        // 다음 프레임에 snap 실행 — scrollLeft 가 최종 commit 된 뒤.
         requestAnimationFrame(() => snapWithVelocity(velocity));
-        // Re-enable CSS snap after the smooth animation roughly finishes
-        // so subsequent native scrolls still snap on each slide.
+        // smooth scroll 이 대략 끝난 뒤 CSS snap 다시 활성화.
         window.setTimeout(() => {
           track.classList.remove("dragging");
-        }, 280);
+        }, 320);
       }
+      // 드래그가 있었으면 직후의 click 을 한 번 차단 (의도치 않은 카드 진입 방지).
       if (dragDistance > DRAG_THRESHOLD) {
         const suppress = (ev: Event) => {
           ev.stopPropagation();
           ev.preventDefault();
         };
-        track.addEventListener("click", suppress, { capture: true, once: true });
-        requestAnimationFrame(snapToNearest);
+        track.addEventListener("click", suppress, {
+          capture: true,
+          once: true,
+        });
       }
     };
+
     track.addEventListener("pointerdown", onDown);
     track.addEventListener("pointermove", onMove);
     track.addEventListener("pointerup", onUp);
@@ -345,6 +359,7 @@ const getSnapTarget = (velocity: number) => {
       track.removeEventListener("pointermove", onMove);
       track.removeEventListener("pointerup", onUp);
       track.removeEventListener("pointercancel", onUp);
+      if (rafId != null) cancelAnimationFrame(rafId);
     };
   }, []);
 

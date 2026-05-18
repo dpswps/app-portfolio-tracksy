@@ -125,6 +125,30 @@ export type GalleryCard = {
 
 export type StyleStat = { v: string; l: string };
 
+/**
+ * "스타일" 의 본체 — 유저가 스튜디오에서 배치한 텍스트와 스티커의 좌표/스타일.
+ *
+ * 좌표 시스템: x, y 모두 카드 영역 기준의 백분율(0~100). 중앙 = (50, 50).
+ * 스튜디오 캔버스의 텍스트/스티커 렌더링과 동일한 좌표계.
+ *
+ * 스타일은 "겉모습 카드(StyleCard)" 와 분리된 개념 — 카드는 보관함에서 미리
+ * 보여줄 프리뷰용 메타데이터(배경/제목/거리/통계 등) 를 들고 있고, template 은
+ * 실제로 스튜디오에 적용될 때 추가되는 텍스트/스티커 레이아웃이다.
+ */
+export type StyleTemplate = {
+  texts: Array<{
+    text: string;
+    x: number;
+    y: number;
+    size: number;
+    font: string;
+    fontWeight?: number | string;
+    fontStyle?: string;
+    color: string;
+  }>;
+  stickers: Array<{ emoji: string; x: number; y: number }>;
+};
+
 export type StyleCard = {
   id: string;
   date: string;
@@ -133,6 +157,13 @@ export type StyleCard = {
   distColor?: string;
   bg: string;
   stats: StyleStat[];
+  /**
+   * 스튜디오에 적용될 텍스트/스티커 레이아웃. 적용 시 기존 배경/텍스트/스티커는
+   * 보존되고 이 template 의 항목들이 새 id 로 추가된다. (옵션이라 기존 데이터
+   * 호환 — template 이 없는 스타일은 카드 외형만 미리보고 텍스트/스티커는
+   * 적용되지 않음.)
+   */
+  template?: StyleTemplate;
 };
 
 export type StyleCards = { saved: StyleCard[]; mine: StyleCard[] };

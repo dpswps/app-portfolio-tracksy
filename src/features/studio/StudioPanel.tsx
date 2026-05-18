@@ -55,11 +55,16 @@ function TextTab() {
   const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
   const addText = useAppStore((s) => s.addStudioText);
   const showToast = useAppStore((s) => s.showToast);
+  // 카드 빌트인 필드도 텍스트 편집 대상 — 카드 텍스트를 탭하면 activeCardField
+  // 가 설정되고, 그 상태에서 글꼴/글자크기/색상 모두 그 필드에 적용된다.
+  // 삭제는 별도 버튼이 아닌 drag-to-trash 로 처리 (EditableText 가 직접 담당).
+  const activeCardField = useAppStore((s) => s.studioActiveCardField);
 
-  const hasActive = texts.some((t) => t.id === activeId);
+  const hasActive =
+    texts.some((t) => t.id === activeId) || activeCardField != null;
   const toggle = (m: "font" | "size" | "color") => {
     if (!hasActive) {
-      showToast("먼저 텍스트를 추가해주세요");
+      showToast("먼저 텍스트를 선택하거나 추가해주세요");
       return;
     }
     setSubmenu(submenu === m ? "none" : m);

@@ -225,12 +225,16 @@ export default function LayerPanel() {
    * ────────────────────────────────────────────────────────── */
   const rows: LayerRow[] = [];
 
-  // 효과적인 layerOrder — 비어있으면 기본 순서로 채움 (back→front)
+  // 효과적인 layerOrder — 비어있거나 "card" 가 빠져있으면 보강.
+  //  - "card" 도 reorderable layer 로 취급해서 사용자가 카드 본체를 텍스트/스티커
+  //    사이로 자유롭게 옮길 수 있도록 함.
   let effectiveOrder = layerOrderState;
   if (effectiveOrder.length === 0) {
     const textKeys = texts.map((t) => `text-${t.id}`);
     const stickerKeys = stickers.map((p) => `sticker-${p.id}`);
-    effectiveOrder = [...textKeys, ...stickerKeys];
+    effectiveOrder = ["card", ...textKeys, ...stickerKeys];
+  } else if (!effectiveOrder.includes("card")) {
+    effectiveOrder = ["card", ...effectiveOrder];
   }
   // 표시 순서는 front-to-back (마지막 = top 이므로 reverse)
   const displayOrder = [...effectiveOrder].reverse();
@@ -317,16 +321,21 @@ export default function LayerPanel() {
         deletable: true,
         renameable: true,
       });
+    } else if (key === "card") {
+      // 러닝 기록(card) 도 reorder 가능한 layer 로 — refId 는 0 으로 더미 부여
+      // (실제 reorder 는 key 기반이라 refId 값은 사용 안 함, 다만 reorderable
+      // 조건이 refId != null 을 요구하므로 기본값 0).
+      rows.push({
+        key: "card",
+        kind: "card",
+        refId: 0,
+        defaultName: "Running Card",
+        preview: <CardThumbIcon />,
+        reorderable: true,
+        deletable: false,
+        renameable: true,
+      });
     }
-  });
-  rows.push({
-    key: "card",
-    kind: "card",
-    defaultName: "Running Card",
-    preview: <CardThumbIcon />,
-    reorderable: false,
-    deletable: false,
-    renameable: true,
   });
   rows.push({
     key: "bg",

@@ -246,11 +246,13 @@ export default function StudioPage() {
             <span className="st-fab-plus" aria-hidden>+</span>
           </button>
           <button className="st-fab st-fab-record" aria-label="기록 불러오기" onClick={onLoadRecord}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 3h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z" />
-              <path d="M5 7h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
-              <path d="M9 13l2 2 4-4" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/run.png"
+              alt=""
+              className="st-fab-record-img"
+              draggable={false}
+            />
             <span className="st-fab-plus" aria-hidden>+</span>
           </button>
           {/* 스타일 불러오기는 Design > 스타일 탭으로 이동했으므로 FAB은 제거. */}

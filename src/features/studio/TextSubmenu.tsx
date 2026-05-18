@@ -213,6 +213,24 @@ function EyedropperButton({
   );
 }
 
+/**
+ * 카드 빌트인 필드별 "기본 폰트 사이즈" — 사용자가 size 슬라이더를 처음
+ * 만지기 전까지 CSS 가 결정한 실제 크기 근사값.
+ *
+ * 슬라이더는 시작 사이즈가 있어야 좌우로 자연스럽게 움직이는데, store 의
+ * studioCardTextSizes 에 값이 아직 없으면 0/null 로 시작해버려 슬라이더가
+ * 맨 아래에 박힌다. 그래서 필드별 시각적 기본값을 매핑해두고, 슬라이더가
+ * 첫 사용 시 이 값에서 시작하도록 한다.
+ */
+const CARD_FIELD_DEFAULT_SIZE: Record<string, number> = {
+  weekTitle: 16,
+  distance: 56,
+  time: 16,
+  pace: 16,
+  calories: 16,
+  bubble: 12,
+};
+
 export default function TextSubmenu() {
   const submenu = useAppStore((s) => s.studioTextSubmenu);
   const activeId = useAppStore((s) => s.studioActiveTextId);
@@ -221,60 +239,88 @@ export default function TextSubmenu() {
   const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
   const showToast = useAppStore((s) => s.showToast);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
-  // 카드 빌트인 텍스트(weekTitle/distance/time/pace/calories/bubble) 색상 지원.
+  // 카드 빌트인 텍스트(weekTitle/distance/time/pace/calories/bubble) 색상/폰트/사이즈 지원.
   // 사용자가 카드 텍스트를 탭하면 activeCardField 가 설정되고, 그 상태에서
-  // 색상 picker를 누르면 그 필드의 색이 바뀐다.
+  // 글꼴/글자크기/색상 picker 가 모두 그 필드에 적용된다.
   const activeCardField = useAppStore((s) => s.studioActiveCardField);
   const cardTextColors = useAppStore((s) => s.studioCardTextColors);
+  const cardTextFonts = useAppStore((s) => s.studioCardTextFonts);
+  const cardTextSizes = useAppStore((s) => s.studioCardTextSizes);
   const setCardTextColor = useAppStore((s) => s.setStudioCardTextColor);
+  const setCardTextFont = useAppStore((s) => s.setStudioCardTextFont);
+  const setCardTextSize = useAppStore((s) => s.setStudioCardTextSize);
   const sliderRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ active: boolean }>({ active: false });
 
   const active = texts.find((t) => t.id === activeId);
-  // 색상 picker 대상: 텍스트 오버레이가 active 면 그쪽, 아니면 카드 빌트인 필드.
-  const colorTarget: "overlay" | "card" | null =
-    active ? "overlay" : activeCardField ? "card" : null;
+  // 적용 대상: 텍스트 오버레이가 active 면 그쪽, 아니면 카드 빌트인 필드.
+  // 색상/폰트/사이즈 모두 동일한 대상 분기를 사용.
+  const target: "overlay" | "card" | null = active
+    ? "overlay"
+    : activeCardField
+      ? "card"
+      : null;
+
   const currentColor =
-    colorTarget === "overlay"
+    target === "overlay"
       ? active!.color
-      : colorTarget === "card"
+      : target === "card"
         ? cardTextColors[activeCardField!] ?? "#FFFFFF"
         : "#FFFFFF";
 
-  // 색상/폰트/사이즈 submenu 는 텍스트 오버레이가 있을 때 + 카드 필드 active 일 때
-  // 모두 노출. 폰트/사이즈는 텍스트 오버레이 전용이라 카드 필드만 active 면 색상만 표시.
+  // 카드 필드의 현재 사이즈 — 사용자 지정이 있으면 그 값, 없으면 필드별 기본.
+  const currentCardSize =
+    target === "card" && activeCardField
+      ? cardTextSizes[activeCardField] ??
+        CARD_FIELD_DEFAULT_SIZE[activeCardField] ??
+        16
+      : 16;
+  // 카드 필드의 현재 폰트 — active 매칭에 쓰이는 family/weight/style.
+  const currentCardFont =
+    target === "card" && activeCardField
+      ? cardTextFonts[activeCardField]
+      : undefined;
+
+  // 텍스트 오버레이 / 카드 필드 어디에도 active 가 없으면 submenu 닫기.
   useEffect(() => {
     if (!active && !activeCardField && submenu !== "none") setSubmenu("none");
   }, [active, activeCardField, submenu, setSubmenu]);
 
   const applyColor = (c: string) => {
     pushHistory();
-    if (colorTarget === "overlay" && active) {
+    if (target === "overlay" && active) {
       updateText(active.id, { color: c });
-    } else if (colorTarget === "card" && activeCardField) {
+    } else if (target === "card" && activeCardField) {
       setCardTextColor(activeCardField, c);
     }
   };
 
+  // 슬라이더 사이즈 범위 — 텍스트 오버레이와 카드 필드 모두 12~80px 로 통일.
+  const SIZE_MIN = 12;
+  const SIZE_MAX = 80;
+
   const setSize = (clientY: number) => {
-    if (!active || !sliderRef.current) return;
+    if (!sliderRef.current) return;
     const r = sliderRef.current.getBoundingClientRect();
     const ratio = 1 - Math.max(0, Math.min(1, (clientY - r.top) / r.height));
-    const min = 12;
-    const max = 80;
-    const size = Math.round(min + (max - min) * ratio);
-    updateText(active.id, { size });
+    const size = Math.round(SIZE_MIN + (SIZE_MAX - SIZE_MIN) * ratio);
+    if (target === "overlay" && active) {
+      updateText(active.id, { size });
+    } else if (target === "card" && activeCardField) {
+      setCardTextSize(activeCardField, size);
+    }
   };
 
   const onSliderDown = (e: React.PointerEvent) => {
     e.preventDefault();
-    if (!active) {
-      showToast("먼저 텍스트를 추가해주세요");
+    if (!target) {
+      showToast("먼저 텍스트를 선택해주세요");
       return;
     }
     (e.target as Element).setPointerCapture?.(e.pointerId);
     dragRef.current.active = true;
-    // record one undo entry per slider drag session
+    // record one undo entry per slider drag session (store 의 setSize 는
+    // 매번 push 하지 않으므로 여기서 한 번만 push).
     pushHistory();
     setSize(e.clientY);
   };
@@ -287,19 +333,62 @@ export default function TextSubmenu() {
     (e.target as Element).releasePointerCapture?.(e.pointerId);
   };
 
-  const sizeRatio = (() => {
-    if (!active) return 0.5;
-    const min = 12;
-    const max = 80;
-    return Math.max(0, Math.min(1, (active.size - min) / (max - min)));
-  })();
+  // 슬라이더 fill/thumb 위치 계산 — overlay 면 active.size, card 면
+  // currentCardSize 로부터.
+  const currentSize =
+    target === "overlay" && active ? active.size : currentCardSize;
+  const sizeRatio = Math.max(
+    0,
+    Math.min(1, (currentSize - SIZE_MIN) / (SIZE_MAX - SIZE_MIN)),
+  );
 
   // 텍스트 오버레이도 카드 필드도 active 가 아니면 어떤 submenu 도 표시 안 함.
   if (!active && !activeCardField) return null;
 
+  /**
+   * 폰트 picker 가 적용해야 할 대상에 따라 분기:
+   * - overlay: studioTexts 의 active 텍스트
+   * - card: studioCardTextFonts 의 active 카드 필드
+   */
+  const applyFont = (f: FontDef) => {
+    pushHistory();
+    if (target === "overlay" && active) {
+      updateText(active.id, {
+        font: f.family,
+        fontWeight: f.weight ?? 500,
+        fontStyle: f.style ?? "normal",
+      });
+    } else if (target === "card" && activeCardField) {
+      setCardTextFont(activeCardField, {
+        family: f.family,
+        weight: f.weight ?? 500,
+        style: f.style ?? "normal",
+      });
+    }
+  };
+
+  /** 폰트 picker 의 "active" 표시 매칭 — 현재 적용 중인 폰트 강조. */
+  const isFontActive = (f: FontDef) => {
+    if (target === "overlay" && active) {
+      return (
+        active.font === f.family &&
+        (active.fontWeight ?? 500) === (f.weight ?? 500) &&
+        (active.fontStyle ?? "normal") === (f.style ?? "normal")
+      );
+    }
+    if (target === "card" && currentCardFont) {
+      return (
+        currentCardFont.family === f.family &&
+        (currentCardFont.weight ?? 500) === (f.weight ?? 500) &&
+        (currentCardFont.style ?? "normal") === (f.style ?? "normal")
+      );
+    }
+    return false;
+  };
+
   return (
     <>
-      {submenu === "size" && active && (
+      {submenu === "size" && target && (
         <div
           ref={sliderRef}
           className="text-size-slider"
@@ -320,37 +409,28 @@ export default function TextSubmenu() {
         </div>
       )}
 
-      {submenu === "font" && active && (
+      {submenu === "font" && target && (
         <div className="text-font-row">
           <HScroller>
-            {FONTS.map((f) => {
-              const isActive =
-                active.font === f.family &&
-                (active.fontWeight ?? 500) === (f.weight ?? 500) &&
-                (active.fontStyle ?? "normal") === (f.style ?? "normal");
-              return (
-                <button
-                  key={f.key}
-                  className={`tfont${isActive ? " active" : ""}`}
-                  style={{ fontFamily: f.family, fontWeight: f.weight ?? 500, fontStyle: f.style ?? "normal" }}
-                  onClick={() => {
-                    pushHistory();
-                    updateText(active.id, {
-                      font: f.family,
-                      fontWeight: f.weight ?? 500,
-                      fontStyle: f.style ?? "normal",
-                    });
-                  }}
-                >
-                  {f.label}
-                </button>
-              );
-            })}
+            {FONTS.map((f) => (
+              <button
+                key={f.key}
+                className={`tfont${isFontActive(f) ? " active" : ""}`}
+                style={{
+                  fontFamily: f.family,
+                  fontWeight: f.weight ?? 500,
+                  fontStyle: f.style ?? "normal",
+                }}
+                onClick={() => applyFont(f)}
+              >
+                {f.label}
+              </button>
+            ))}
           </HScroller>
         </div>
       )}
 
-      {submenu === "color" && (colorTarget === "overlay" || colorTarget === "card") && (
+      {submenu === "color" && (target === "overlay" || target === "card") && (
         <div className="text-color-row">
           <HScroller>
             <EyedropperButton
