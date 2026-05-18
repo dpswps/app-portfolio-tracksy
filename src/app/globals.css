@@ -129,7 +129,12 @@ input, textarea, select {
   display: flex; gap: 14px;
 }
 
-/* Bottom Navigation */
+/* Bottom Navigation
+ *
+ * z-index 는 modalLayer(50) / 오버레이(51) / 시트(52) 보다 한 단계 높게
+ * 잡아서, 바텀시트가 떠 있어도 푸터(특히 가운데로 튀어나오는 FAB)는 항상
+ * 시트 위로 노출되도록 한다. — "푸터를 시트 뒤로" 가 아니라 "시트를 푸터
+ * 뒤로" 보내는 효과. */
 .bottom-nav {
   display: flex;
   justify-content: space-around;
@@ -137,7 +142,8 @@ input, textarea, select {
   background: #fff;
   border-top: 1px solid var(--border-soft);
   flex-shrink: 0;
-  z-index: 10;
+  position: relative;
+  z-index: 60;
 }
 .nav-item {
   flex: 1;
@@ -6833,6 +6839,21 @@ textarea:focus { border-color: var(--primary); }
   background: #fff;
   color: var(--text);
   padding: 14px 18px 26px;
+}
+/* 시트 바닥과 하단 nav 상단 사이에 modalLayer 의 비워둔 공간(108px) 과 실제
+ * nav 높이(약 80px) 차이만큼 빈 영역이 생긴다. 시트의 흰 톤이 그 빈틈에도
+ * 이어지도록 ::after 가상 요소로 같은 흰색을 깔아준다. (nav 자체는 z-index 10
+ * 이고 시트는 52 라 ::after 가 nav 위로 살짝 덮여도 nav 본체 배경은 흰색이라
+ * 시각적 이질감 없음.) */
+.gf-sheet.gs-share-sheet::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 32px;
+  background: #fff;
+  pointer-events: none;
 }
 .gf-sheet.gs-share-sheet .gs-share-title {
   font-size: 13px;
