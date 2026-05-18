@@ -102,8 +102,19 @@ input, textarea, select {
   overflow-y: auto;
   position: relative;
   -webkit-overflow-scrolling: touch;
+  /* 모든 페이지 상단의 공통 여백 — 상단바/노치 와 콘텐츠 사이의 숨 쉴 공간.
+   * (.device 의 safe-area-inset-top padding 위에 추가로 얹힘.) */
+  padding-top: 10px;
 }
 #screen::-webkit-scrollbar { display: none; }
+/* 다크 테마 페이지(스튜디오 / export / 배경 picker) 가 들어있으면 #screen
+ * 자체 배경도 같은 다크 톤으로 맞춰서 상단 10px padding 영역이 흰색으로
+ * 비치지 않게 함. (:has() 가 자식 셀렉터로 동작.) */
+#screen:has(.studio-screen),
+#screen:has(.export-screen),
+#screen:has(.studio-bg-screen) {
+  background: #0E0E11;
+}
 
 /* App header */
 .app-header {
@@ -4448,31 +4459,35 @@ textarea:focus { border-color: var(--primary); }
   user-select: none;
 }
 
-/* Drag handle below calendar grid (drag only — no click to expand) */
+/* Drag handle below calendar grid — chevron icon. Click 또는 위/아래 드래그로
+ * 캘린더 접기/펼치기 토글. 접혀있을 땐 ▼(아래 꺾쇠), 펼쳐있을 땐 ▲(위 꺾쇠). */
 .cal-drag-handle {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 0 4px;
-  cursor: ns-resize;
+  padding: 10px 0 6px;
+  cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
 }
 .cal-drag-handle:active { cursor: grabbing; }
-.cal-drag-handle .cdh-bar {
-  width: 56px;
-  height: 4px;
-  border-radius: 2px;
-  background: #D1D5DB;
-  transition: background 0.15s ease, width 0.15s ease;
+.cal-drag-handle .cdh-chevron {
+  width: 22px;
+  height: 22px;
+  color: #9CA3AF;
+  /* 부드러운 회전 트랜지션 — expanded 토글 시 ▼↔▲ 가 자연스럽게 돈다. */
+  transition: transform 0.22s ease, color 0.15s ease;
   pointer-events: none;
 }
-.cal-drag-handle:hover .cdh-bar,
-.cal-drag-handle:focus-visible .cdh-bar {
-  background: var(--primary);
-  width: 64px;
+.cal-drag-handle:hover .cdh-chevron,
+.cal-drag-handle:focus-visible .cdh-chevron {
+  color: var(--primary);
+}
+/* expanded 상태 — chevron 을 180도 회전해서 ▲(위 꺾쇠) 로 표시. */
+.cal-card.expanded .cdh-chevron {
+  transform: rotate(180deg);
 }
 .cal-drag-handle:focus-visible {
   outline: none;
@@ -5526,7 +5541,10 @@ textarea:focus { border-color: var(--primary); }
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 11px 12px;
-  font-size: 13px;
+  /* iOS Safari input focus 자동 확대 방지 — font-size 가 16px 미만이면
+   * 시스템이 가독성을 위해 zoom-in 하는 버그성 동작이 있다. 모든 모바일에서
+   * 100% scale 을 유지하도록 16px 로 고정. */
+  font-size: 16px;
   outline: none;
   font-family: inherit;
   transition: border-color 0.15s;
@@ -5665,7 +5683,8 @@ textarea:focus { border-color: var(--primary); }
   margin-bottom: 0;
 }
 .am-grid-2 .am-field input {
-  font-size: 14px;
+  /* iOS 자동 확대 방지 — 16px 이상으로 고정. */
+  font-size: 16px;
 }
 
 /* 시간 input 아래 형식 안내 */
@@ -5731,6 +5750,75 @@ textarea:focus { border-color: var(--primary); }
   color: var(--primary);
   letter-spacing: 0.02em;
   vertical-align: middle;
+}
+
+/* 평균 페이스 도움말 — "?" 원형 버튼 + 클릭 시 나오는 작은 안내 팝오버.
+ * 라벨 옆에 위치하며, 팝오버는 absolute 로 버튼 아래에 떠오름. */
+.am-help-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.am-help-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.2px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.am-help-btn:hover,
+.am-help-btn[aria-expanded="true"] {
+  background: var(--primary);
+  color: #fff;
+}
+.am-help-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  white-space: nowrap;
+  background: var(--text, #1f1b36);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  letter-spacing: -0.01em;
+  /* 작은 화살표 — 팝오버 위쪽으로 솟아 버튼을 가리킴. */
+}
+.am-help-pop::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 6px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+/* 오른쪽 컬럼(예: 2열 그리드의 우측 필드 — 케이던스) 의 도움말은 팝업이
+ * 화면 우측을 넘어가지 않도록 right 정렬로 뒤집어준다. 화살표 위치도 함께 이동. */
+.am-help-wrap-right .am-help-pop {
+  left: auto;
+  right: 0;
+}
+.am-help-wrap-right .am-help-pop::before {
+  left: auto;
+  right: 6px;
 }
 
 /* 자동 계산된 페이스 input (사용자 override 안 한 상태) — 옅은 회색 톤으로 구분 */

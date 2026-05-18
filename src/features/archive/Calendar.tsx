@@ -18,12 +18,16 @@ export default function Calendar() {
   const dragStartY = useRef<number | null>(null);
   const dragStartExpanded = useRef<boolean>(false);
   const triggered = useRef<boolean>(false);
+  // 드래그로 expand/collapse 가 발동된 직후의 click 을 한 번 무시하기 위한 플래그.
+  // 단순 click(드래그 없음) 일 땐 토글, 드래그 직후의 click 은 중복 토글 방지.
+  const dragWasTriggered = useRef<boolean>(false);
   const DRAG_THRESHOLD = 18;
 
   const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     dragStartY.current = e.clientY;
     dragStartExpanded.current = expanded;
     triggered.current = false;
+    dragWasTriggered.current = false;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -31,9 +35,11 @@ export default function Calendar() {
     const dy = e.clientY - dragStartY.current;
     if (!dragStartExpanded.current && dy > DRAG_THRESHOLD) {
       triggered.current = true;
+      dragWasTriggered.current = true;
       setExpanded(true);
     } else if (dragStartExpanded.current && dy < -DRAG_THRESHOLD) {
       triggered.current = true;
+      dragWasTriggered.current = true;
       setExpanded(false);
     }
   };
@@ -46,6 +52,18 @@ export default function Calendar() {
     dragStartY.current = null;
     triggered.current = false;
   };
+  /**
+   * 단순 클릭 — 드래그가 발동되지 않았던 경우에만 토글.
+   * (드래그로 이미 expand/collapse 가 일어났다면 그 직후의 click 은 무시
+   *  → 중복 토글 방지.)
+   */
+  const onHandleClick = () => {
+    if (dragWasTriggered.current) {
+      dragWasTriggered.current = false;
+      return;
+    }
+    setExpanded(!expanded);
+  };
   const onHandleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -53,6 +71,9 @@ export default function Calendar() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setExpanded(false);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setExpanded(!expanded);
     }
   };
 
@@ -148,17 +169,31 @@ export default function Calendar() {
         </div>
         <div
           className="cal-drag-handle"
-          role="separator"
+          role="button"
           tabIndex={0}
-          aria-label={expanded ? "위로 드래그하여 캘린더 접기" : "아래로 드래그하여 캘린더 펼치기"}
-          aria-orientation="horizontal"
+          aria-label={expanded ? "캘린더 접기" : "캘린더 펼치기"}
+          aria-expanded={expanded}
           onPointerDown={onHandlePointerDown}
           onPointerMove={onHandlePointerMove}
           onPointerUp={onHandlePointerEnd}
           onPointerCancel={onHandlePointerEnd}
+          onClick={onHandleClick}
           onKeyDown={onHandleKeyDown}
         >
-          <span className="cdh-bar" />
+          {/* 아래/위 꺾쇠(chevron) — 접혀있을 땐 ▼, 펼쳐있을 땐 ▲.
+              실제 회전은 CSS의 `.cal-card.expanded` 셀렉터로 처리. */}
+          <svg
+            className="cdh-chevron"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </div>
       </div>
 

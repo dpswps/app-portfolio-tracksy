@@ -16,10 +16,16 @@ export const metadata: Metadata = {
 };
 
 /* viewport-fit=cover — iOS safe-area (노치/다이나믹 아일랜드/제스처바)
- * env(safe-area-inset-*) 값이 0 이 아닌 실제 값으로 계산되도록 활성화. */
+ * env(safe-area-inset-*) 값이 0 이 아닌 실제 값으로 계산되도록 활성화.
+ *
+ * maximumScale: 1 + userScalable: false — iOS Safari 에서 input focus 시
+ * 자동 확대(viewport zoom-in) 차단. (input font-size 16px+ 와 함께 적용해야
+ * 완전히 막힘 — CSS 쪽에서도 input 사이즈 16px 로 유지.) */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 

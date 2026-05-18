@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { archiveRecords } from "@/data/archiveRecords";
 import { useAppStore } from "@/stores/useAppStore";
@@ -42,7 +42,11 @@ function paceComment(paceMin: number): { label: string; tone: "great" | "good" |
 export default function RecordDetailPage() {
   const params = useParams<{ date: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dateParam = decodeURIComponent(String(params?.date ?? ""));
+  // 진입 경로 — manual save 직후엔 ?from=manual 이 붙어있어서 뒤로가기를
+  // 홈으로 보낸다. 그 외(예: 보관함 캘린더에서 자세히 보기) 는 기본 동작.
+  const fromManual = searchParams?.get("from") === "manual";
 
   const userRecords = useAppStore((s) => s.userRecords);
   const deleteUserRecord = useAppStore((s) => s.deleteUserRecord);
@@ -65,6 +69,12 @@ export default function RecordDetailPage() {
   const rec = userRecords[dateParam] || archiveRecords[dateParam];
 
   const back = () => {
+    // manual save → 자세히 보기 진입(?from=manual) 의 경우엔 홈으로 바로 보냄.
+    // 사용자가 방금 기록을 저장한 후 추가 액션 없이 메인 화면으로 돌아가는 흐름.
+    if (fromManual) {
+      router.push("/home");
+      return;
+    }
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/archive");
   };

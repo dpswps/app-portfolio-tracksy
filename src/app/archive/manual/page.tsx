@@ -238,6 +238,12 @@ function ManualForm() {
   const [pickerYM, setPickerYM] = useState<{ y: number; m: number }>(initialPickerYM);
   const [pickedKey, setPickedKey] = useState<string | null>(effectiveDateKey);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+  // 평균 페이스 도움말 팝오버 — "?" 아이콘 누르면 토글.
+  const [paceHelpOpen, setPaceHelpOpen] = useState(false);
+  const paceHelpRef = useRef<HTMLDivElement | null>(null);
+  // 케이던스 도움말 팝오버 — "?" 아이콘 누르면 토글.
+  const [cadenceHelpOpen, setCadenceHelpOpen] = useState(false);
+  const cadenceHelpRef = useRef<HTMLDivElement | null>(null);
 
   /* ── 시간 input refs (자동 포커스 이동용) ────────────── */
   const hourRef = useRef<HTMLInputElement | null>(null);
@@ -356,7 +362,17 @@ function ManualForm() {
       pickDate(key);
     }
     showToast("기록을 저장했어요");
-    setTimeout(() => back(), 500);
+    // 저장 후 자세히 보기 페이지(/archive/records/{date}) 로 바로 이동 —
+    // 사용자가 방금 입력한 기록을 즉시 상세 카드로 확인할 수 있다.
+    // `?from=manual` 쿼리로 진입 경로를 표시 → 상세 페이지의 뒤로가기 버튼이
+    // 홈(/home) 으로 이동하도록 분기 (캘린더에서 진입한 경우엔 캘린더로 복귀).
+    setTimeout(
+      () =>
+        router.push(
+          `/archive/records/${encodeURIComponent(key)}?from=manual`,
+        ),
+      500,
+    );
   };
 
   const togglePicker = () => {
@@ -551,11 +567,31 @@ function ManualForm() {
           </div>
         </div>
 
-        {/* 평균 페이스 — 자동 계산. 사용자가 클릭해서 직접 입력도 가능 */}
+        {/* 평균 페이스 — 자동 계산. 사용자가 클릭해서 직접 입력도 가능.
+            라벨 우측 "?" 도움말 버튼 — 자동 계산 동작을 짧게 안내. */}
         <div className="am-field">
           <label>
             평균 페이스
-            <span className="am-auto-tag">자동 계산</span>
+            <span className="am-help-wrap" ref={paceHelpRef}>
+              <button
+                type="button"
+                className="am-help-btn"
+                aria-label="평균 페이스 도움말"
+                aria-expanded={paceHelpOpen}
+                onClick={() => setPaceHelpOpen((v) => !v)}
+                onBlur={() =>
+                  // 약간의 delay 를 둬서 팝오버 클릭과의 race 방지.
+                  setTimeout(() => setPaceHelpOpen(false), 120)
+                }
+              >
+                ?
+              </button>
+              {paceHelpOpen && (
+                <span className="am-help-pop" role="tooltip">
+                  1km당 몇 분 뛰었는지 자동 계산해줘요
+                </span>
+              )}
+            </span>
           </label>
           <div className="am-input-wrap">
             <input
@@ -590,7 +626,31 @@ function ManualForm() {
             </div>
           </div>
           <div className="am-field">
-            <label>케이던스</label>
+            <label>
+              케이던스
+              <span
+                className="am-help-wrap am-help-wrap-right"
+                ref={cadenceHelpRef}
+              >
+                <button
+                  type="button"
+                  className="am-help-btn"
+                  aria-label="케이던스 도움말"
+                  aria-expanded={cadenceHelpOpen}
+                  onClick={() => setCadenceHelpOpen((v) => !v)}
+                  onBlur={() =>
+                    setTimeout(() => setCadenceHelpOpen(false), 120)
+                  }
+                >
+                  ?
+                </button>
+                {cadenceHelpOpen && (
+                  <span className="am-help-pop" role="tooltip">
+                    1분 동안 발이 지면에 닿는 총 횟수
+                  </span>
+                )}
+              </span>
+            </label>
             <div className="am-input-wrap">
               <input
                 type="text"
