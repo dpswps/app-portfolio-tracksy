@@ -115,6 +115,11 @@ input, textarea, select {
 #screen:has(.studio-bg-screen) {
   background: #0E0E11;
 }
+/* 스플래시 페이지 — 보라 그라데이션 시작 색(#B794F6) 으로 상단 패딩 매칭.
+ * (가운데/아래 톤 차이는 미세하므로 상단 색에 맞춤.) */
+#screen:has(.splash) {
+  background: #B794F6;
+}
 
 /* App header */
 .app-header {
