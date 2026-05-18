@@ -3625,15 +3625,29 @@ textarea:focus { border-color: var(--primary); }
 .running-card.small .rc-mascot { width: 30px; height: 30px; }
 .running-card.small .rc-bubble { font-size: 8.5px; padding: 6px 8px; }
 
-/* Studio bottom panel */
+/* Studio bottom panel
+ * 스크롤되어도 항상 보이도록 sticky 고정. 하단 탭(.studio-tabs) 위에 붙어 있어야
+ * 하므로 bottom 값 = 탭 컨테이너의 실제 높이(약 82px). 너무 길어질 수 있는
+ * 콘텐츠(스티커 그리드/스타일 그리드)는 내부 스크롤로 처리해서 패널 자체가
+ * 무한정 커지지 않도록 max-height 도 함께 지정. */
 .studio-panel {
   margin-top: auto;
   padding: 12px 4px 6px;
   border-top: 1px solid rgba(255,255,255,0.06);
   min-height: 150px;
+  max-height: 280px;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  bottom: 82px;
+  background: #0E0E11;
+  z-index: 5;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.studio-panel::-webkit-scrollbar { display: none; }
+.studio-panel { scrollbar-width: none; }
 .sp-head {
   display: flex; justify-content: space-between; align-items: center;
   padding: 0 16px 4px;
@@ -3947,12 +3961,18 @@ textarea:focus { border-color: var(--primary); }
   user-select: none;
 }
 
-/* Studio bottom tabs */
+/* Studio bottom tabs
+ * 스크롤되어도 항상 화면 맨 아래에 고정되도록 sticky 처리. z-index 는 panel
+ * 보다 한 단계 높여서 panel 이 아래로 흘러도 탭이 그 위에 깔끔하게 떠 있게 함. */
 .studio-tabs {
   display: flex;
   background: #18181B;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding: 10px 4px 24px;
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  flex-shrink: 0;
 }
 .st-tab {
   flex: 1;
