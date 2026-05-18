@@ -3603,13 +3603,16 @@ textarea:focus { border-color: var(--primary); }
 }
 
 /* Card stage — wraps RunningCard so overlays (crop) can sit on top
-   without being clipped by .running-card's overflow:hidden */
+ * without being clipped by .running-card's overflow:hidden.
+ *
+ * 9:16 비율을 모든 화면에서 안정적으로 유지하기 위해 **height 를 기준**으로
+ * 잡고 width 는 aspect-ratio 로 derive. 카드가 항상 캔버스 안에 들어와서
+ * 하단 panel 영역으로 넘쳐 흘러서 가려지는 문제 없음. */
 .card-stage {
   position: relative;
-  width: 100%;
-  max-width: 290px;
-  max-height: 86%;
+  height: 86%;
   aspect-ratio: 9 / 16;
+  max-width: 290px;
   display: flex;
 }
 
