@@ -507,21 +507,21 @@ input, textarea, select {
   box-shadow: 0 6px 14px rgba(139,92,246,0.4);
 }
 .hm-plus svg { width: 20px; height: 20px; }
-/* runcard_cha 캐릭터 — 카드 좌우 끝에 맞춰서 100% 폭으로 확대.
- * 높이는 이미지 자연 비율(240:145)을 그대로 사용해 왜곡 방지.
- * 위치는 카드 가장 아래에 정렬 (bottom: 0). */
+/* runcard_cha 캐릭터 — 렌더 사이즈 86×116px 고정.
+ * 카드 하단 중앙에 배치하되, 웨이브 위로 올려 전체 캐릭터가 보이도록 함. */
 .hm-mascot {
   position: absolute;
-  left: 0; right: 0;
-  bottom: 0;
-  width: 100%;
-  height: auto;
-  z-index: 2;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  width: 86px;
+  height: 116px;
+  z-index: 3;
   pointer-events: none;
 }
 .hm-mascot img {
-  width: 100%;
-  height: auto;
+  width: 86px;
+  height: 116px;
   display: block;
   object-fit: contain;
 }
