@@ -2735,11 +2735,6 @@ textarea:focus { border-color: var(--primary); }
   display: flex; justify-content: center; align-items: center;
   flex: 1;
   min-height: 0;
-  /* z-index 를 명시해 캔버스 전체가 panel/tabs 보다 위 stacking 에 위치하도록.
-   * (panel 은 overflow-y: auto 라 브라우저가 자체 stacking context 를 만들 수 있고,
-   *  document order 상 panel 이 canvas 뒤에 있어 모바일에서 canvas 의 absolute
-   *  자식인 .st-fab-stack 이 panel 에 가려지는 케이스가 있었음.) */
-  z-index: 2;
 }
 /* ──────────────────────────────────────────────────────────
  * 통합 휴지통 영역 — 캔버스 하단.
