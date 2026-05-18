@@ -538,7 +538,7 @@ const getSnapTarget = (velocity: number) => {
           onClick={goToRecordsArchive}
           aria-label="이번달 러닝 기록 보러가기"
         >
-          {/* 우측 하단 배경 이미지 — month_run_bg.png (61×49px) */}
+          {/* 우측 하단 배경 이미지 — month_run_bg.png (72×58px, 살짝 위로) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="hs-bg-art" src="/month_run_bg.png" alt="" aria-hidden draggable={false} />
           <div className="hs-head">
@@ -578,7 +578,7 @@ const getSnapTarget = (velocity: number) => {
             aria-label="최고 기록 보러가기"
             disabled={!bestRecord}
           >
-            {/* 우측 하단 배경 이미지 — best_run_bg.png (52×49px) */}
+            {/* 우측 하단 배경 이미지 — best_run_bg.png (62×58px, 살짝 위로) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="hs-bg-art" src="/best_run_bg.png" alt="" aria-hidden draggable={false} />
             <div className="hs-head">

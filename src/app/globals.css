@@ -865,17 +865,18 @@ button.hs-card:disabled:hover { box-shadow: none; }
   margin-left: 3px;
 }
 /* 카드 우측 하단 배경 이미지 — 실제 PNG 파일을 자연 사이즈로 노출.
- * month_run_bg 61×49, best_run_bg 52×49 */
+ * 위치는 카드 우하단에서 살짝 위로 올리고, 크기도 약간 키워서 시각 강조.
+ * month_run_bg 72×58, best_run_bg 62×58 */
 .hs-card .hs-bg-art {
   position: absolute;
   right: 10px;
-  bottom: 10px;
+  bottom: 20px;
   pointer-events: none;
   z-index: 0;
   opacity: 1;
 }
-.hs-month .hs-bg-art { width: 61px; height: 49px; }
-.hs-best .hs-bg-art { width: 52px; height: 49px; }
+.hs-month .hs-bg-art { width: 72px; height: 58px; }
+.hs-best .hs-bg-art { width: 62px; height: 58px; }
 /* 카드 좌측 하단의 둥근 직사각 배지 — 배경 #F2F0FC, 선 #DFDCF6, 글자 #A08DE5 */
 .hs-badge {
   display: inline-flex;
