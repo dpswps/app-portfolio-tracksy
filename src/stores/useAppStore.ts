@@ -6,7 +6,7 @@ import type { ArchiveRecords, CommunityPost, GalleryCard, Inquiry, RunningRecord
 import type { AIMessage, AIStep } from "@/types";
 import { archiveRecords } from "@/data/archiveRecords";
 
-type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | null;
+type Modal = "gallerySheet" | "monthPicker" | "bestPicker" | "gallerySharePicker" | null;
 type GallerySheetKind = "year" | "month" | null;
 
 type StudioSnapshot = {

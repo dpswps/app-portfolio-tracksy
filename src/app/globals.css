@@ -2754,9 +2754,12 @@ textarea:focus { border-color: var(--primary); }
   white-space: nowrap;
 }
 
+/* 우측 하단 FAB 스택 — 챗봇 캐릭터/사진/기록 버튼이 세로로 정렬됨.
+ * 기존엔 bottom: -16px 라 캔버스 밖으로 살짝 나가 있어서 하단 고정 패널과 겹쳤음.
+ * 이제 하단 패널과 겹치지 않도록 충분히 위로 올려서 캔버스 안쪽에 안착시킨다. */
 .st-fab-stack {
   position: absolute;
-  right: 10px; bottom: -16px;
+  right: 10px; bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -6794,6 +6797,103 @@ textarea:focus { border-color: var(--primary); }
 .gd-save-style-btn:hover { background: var(--primary-dark); }
 .gd-save-style-btn:active { transform: scale(0.97); }
 
+/* 공유 아이콘 버튼 — "이 스타일 저장하기" 좌측에 위치.
+ * public/gallery_share.png 를 26×26 로 노출, 배경/테두리 없이 아이콘 자체만 표시.
+ * 누르면 하단 .gs-share-sheet 가 슬라이드 업으로 등장. */
+.gd-share-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+.gd-share-btn:hover { background: var(--primary-softer); }
+.gd-share-btn:active { transform: scale(0.94); }
+.gd-share-btn img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
+/* 갤러리 게시물 공유 바텀시트 — 흰색 라이트 톤.
+ * `.gf-sheet` 기본 배경(흰색)을 그대로 쓰되, "공유 및 저장" 타이틀과 행 카드
+ * 글자/아이콘을 검정 톤으로 바꿔서 가독성을 확보한다.
+ * specificity 가 `.gf-sheet` 와 동일해도 동작하도록 `.gf-sheet.gs-share-sheet`
+ * 형태로 묶어서 항상 우선 적용되도록 함. */
+.gf-sheet.gs-share-sheet {
+  background: #fff;
+  color: var(--text);
+  padding: 14px 18px 26px;
+}
+.gf-sheet.gs-share-sheet .gs-share-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+/* 드래그 핸들의 hit-area — 시각 핸들바(36×4)는 작지만 손가락으로 정확히
+ * 잡기 위해 wrapper 를 가로 전체 + 세로 24px 정도로 키워서 잡기 쉽게 함.
+ * touch-action: none 으로 모바일에서 스크롤과 충돌하지 않도록 차단. */
+.gf-sheet.gs-share-sheet .gs-share-handle-area {
+  width: 100%;
+  padding: 4px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  /* 핸들 영역 내부 자식들이 pointer 이벤트를 가로채면 시트 컨테이너의
+   * pointer capture 가 깨질 수 있어서, 내부는 모두 패스스루. */
+}
+.gf-sheet.gs-share-sheet .gs-share-handle-area:active {
+  cursor: grabbing;
+}
+.gf-sheet.gs-share-sheet .gs-share-handle-area > * {
+  pointer-events: none;
+}
+/* 핸들바 자체의 기본 margin-bottom 은 wrapper 가 padding 으로 대신하므로
+ * 시트 안에서 중복 spacing 이 생기지 않게 0 으로 재정의. */
+.gf-sheet.gs-share-sheet .gs-share-handle-area .gf-sheet-handle {
+  margin: 0 auto;
+  /* 잡기 좋게 살짝 두껍게 + 더 진한 회색으로 시각적 어포던스 강화. */
+  width: 40px;
+  height: 5px;
+  background: #C7C7CC;
+}
+/* 시트 내부 export-row — 흰 배경 위에 살짝 라이트 그레이 카드.
+ * 글자/아이콘은 검정 톤으로 덮어쓰고, 아이콘 박스 배경도 다크 톤에서
+ * 라이트 톤으로 교체. */
+.gf-sheet.gs-share-sheet .export-row {
+  background: #F4F4F6;
+  border-color: #E5E7EB;
+  color: var(--text);
+}
+.gf-sheet.gs-share-sheet .export-row > span {
+  color: var(--text);
+}
+.gf-sheet.gs-share-sheet .export-row .er-ic {
+  background: #fff;
+  color: var(--text);
+}
+/* 카카오 노란 K 배경은 유지(브랜드 컬러). */
+.gf-sheet.gs-share-sheet .export-row .er-ic.kk {
+  background: #FEE500;
+  color: #391B1B;
+}
+.gf-sheet.gs-share-sheet .export-row .er-arrow {
+  color: rgba(0, 0, 0, 0.35);
+}
+
 .g-detail-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -6812,13 +6912,24 @@ textarea:focus { border-color: var(--primary); }
   color: #fff;
 }
 
-/* Modal layer (portals to .device, sits above #screen but below bottom nav) */
+/* Modal layer (portals to .device, sits above #screen but below bottom nav)
+ *
+ * 하단 nav(.bottom-nav) 실제 높이 계산:
+ *   - 컨테이너 padding: 10(top) + 22(bottom) = 32
+ *   - 가운데 FAB 박스 = 50 + border 4×2 = 58, margin-top:-22 로 -22 만큼 위로
+ *     튀어나옴. flex 아이템 cross 기여 = 58 - 22 = 36
+ *   - 그 아래 gap 3 + 라벨 ~15 + 아이템 padding 4×2 = 30
+ *   = 총 ≈ 98px + 위로 튀어나온 FAB 분(8px 가량)
+ *
+ * 안전하게 108px 를 비워서 바텀시트가 nav 와 가운데 FAB 위로 흘러내리지
+ * 않도록 한다. (이 값은 모든 바텀시트 — gallerySheet/monthPicker/bestPicker/
+ * gallerySharePicker — 에 공통 적용.) */
 #modalLayer {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 76px; /* approximate height of .bottom-nav */
+  bottom: 108px;
   z-index: 50;
   pointer-events: none;
   display: none;

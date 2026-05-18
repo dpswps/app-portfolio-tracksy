@@ -31,6 +31,7 @@ export default function GalleryDetailPage() {
   const showToast = useAppStore((s) => s.showToast);
   const addUserSavedStyle = useAppStore((s) => s.addUserSavedStyle);
   const userGalleryCards = useAppStore((s) => s.userGalleryCards);
+  const setModal = useAppStore((s) => s.setModal);
 
   // 사용자가 저장한 카드 + 기본 샘플 모두 검색.
   const allCards = [...userGalleryCards, ...galleryCards];
@@ -116,6 +117,18 @@ export default function GalleryDetailPage() {
               {card.dist}km · {card.time} · 평균 페이스 {card.pace}
             </div>
           </div>
+          {/* 공유 아이콘 버튼 — 누르면 하단에서 "공유 및 저장" 바텀시트가 올라옴.
+              아이콘은 public/gallery_share.png 사용. 크기는 32×32 로 "이 스타일
+              저장하기" pill 버튼 옆에 자연스럽게 어울리도록 맞춤. */}
+          <button
+            type="button"
+            className="gd-share-btn"
+            onClick={() => setModal("gallerySharePicker")}
+            aria-label="공유 및 저장"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/gallery_share.png" alt="" draggable={false} />
+          </button>
           <button
             type="button"
             className="gd-save-style-btn"
