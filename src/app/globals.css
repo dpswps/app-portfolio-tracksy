@@ -870,7 +870,7 @@ button.hs-card:disabled:hover { box-shadow: none; }
 .hs-card .hs-bg-art {
   position: absolute;
   right: 10px;
-  bottom: 20px;
+  bottom: 30px;
   pointer-events: none;
   z-index: 0;
   opacity: 1;
