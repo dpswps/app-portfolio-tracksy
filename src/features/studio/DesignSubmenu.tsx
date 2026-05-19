@@ -183,13 +183,18 @@ const THEMES: ThemePreset[] = [
 ];
 
 /* ──────────────────────────────────────────────────────────
- * 가로 드래그 스크롤 hook — 한 행을 마우스/터치로 끌어서 좌우로 움직임.
+ * 가로 드래그 스크롤 hook — 마우스 한정 수동 드래그.
  *
- * 1) touch 환경은 기본 native pan-x 로도 충분하지만, 마우스/PC 에서도 클릭 후
- *    끌어서 스크롤되도록 pointer 이벤트로 직접 처리.
- * 2) DRAG_THRESHOLD(4px) 이상 움직였을 때만 "드래그" 로 인식 → 그 미만은
+ * 디자인 결정 — 모바일/태블릿 터치는 native pan-x 스크롤(부드러운 모멘텀,
+ * iOS 의 elastic bounce 포함) 에 위임한다. 이전엔 pointer 이벤트로 터치까지
+ * 직접 scrollLeft 를 갱신했는데, 이는 native 스크롤과 충돌해서 jank/jerky
+ * 가속 문제를 일으켰다. 이제 pointerType === "mouse" 일 때만 수동 처리하고,
+ * touch / pen 은 브라우저 native 스크롤(CSS overflow-x: auto + touch-action:
+ * pan-x + -webkit-overflow-scrolling: touch) 이 자연스럽게 처리.
+ *
+ * 1) DRAG_THRESHOLD(4px) 이상 움직였을 때만 "드래그" 로 인식 — 그 미만은
  *    클릭으로 처리되어 항목 선택이 정상 동작.
- * 3) 드래그 중에는 .dragging 클래스로 자식의 click 을 차단(CSS pointer-events:
+ * 2) 드래그 중에는 .dragging 클래스로 자식의 click 을 차단(CSS pointer-events:
  *    none) → 클릭/드래그 충돌 방지.
  *
  * 반환: 핸들러 묶음 + scroller ref + wasDragging() — 클릭 핸들러에서 드래그
@@ -206,6 +211,8 @@ function useDragScroll() {
   const DRAG_THRESHOLD = 4;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // 터치/펜은 native 스크롤에 맡겨 부드러운 모멘텀 사용.
+    if (e.pointerType !== "mouse") return;
     const el = scrollerRef.current;
     if (!el) return;
     dragRef.current = {
@@ -219,6 +226,8 @@ function useDragScroll() {
     const d = dragRef.current;
     const el = scrollerRef.current;
     if (!d || !el || d.pointerId !== e.pointerId) return;
+    // pointerDown 에서 mouse 만 등록하지만, 안전망으로 한번 더 체크.
+    if (e.pointerType !== "mouse") return;
     const dx = e.clientX - d.startX;
     if (!d.moved && Math.abs(dx) < DRAG_THRESHOLD) return;
     if (!d.moved) {

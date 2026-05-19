@@ -8361,13 +8361,18 @@ textarea:focus { border-color: var(--primary); }
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  /* 세로 스크롤 차단 + 가로만 자연스럽게 swipe — touch-action: pan-x.
+     -webkit-overflow-scrolling: touch 로 iOS 모멘텀 스크롤(부드러운 관성) 활성화.
+     overscroll-behavior-x: contain 으로 가로 스와이프가 부모 캔버스의 스크롤
+     을 흔들지 않게 격리. (이전엔 JS 가 pointer 이벤트로 scrollLeft 를 직접 만져
+     모바일 native 스크롤과 충돌해 jank 가 있었음. 이제 JS 는 mouse 만 처리하고
+     터치는 모두 native 에 위임 → 매끈한 모멘텀.) */
   padding: 6px 4px 8px;
   scrollbar-width: none;
-  /* 드래그 가능 cursor 힌트 + touch swipe 부드럽게 */
   cursor: grab;
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
+  overscroll-behavior-x: contain;
   user-select: none;
 }
 .dtr-scroll:active,
