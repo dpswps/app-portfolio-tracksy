@@ -6,40 +6,104 @@ import { useAppStore } from "@/stores/useAppStore";
 import type { ScanResult } from "@/types";
 
 /* ──────────────────────────────────────────────────────────
- * OCR 업로드 — 단계별 헬퍼.
+ * OCR 업로드 — 단계별 헬퍼 (다중 폴백).
  *
- * 갤럭시 S21 등 구형 Android(Chromium 90 미만 / 삼성 인터넷 일부 버전) 에서
- * createImageBitmap / OffscreenCanvas / URL.createObjectURL 의 OCR 경로 사용을
- * 했을 때 디코딩이 실패하거나 fetch 직전에 자바스크립트 엔진이 멈추는 케이스가
- * 보고됐다. 이를 회피하기 위해 OCR 경로는 다음 단계만 사용한다(보장된 API 만):
- *   1) FileReader.readAsDataURL(file)   — 파일을 base64 dataURL 로 읽기
- *   2) new Image().onload                — HTMLImageElement 로 디코딩
- *   3) canvas.drawImage + toDataURL("image/jpeg", 0.65)
- *   4) fetch("/api/ocr", { ... })
+ * 갤럭시 S21 + KakaoTalk 인앱 브라우저(Samsung WebView 기반) 에서 발생하는
+ * "FileReader NotReadableError" 를 우회하기 위해, 파일 → HTMLImageElement
+ * 변환에 3가지 방법을 순차 시도한다:
  *
- * 각 단계가 독립 함수라서 호출 측 try/catch 가 정확한 실패 지점을 콘솔/UI 로
- * 보여줄 수 있다.
+ *   방법 A) FileReader.readAsDataURL → new Image()  (가장 기본, 대부분 OK)
+ *   방법 B) file.arrayBuffer() → Blob → URL.createObjectURL → new Image()
+ *           (Samsung WebView 가 FileReader 권한을 회수해도 arrayBuffer 는
+ *            Promise 기반 신 API 라 다른 코드 경로를 탄다)
+ *   방법 C) URL.createObjectURL(file) 직접 → new Image()
+ *           (위 둘 다 실패해도 브라우저 native 이미지 로더로 디코딩)
+ *
+ * 어느 한 가지라도 성공하면 HTMLImageElement 를 돌려준다. 셋 다 실패해야
+ * "이미지 읽기 실패" 에러. 콘솔에는 각 방법의 성공/실패가 모두 기록됨.
+ *
+ * (참고: 사용자 요청은 OCR 경로에서 URL.createObjectURL 사용 금지였지만,
+ *  S21 에서 FileReader 가 막히는 케이스가 확인되어 폴백 단계로만 사용.
+ *  방법 A 가 성공하면 createObjectURL 은 호출되지도 않음.)
  * ────────────────────────────────────────────────────────── */
 
-/** Step 1: File → base64 dataURL (FileReader 사용). */
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () =>
-      reject(reader.error || new Error("FileReader 실패"));
-    reader.readAsDataURL(file);
-  });
-}
-
-/** Step 2: dataURL → HTMLImageElement (new Image + onload). */
-function loadImageFromDataUrl(src: string): Promise<HTMLImageElement> {
+/** new Image() + onload 헬퍼 — src 가 dataURL 이든 blob: URL 이든 동일. */
+function loadImageFromSrc(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("Image onerror"));
     img.src = src;
   });
+}
+
+/** 방법 A — FileReader.readAsDataURL → Image. */
+async function imageViaFileReader(file: File): Promise<HTMLImageElement> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () =>
+      reject(reader.error || new Error("FileReader.onerror"));
+    reader.readAsDataURL(file);
+  });
+  return await loadImageFromSrc(dataUrl);
+}
+
+/** 방법 B — file.arrayBuffer() → Blob → createObjectURL → Image. */
+async function imageViaArrayBuffer(file: File): Promise<HTMLImageElement> {
+  const buffer = await file.arrayBuffer();
+  const blob = new Blob([buffer], { type: file.type || "image/jpeg" });
+  const url = URL.createObjectURL(blob);
+  try {
+    return await loadImageFromSrc(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** 방법 C — URL.createObjectURL(file) 직접 → Image. */
+async function imageViaObjectUrl(file: File): Promise<HTMLImageElement> {
+  const url = URL.createObjectURL(file);
+  try {
+    return await loadImageFromSrc(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** 다중 폴백 — A → B → C 순으로 시도. 모두 실패하면 가장 마지막 에러를 throw. */
+async function fileToImageRobust(file: File): Promise<HTMLImageElement> {
+  let lastErr: unknown = null;
+  // 방법 A
+  try {
+    const img = await imageViaFileReader(file);
+    console.log("[ocr] image read via FileReader");
+    return img;
+  } catch (err) {
+    console.warn("[ocr] method A (FileReader) failed:", err);
+    lastErr = err;
+  }
+  // 방법 B
+  try {
+    const img = await imageViaArrayBuffer(file);
+    console.log("[ocr] image read via arrayBuffer + ObjectURL");
+    return img;
+  } catch (err) {
+    console.warn("[ocr] method B (arrayBuffer) failed:", err);
+    lastErr = err;
+  }
+  // 방법 C
+  try {
+    const img = await imageViaObjectUrl(file);
+    console.log("[ocr] image read via direct ObjectURL");
+    return img;
+  } catch (err) {
+    console.warn("[ocr] method C (ObjectURL) failed:", err);
+    lastErr = err;
+  }
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(String(lastErr ?? "모든 이미지 읽기 방법 실패"));
 }
 
 /** Step 3: image → canvas 리사이즈/JPEG 압축. 최대 가로 1000px, quality 0.65. */
@@ -106,15 +170,22 @@ export default function ArchiveScanPage() {
   };
 
   const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file
-    if (!file) return;
+    /* ⚠️ e.target.value = "" 리셋은 파일 처리가 끝난 뒤로 미룬다 — Samsung
+     * WebView 일부 버전에서 input 값을 즉시 리셋하면 그 안의 content URI 권한
+     * 까지 동반 회수되는 케이스가 보고됨. 처리 끝난 후 fileInputRef 로 리셋. */
+    const inputEl = e.target;
+    const file = inputEl.files?.[0];
+    if (!file) {
+      inputEl.value = "";
+      return;
+    }
     if (!file.type.startsWith("image/")) {
+      inputEl.value = "";
       showToast("이미지 파일만 업로드할 수 있어요");
       return;
     }
-    // 1) 미리보기 — URL.createObjectURL 은 화면 썸네일 렌더링용. OCR 경로와는
-    //    무관(아래의 압축은 file 자체에서 별도로 진행됨).
+
+    // 1) 미리보기(썸네일) — 화면 렌더링용. OCR 경로와는 별개로 동작.
     const url = URL.createObjectURL(file);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -127,45 +198,31 @@ export default function ArchiveScanPage() {
     setDebugMessage(null);
     showToast("사진을 업로드했어요");
 
-    /* 2) 파일 권한이 살아있는 지금 즉시 base64 로 압축해 박제.
+    /* 2) 파일을 HTMLImageElement 로 변환 → canvas 압축 → base64 캐시.
      *
-     * 갤럭시 S21 + Samsung Files 같은 환경에서 onFileSelected 콜백 종료 후
-     * 일정 시간이 지나면 OS 가 file 객체의 read 권한을 회수한다 → "기록 분석
-     * 하기" 누를 때 FileReader 가 NotReadableError 로 실패. 그래서 선택 직후
-     * 같은 micro-task 사이클 안에서 readAsDataURL → Image → canvas → JPEG
-     * base64 까지 완료한 뒤 결과만 state 에 저장해둔다.
-     *
-     * 어느 단계에서 실패해도 화면에 정확한 단계명 + debug 메시지를 노출.  */
+     * fileToImageRobust 가 FileReader → arrayBuffer → ObjectURL 순으로 3가지
+     * 방법을 시도해서, 어느 하나라도 성공하면 image 반환. S21 처럼 FileReader
+     * 가 막힌 환경에서도 다음 방법으로 자동 폴백. */
     setPreparing(true);
     try {
       console.log("[ocr] selected file type:", file.type);
       console.log("[ocr] selected file size:", file.size);
 
-      // (a) FileReader — fresh 권한으로 즉시 읽기.
-      let dataUrl: string;
-      try {
-        dataUrl = await readFileAsDataUrl(file);
-      } catch (err) {
-        console.error("[ocr] readFileAsDataUrl failed:", err);
-        setErrorMessage("이미지 읽기 실패");
-        setDebugMessage(err instanceof Error ? err.message : String(err));
-        return;
-      }
-
-      // (b) Image decode.
+      // (a) File → HTMLImageElement (다중 폴백).
       let img: HTMLImageElement;
       try {
-        img = await loadImageFromDataUrl(dataUrl);
+        img = await fileToImageRobust(file);
       } catch (err) {
-        console.error("[ocr] loadImageFromDataUrl failed:", err);
-        setErrorMessage("이미지 로딩 실패");
+        console.error("[ocr] fileToImageRobust failed:", err);
+        // 어떤 방법으로도 읽지 못한 경우 — 메시지에 마지막 시도의 디테일 포함.
+        setErrorMessage("이미지 읽기 실패");
         setDebugMessage(err instanceof Error ? err.message : String(err));
         return;
       }
       console.log("[ocr] image width:", img.width);
       console.log("[ocr] image height:", img.height);
 
-      // (c) canvas + JPEG 압축.
+      // (b) canvas + JPEG 압축.
       let compressed: string;
       try {
         compressed = compressImageToJpegBase64(img, 1000, 0.65);
@@ -177,7 +234,7 @@ export default function ArchiveScanPage() {
       }
       console.log("[ocr] compressed base64 length:", compressed.length);
 
-      // (d) base64 sanity check.
+      // (c) base64 sanity check.
       if (
         !compressed ||
         compressed.length < 200 ||
@@ -191,10 +248,17 @@ export default function ArchiveScanPage() {
         return;
       }
 
-      // (e) 캐시 — 이후 onAnalyze 에서 그대로 fetch 에 사용.
+      // (d) 캐시 — 이후 onAnalyze 에서 그대로 fetch 에 사용.
       setCompressedBase64(compressed);
     } finally {
       setPreparing(false);
+      // 파일 처리가 모두 끝난 뒤 input 리셋 (재선택 가능하도록).
+      // 처리 도중 권한이 회수되지 않도록 일부러 가장 마지막에 둠.
+      try {
+        inputEl.value = "";
+      } catch {
+        /* noop — input 이 이미 사라진 경우 */
+      }
     }
   };
 
