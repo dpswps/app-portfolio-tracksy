@@ -206,15 +206,36 @@ export default function StudioPage() {
 
       <div className="studio-canvas">
         <div className="studio-card-wrap">
-          <div className="card-stage" style={{ aspectRatio: ratio.replace("/", " / ") }}>
-            <RunningCard />
-            <TextOverlay />
-            <PlacedStickers />
-            {cropMode && <CropOverlay />}
-            {tab === "text" && <TextSubmenu />}
-            {tab === "design" && <DesignSubmenu />}
-            <EyedropperLoupe />
-          </div>
+          {(() => {
+            // 비율 문자열 "w/h" 를 파싱해서 두 가지를 inline style 로 전달:
+            //   1) aspect-ratio: "w / h"  → 카드 비율 (height 자동 계산)
+            //   2) --card-ratio: w/h 의 숫자 (예: 9/16 = 0.5625) → CSS 의 width
+            //      max 계산식이 이 값을 사용해서 세로 가용 공간에 맞게 카드 폭을
+            //      자동 조정. 부정 입력 시 0.5625(=9/16) 폴백.
+            const parts = ratio.split("/").map(Number);
+            const rx = parts[0];
+            const ry = parts[1];
+            const ratioNum =
+              rx && ry && isFinite(rx / ry) ? rx / ry : 0.5625;
+            return (
+              <div
+                className="card-stage"
+                style={{
+                  aspectRatio: ratio.replace("/", " / "),
+                  ["--card-ratio" as keyof React.CSSProperties]:
+                    ratioNum.toString(),
+                } as React.CSSProperties}
+              >
+                <RunningCard />
+                <TextOverlay />
+                <PlacedStickers />
+                {cropMode && <CropOverlay />}
+                {tab === "text" && <TextSubmenu />}
+                {tab === "design" && <DesignSubmenu />}
+                <EyedropperLoupe />
+              </div>
+            );
+          })()}
         </div>
         {/* 통합 휴지통 — 텍스트/스티커를 드래그할 때만 나타남. 위로 끌어 떨어뜨리면 삭제. */}
         <TrashZone />

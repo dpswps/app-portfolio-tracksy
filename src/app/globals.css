@@ -3795,34 +3795,33 @@ textarea:focus { border-color: var(--primary); }
 /* Card stage — wraps RunningCard so overlays (crop) can sit on top
  * without being clipped by .running-card's overflow:hidden.
  *
- * 9:16 비율을 명시적으로 강제 — width 와 height 를 직접 계산해서 flex 컨테이너
- * 안에서도 비율이 깨지지 않도록 한다.
+ * 카드 비율은 inline style 의 aspect-ratio 로 동적으로 결정됨 (비율 수정 버튼이
+ * studioRatio 를 바꾸면 즉시 반영). height 는 width / aspect-ratio 로 자동 계산.
  *
  * width 후보(가장 작은 값이 선택됨 — 모든 화면 크기에서 카드가 캔버스에 fit):
- *   a) 290px              — 데스크탑/큰 화면 최대 크기
- *   b) 80vw               — 가로폭 기준 (모바일 좌우 여백 확보)
- *   c) (vh - 200) × 9/16  — 세로 가용 공간 기준 (잘림 방지의 핵심)
- *       200px = 토 ㄹ바(~50) + 패널(~80, 가장 큰 탭 기준) + 탭바(~55) + 패딩(~15)
- *       이 조건이 작은 viewport(예: 갤럭시 S21 KakaoTalk 인앱 브라우저, iPhone SE 등)
- *       에서 카드 높이가 캔버스를 넘지 않도록 자동으로 카드 크기를 줄여준다.
+ *   a) 290px                              — 데스크탑/큰 화면 최대 크기
+ *   b) 80vw                               — 가로폭 기준 (모바일 좌우 여백 확보)
+ *   c) (vh - 200) × var(--card-ratio)     — 세로 가용 공간 기준 (잘림 방지)
+ *      200px = 토 ㄹ바(~50) + 패널(~80, 가장 큰 탭) + 탭바(~55) + 패딩(~15)
+ *      --card-ratio 는 카드 가로/세로 비율(예: 9/16 = 0.5625) — 비율이 바뀌면
+ *      세로 제약이 비율에 맞게 자동 조정되어, 어떤 비율에서도 카드가 잘리지 않음.
  *
- * 100svh(small viewport height) 를 우선 사용 — 모바일에서 URL 바가 표시된
- * 상태의 가용 높이 기준. svh 미지원 브라우저는 100vh 폴백.
- *
- * (이전엔 width:100% + aspect-ratio 였는데 flex 안에서 가끔 무시되어 모바일에서
- *  비율이 3:4 로 어그러지는 케이스가 있었음.) */
+ * 100svh(small viewport height) 우선 — 모바일 URL 바 표시 상태 기준. svh 미지원
+ * 브라우저는 100vh 폴백. */
 .card-stage {
   position: relative;
-  /* 폴백 — svh 미지원 브라우저는 100vh 사용. */
-  width: min(290px, 80vw, calc((100vh - 200px) * 9 / 16));
-  height: calc(min(290px, 80vw, calc((100vh - 200px) * 9 / 16)) * 16 / 9);
+  /* --card-ratio 폴백 (9/16 portrait). inline style 이 덮어쓴다. */
+  --card-ratio: 0.5625;
+  /* aspect-ratio 폴백 — inline style 이 덮어쓴다. */
+  aspect-ratio: 9 / 16;
+  /* width 만 명시 — height 는 aspect-ratio 로 자동 계산 → 비율 동적 변경 가능. */
+  width: min(290px, 80vw, calc((100vh - 200px) * var(--card-ratio)));
   display: flex;
   flex-shrink: 0;
 }
 @supports (height: 1svh) {
   .card-stage {
-    width: min(290px, 80vw, calc((100svh - 200px) * 9 / 16));
-    height: calc(min(290px, 80vw, calc((100svh - 200px) * 9 / 16)) * 16 / 9);
+    width: min(290px, 80vw, calc((100svh - 200px) * var(--card-ratio)));
   }
 }
 
@@ -7921,12 +7920,12 @@ textarea:focus { border-color: var(--primary); }
 .studio-card-wrap {
   position: relative;
   display: flex;
-  /* 카드 상단 정렬 — 카드 높이(svh 기반)가 캔버스 가용 높이보다 살짝 클 때
-     center 정렬이면 카드가 위/아래 양쪽으로 균등하게 빠져나가서 상단이
-     캔버스 영역 위로 잘린다(overflow-y: auto 가 위로는 스크롤 불가).
-     flex-start 로 두면 카드 top 이 캔버스 top 에 고정되고, 모자란 영역은
-     아래로만 overflow 되어 필요시 스크롤로 볼 수 있다. */
-  align-items: flex-start;
+  /* 카드 세로 중앙 정렬 — 비율 변경 시 카드가 위/아래 균등하게 크기 조절되어
+     자연스럽게 중앙에서 변형되는 인상.
+     상단 잘림은 카드 width 공식의 200px 안전 마진(.card-stage 의 svh - 200)
+     이 보장 → 카드 height 가 항상 캔버스 가용 높이 이하로 유지되어 위/아래로
+     빠져나갈 일이 없음. */
+  align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
