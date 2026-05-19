@@ -17,7 +17,13 @@ export default function HomePage() {
   const setArchiveView = useAppStore((s) => s.setArchiveView);
   const setCalExpanded = useAppStore((s) => s.setCalExpanded);
   const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
-  const pickDate = useAppStore((s) => s.pickDate);
+  // 홈에서 날짜 클릭 시에는 토글이 아닌 "설정" 동작이 필요해서 selectDate 사용.
+  // (pickDate 는 같은 날짜를 다시 누르면 선택 해제되는 토글 — 홈에서 보관함으로
+  //  보낼 땐 항상 그 날짜를 선택된 상태로 만들고 싶음.)
+  const selectDate = useAppStore((s) => s.selectDate);
+  // 주간 strip 의 보라색 하이라이트가 이번 주에 archive 에서 선택된 날짜로
+  // 따라가도록 — 홈에서 다른 날짜를 누르고 돌아왔을 때 그 흔적을 보여주는 역할.
+  const archiveSelected = useAppStore((s) => s.archiveSelected);
   const trackRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -174,7 +180,7 @@ export default function HomePage() {
     setArchiveMainTab("records");
     setArchiveView("calendar");
     setArchiveMonth(y, m);
-    pickDate(key);
+    selectDate(key);
     setTimeout(() => setCalExpanded(true), 0);
     router.push("/archive");
   };
@@ -530,19 +536,28 @@ export default function HomePage() {
           </div>
         </div>
         <div className="week-grid">
-          {week.map((d) => (
-            <button
-              key={d.key}
-              type="button"
-              className={`week-day${d.isToday ? " today" : ""}`}
-              onClick={() => goToRecordOnArchive(d.key)}
-              aria-label={`${d.dow}요일 ${d.date}일 보관함으로 이동`}
-            >
-              <div className="dow">{d.dow}</div>
-              <div className="dom">{d.date}</div>
-              <div className={`dot ${d.on ? "dot-on" : "dot-off"}`} />
-            </button>
-          ))}
+          {week.map((d) => {
+            // 보라색 하이라이트 우선순위:
+            //  1. archiveSelected 가 이번 주에 있으면 그 날짜에 하이라이트
+            //  2. 그렇지 않으면 오늘 날짜에 하이라이트 (기존 동작)
+            const weekHasSelected = week.some((w) => w.key === archiveSelected);
+            const isHighlighted = weekHasSelected
+              ? d.key === archiveSelected
+              : d.isToday;
+            return (
+              <button
+                key={d.key}
+                type="button"
+                className={`week-day${isHighlighted ? " today" : ""}`}
+                onClick={() => goToRecordOnArchive(d.key)}
+                aria-label={`${d.dow}요일 ${d.date}일 보관함으로 이동`}
+              >
+                <div className="dow">{d.dow}</div>
+                <div className="dom">{d.date}</div>
+                <div className={`dot ${d.on ? "dot-on" : "dot-off"}`} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -597,7 +612,6 @@ export default function HomePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="hs-bg-art" src="/best_run_bg.png" alt="" aria-hidden draggable={false} />
             <div className="hs-head">
-              {/* 아이콘 상단 배치 — best_run.png (20×22px) */}
               <span className="hs-ico">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/best_run.png" alt="" draggable={false} />

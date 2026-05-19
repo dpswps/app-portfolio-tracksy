@@ -367,6 +367,7 @@ type State = {
   setCalExpanded: (v: boolean) => void;
   setArchiveMonth: (y: number, m: number) => void;
   pickDate: (k: string) => void;
+  selectDate: (k: string) => void;
   toggleListExpanded: (k: string) => void;
   bumpListCount: () => void;
   resetListCount: () => void;
@@ -485,7 +486,17 @@ export const useAppStore = create<State>()(
       studioCardTextColors: {},
       studioCardTextFonts: {},
       studioCardTextSizes: {},
-      studioHiddenCardFields: {},
+      // 처음 스튜디오에 들어왔을 땐 빈 카드(배경만)로 보여주고,
+      // "기록 불러오기" 로 데이터가 채워질 때 자동으로 노출되도록 모든
+      // 빌트인 텍스트 그룹을 숨김 상태로 시작.
+      // (loadStudioRecord 가 이 객체를 {} 로 리셋하므로 기록 불러오는 즉시 등장.)
+      studioHiddenCardFields: {
+        weekGroup: true,
+        distanceGroup: true,
+        timeGroup: true,
+        paceGroup: true,
+        caloriesGroup: true,
+      },
       studioActiveCardField: null,
       studioRecordIdx: -1,
       studioRecordPickerOpen: false,
@@ -1117,6 +1128,19 @@ export const useAppStore = create<State>()(
           return {
             archiveMonth: sameMonth ? s.archiveMonth : { y, m },
             archiveSelected: s.archiveSelected === k ? null : k,
+          };
+        }),
+      // pickDate 와 달리 항상 지정된 날짜를 selected 로 "설정" 만 한다.
+      // (홈 화면 주간 strip 등에서 호출 — 토글 동작이 필요 없는 곳에서 사용.)
+      selectDate: (k) =>
+        set((s) => {
+          const [yStr, mStr] = k.split("-");
+          const y = Number(yStr);
+          const m = Number(mStr);
+          const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
+          return {
+            archiveMonth: sameMonth ? s.archiveMonth : { y, m },
+            archiveSelected: k,
           };
         }),
       toggleListExpanded: (k) =>

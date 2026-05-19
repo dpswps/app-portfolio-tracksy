@@ -196,7 +196,7 @@ function TextTab() {
         <span className="sp-ic">
           <b style={{ fontSize: 18 }}>＋</b>
         </span>
-        <i>추가</i>
+        <i>텍스트 추가</i>
       </button>
       <button
         className={`sp-tool${submenu === "font" ? " active" : ""}`}
@@ -391,5 +391,4 @@ function DesignTab() {
 
 /* 스타일(레이아웃) 선택 행은 DesignSubmenu 가 캔버스 하단 absolute 영역에
  * 그려준다. 이전엔 여기 StyleLayoutGrid 가 패널 하단에 인라인으로 그려졌지만,
- * 사용자 요청으로 테마 슬라이드와 동일한 위치(.design-theme-row) 에서 뜨도록
- * DesignSubmenu 의 StyleRow 로 이동시킴. */
+/* The style row is rendered by DesignSubmenu in the canvas-bottom absolute area. */
