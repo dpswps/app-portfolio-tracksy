@@ -5,104 +5,61 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import type { ScanResult } from "@/types";
 
-/** File → base64 data URL 변환 (구형 안드로이드 fallback 경로용) */
-function fileToDataUrl(file: File): Promise<string> {
+/* ──────────────────────────────────────────────────────────
+ * OCR 업로드 — 단계별 헬퍼.
+ *
+ * 갤럭시 S21 등 구형 Android(Chromium 90 미만 / 삼성 인터넷 일부 버전) 에서
+ * createImageBitmap / OffscreenCanvas / URL.createObjectURL 의 OCR 경로 사용을
+ * 했을 때 디코딩이 실패하거나 fetch 직전에 자바스크립트 엔진이 멈추는 케이스가
+ * 보고됐다. 이를 회피하기 위해 OCR 경로는 다음 단계만 사용한다(보장된 API 만):
+ *   1) FileReader.readAsDataURL(file)   — 파일을 base64 dataURL 로 읽기
+ *   2) new Image().onload                — HTMLImageElement 로 디코딩
+ *   3) canvas.drawImage + toDataURL("image/jpeg", 0.65)
+ *   4) fetch("/api/ocr", { ... })
+ *
+ * 각 단계가 독립 함수라서 호출 측 try/catch 가 정확한 실패 지점을 콘솔/UI 로
+ * 보여줄 수 있다.
+ * ────────────────────────────────────────────────────────── */
+
+/** Step 1: File → base64 dataURL (FileReader 사용). */
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () =>
-      reject(reader.error || new Error("파일을 읽지 못했어요"));
+      reject(reader.error || new Error("FileReader 실패"));
     reader.readAsDataURL(file);
   });
 }
 
-/**
- * File을 캔버스에 그려 maxWidth로 리사이즈 + JPEG 압축해서 base64 dataURL로 반환.
- *
- * 왜 이렇게까지 하나?
- * - 갤럭시 S21 등 고해상도 카메라는 원본이 4~8MB. base64 인코딩 시 +33% → 6~11MB.
- *   이를 fetch 바디로 보내면 Vercel 4.5MB 한도에 엣지에서 거부되거나, 안드로이드
- *   JS 엔진 메모리/JSON.stringify에서 실패한다.
- * - 그래서 OCR 업로드와 로컬 저장(screenshot) 양쪽 모두 *압축본*을 쓴다.
- *
- * 구현 전략:
- * 1) 최신 경로: createImageBitmap(file) → canvas. blob 단계에서 디코딩을 위임해
- *    new Image()의 메모리 문제(특히 Samsung Internet)를 피한다.
- * 2) Fallback: FileReader → new Image() → canvas. 1)이 안되는 환경 (createImageBitmap
- *    미지원 또는 HEIC 등) 에서 사용.
- *
- * 둘 다 실패해도 호출자에서 step별 메시지로 사용자에게 정확한 실패 단계를 알려줌.
- */
-async function compressFileToDataUrl(
-  file: File,
-  maxWidth = 1280,
-  quality = 0.72,
-): Promise<string> {
-  // 1) Modern path — createImageBitmap (Chrome/Edge/Firefox 50+, Safari 15+,
-  //    삼성 인터넷 14+ 등 대부분의 현역 모바일 브라우저 지원)
-  if (typeof createImageBitmap === "function") {
-    let bitmap: ImageBitmap | null = null;
-    try {
-      bitmap = await createImageBitmap(file);
-      const scale = bitmap.width > maxWidth ? maxWidth / bitmap.width : 1;
-      const w = Math.max(1, Math.round(bitmap.width * scale));
-      const h = Math.max(1, Math.round(bitmap.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(bitmap, 0, 0, w, h);
-        const out = canvas.toDataURL("image/jpeg", quality);
-        try {
-          bitmap.close();
-        } catch {
-          /* ignore */
-        }
-        return out;
-      }
-    } catch (err) {
-      console.warn(
-        "[scan] createImageBitmap path failed, falling back to Image():",
-        err,
-      );
-      try {
-        bitmap?.close();
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  // 2) Fallback path — FileReader → new Image() → canvas
-  const dataUrl = await fileToDataUrl(file);
-  return await new Promise<string>((resolve, reject) => {
+/** Step 2: dataURL → HTMLImageElement (new Image + onload). */
+function loadImageFromDataUrl(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => {
-      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(dataUrl); // canvas 미지원 → 원본 그대로 (마지막 안전망)
-        return;
-      }
-      try {
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      } catch (e) {
-        // tainted canvas 등 — 원본 dataUrl이라도 반환
-        console.warn("[scan] canvas draw/toDataURL failed:", e);
-        resolve(dataUrl);
-      }
-    };
-    img.onerror = () =>
-      reject(new Error("이미지를 디코딩하지 못했어요 (지원되지 않는 형식일 수 있어요)"));
-    img.src = dataUrl;
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image onerror"));
+    img.src = src;
   });
+}
+
+/** Step 3: image → canvas 리사이즈/JPEG 압축. 최대 가로 1000px, quality 0.65. */
+function compressImageToJpegBase64(
+  img: HTMLImageElement,
+  maxWidth = 1000,
+  quality = 0.65,
+): string {
+  const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("canvas getContext('2d') === null");
+  }
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 export default function ArchiveScanPage() {
@@ -114,6 +71,12 @@ export default function ArchiveScanPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  // OCR 단계별 실패를 사용자에게 화면으로 표시 — 콘솔에 안 나오는 모바일 환경에서
+  // 어디서 실패했는지 즉시 확인하기 위함. errorMessage 는 한 줄짜리 사용자용 문구,
+  // debugMessage 는 그 아래에 작은 회색 글씨로 표시되는 기술적 디테일(에러 메시지/
+  // HTTP 상태/base64 길이 등).
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugMessage, setDebugMessage] = useState<string | null>(null);
 
   const back = () => {
     if (window.history.length > 1) router.back();
@@ -147,6 +110,9 @@ export default function ArchiveScanPage() {
     });
     setFileName(file.name);
     setPickedFile(file);
+    // 이전 분석에서 남은 에러 메시지 정리 — 새 파일로 다시 시도하는 흐름.
+    setErrorMessage(null);
+    setDebugMessage(null);
     showToast("사진을 업로드했어요");
   };
 
@@ -173,58 +139,118 @@ export default function ArchiveScanPage() {
       (r.splits && r.splits.length > 0)
     );
 
+  /**
+   * OCR 업로드 — 갤럭시 S21 등 구형 Android 호환을 위해 모든 단계를 명시적으로
+   * 분리해 try/catch 한다. 각 단계 시작 시 console.log 로 진단 정보 출력,
+   * 실패 시 errorMessage/debugMessage 로 모바일 화면에도 표시.
+   *
+   * 시퀀스:
+   *   1) 파일 선택 확인  → "파일이 선택되지 않았습니다"
+   *   2) FileReader     → "이미지 읽기 실패"
+   *   3) Image.onload   → "이미지 로딩 실패"
+   *   4) canvas + JPEG → "이미지 변환 실패"
+   *   5) base64 길이검사 → "base64 생성 실패"
+   *   6) fetch          → "OCR 요청 전송 실패"
+   *   7) 결과 파싱       → 기존 로직 그대로 (router.push 등)
+   */
   const onAnalyze = async () => {
-    if (!pickedFile || analyzing) return;
+    // 중복 실행 방지.
+    if (analyzing) return;
+
+    // (1) 파일 선택 확인.
+    if (!pickedFile) {
+      console.error("[ocr] no pickedFile");
+      setErrorMessage("파일이 선택되지 않았습니다");
+      setDebugMessage(null);
+      return;
+    }
+
     setAnalyzing(true);
+    setErrorMessage(null);
+    setDebugMessage(null);
 
-    /* 단계별 실패 지점을 추적 — 사용자에게 "어디서 실패했는지" 알려주고
-     * 콘솔로도 디버깅할 수 있도록 한다. (S21 처럼 특정 기기에서만 실패할 때
-     * 이전엔 "분석 중 오류" 만 떴는데, 이제 어느 단계인지까지 보인다.) */
-    let step: "compress" | "ocr-fetch" | "ocr-parse" | "done" = "compress";
     try {
-      // 1) 파일 → 압축된 base64. OCR 업로드 + 로컬 screenshot 양쪽에 동일하게 사용.
-      //    원본을 OCR에 보내지 않는 이유는 위 compressFileToDataUrl 주석 참고.
-      step = "compress";
-      const compressed = await compressFileToDataUrl(pickedFile, 1280, 0.72);
+      console.log("[ocr] selected file type:", pickedFile.type);
+      console.log("[ocr] selected file size:", pickedFile.size);
 
-      // payload 크기 가드 — 압축에도 불구하고 너무 크면 사용자에게 알리고 중단.
-      // (Vercel free 4.5MB 제한. base64는 원본 대비 ~1.33배, JSON wrapping까지
-      //  여유를 두고 4_000_000 byte로 컷.)
-      if (compressed.length > 4_000_000) {
-        throw new Error(
-          "사진이 너무 커서 분석할 수 없어요. 더 작은 사진으로 다시 시도해주세요.",
-        );
+      // (2) FileReader → dataURL.
+      let dataUrl: string;
+      try {
+        dataUrl = await readFileAsDataUrl(pickedFile);
+      } catch (err) {
+        console.error("[ocr] readFileAsDataUrl failed:", err);
+        setErrorMessage("이미지 읽기 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
       }
 
-      // 2) OCR 호출 — 압축본을 전송. 60초 타임아웃으로 무한 대기 방지.
-      step = "ocr-fetch";
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 60_000);
-      let res: Response;
+      // (3) new Image().onload — 디코딩.
+      let img: HTMLImageElement;
       try {
-        res = await fetch("/api/ocr", {
+        img = await loadImageFromDataUrl(dataUrl);
+      } catch (err) {
+        console.error("[ocr] loadImageFromDataUrl failed:", err);
+        setErrorMessage("이미지 로딩 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      console.log("[ocr] image width:", img.width);
+      console.log("[ocr] image height:", img.height);
+
+      // (4) canvas + toDataURL("image/jpeg", 0.65).
+      let compressed: string;
+      try {
+        compressed = compressImageToJpegBase64(img, 1000, 0.65);
+      } catch (err) {
+        console.error("[ocr] compressImageToJpegBase64 failed:", err);
+        setErrorMessage("이미지 변환 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      console.log("[ocr] compressed base64 length:", compressed.length);
+
+      // (5) base64 유효성 — 너무 짧으면 toDataURL 이 사실상 실패한 것.
+      if (!compressed || compressed.length < 200 || !compressed.startsWith("data:image/")) {
+        console.error("[ocr] base64 invalid — length:", compressed?.length);
+        setErrorMessage("base64 생성 실패");
+        setDebugMessage(
+          `length=${compressed?.length ?? 0}, prefix=${compressed?.slice(0, 30) ?? ""}`,
+        );
+        return;
+      }
+
+      // (6) fetch("/api/ocr").
+      console.log("[ocr] before fetch");
+      let response: Response;
+      try {
+        response = await fetch("/api/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: compressed }),
-          signal: ctrl.signal,
         });
-      } finally {
-        clearTimeout(tid);
+      } catch (err) {
+        console.error("[ocr] fetch threw:", err);
+        setErrorMessage("OCR 요청 전송 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
       }
-      if (!res.ok) {
-        // 413 (Payload Too Large), 5xx 등 명시적 실패. Vercel 엣지에서 거부될 때
-        // 보통 413이 떨어진다.
-        throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+      console.log("[ocr] fetch status:", response.status);
+
+      if (!response.ok) {
+        // non-2xx — 응답 body 를 읽어 debug 메시지에 포함.
+        const bodyText = await response.text().catch(() => "");
+        console.error("[ocr] non-ok response:", response.status, bodyText);
+        setErrorMessage("OCR 요청 전송 실패");
+        setDebugMessage(`HTTP ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ""}`);
+        return;
       }
 
-      step = "ocr-parse";
-      const ocrJson = (await res.json()) as { result?: ScanResult };
+      // (7) 결과 파싱 + 라우팅 — 기존 로직 유지.
+      const ocrJson = (await response.json()) as { result?: ScanResult };
       const result = ocrJson?.result;
 
-      step = "done";
       if (!result || !hasAnyData(result)) {
         showToast("기록을 인식하지 못했어요. 직접 입력해주세요.");
-        // 인식이 실패해도 사진 자체는 보존해서 지도/스튜디오에서 활용
         setPendingScanData({
           date: null,
           dist: null,
@@ -244,29 +270,13 @@ export default function ArchiveScanPage() {
       setPendingScanData({ ...result, screenshot: compressed });
       showToast("사진에서 기록을 추출했어요");
       router.push("/archive/manual");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[scan] failed at step '${step}':`, err);
-
-      // 단계별 사용자 메시지. step 으로 어디서 실패했는지 구분.
-      if (step === "compress") {
-        showToast(
-          msg.includes("디코딩") || msg.includes("읽")
-            ? msg
-            : "이미지 처리에 실패했어요. 다른 사진으로 시도해주세요.",
-        );
-      } else if (step === "ocr-fetch") {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          showToast("서버 응답이 너무 느려요. 잠시 후 다시 시도해주세요.");
-        } else {
-          showToast(`서버 연결 실패: ${msg}`);
-        }
-      } else if (step === "ocr-parse") {
-        showToast("서버 응답을 해석하지 못했어요. 다시 시도해주세요.");
-      } else {
-        showToast(`분석 중 오류: ${msg}`);
-      }
+    } finally {
+      // 성공/실패 무관하게 loading 해제 + 파일 input 초기화.
+      // input 은 ref 로 관리되므로 ref 경유로 처리.
       setAnalyzing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -372,6 +382,39 @@ export default function ArchiveScanPage() {
           거리, 시간, 페이스가 보이면 인식이 더 잘 돼요.
         </p>
       </div>
+
+      {/* OCR 단계별 에러 표시 — 모바일 콘솔에 접근 못하는 사용자도 어디서
+          실패했는지 즉시 알 수 있도록 모달 안에 inline 으로 노출.
+          (showToast 는 토스트라 빨리 사라져서 진단용으로 부족함.) */}
+      {errorMessage && (
+        <div
+          role="alert"
+          style={{
+            margin: "10px 16px 0",
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "rgba(220, 38, 38, 0.08)",
+            border: "1px solid rgba(220, 38, 38, 0.35)",
+            color: "#B91C1C",
+            fontSize: 13,
+            lineHeight: 1.4,
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>{errorMessage}</div>
+          {debugMessage && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 11,
+                color: "rgba(0,0,0,0.5)",
+                wordBreak: "break-all",
+              }}
+            >
+              {debugMessage}
+            </div>
+          )}
+        </div>
+      )}
 
       {previewUrl && (
         <button
