@@ -105,14 +105,24 @@ export default function JournalsPage() {
                       </p>
                       {fromStudio && (
                         <button
-                          className="primary-btn journal-card-use"
+                          className="journal-card-use"
                           onClick={() => onUseInStudio(j.summary)}
                           style={{
                             display: "block",
                             width: "100%",
                             marginTop: 12,
+                            /* 세로 길이 축소 — primary-btn 의 기본 패딩(14px)
+                               보다 작게 8px 로 줄여 카드 안에 더 콤팩트하게. */
+                            padding: "8px 14px",
+                            borderRadius: 10,
+                            background: "var(--primary, #8b5cf6)",
+                            color: "#fff",
+                            border: "none",
+                            fontSize: 13,
+                            fontWeight: 700,
                             textAlign: "center",
                             textDecoration: "none",
+                            cursor: "pointer",
                           }}
                         >
                           러닝 일지 사용하기 ✨

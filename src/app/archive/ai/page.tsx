@@ -139,23 +139,25 @@ function Intro() {
             <span>몇 가지 질문에 답하면 충분해요.</span>
           </li>
         </ul>
+        {/* 주 버튼은 양쪽 진입 경로 모두 "대화 시작하기" 로 동일하게 유지. */}
+        <button className="primary-btn aij-primary" onClick={() => setStep("chat")}>
+          대화 시작하기
+        </button>
+        {/* 보조 버튼:
+            - 스튜디오 진입 시 → "저장된 러닝일지 불러오기" (journals 화면으로 이동)
+            - 보관함 진입 시 → 기존 "건너뛰기" 그대로(skip step) */}
         {fromStudio ? (
           <button
-            className="primary-btn aij-primary"
-            onClick={() =>
-              router.push("/archive/journals?from=studio")
-            }
+            className="aij-secondary"
+            onClick={() => router.push("/archive/journals?from=studio")}
           >
             저장된 러닝일지 불러오기
           </button>
         ) : (
-          <button className="primary-btn aij-primary" onClick={() => setStep("chat")}>
-            대화 시작 하기
+          <button className="aij-secondary" onClick={() => setStep("skip")}>
+            건너뛰기
           </button>
         )}
-        <button className="aij-secondary" onClick={() => setStep("skip")}>
-          건너뛰기
-        </button>
       </div>
     </section>
   );
