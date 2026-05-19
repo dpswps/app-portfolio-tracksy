@@ -433,15 +433,17 @@ function Result() {
           </div>
         </div>
         <div className="aij-result-actions">
+          {/* 요약을 스튜디오 카드 말풍선으로 바로 가져가서 디자인 이어가기.
+              위치를 상단으로 이동 — 사용자가 자주 쓰는 액션을 강조하고,
+              저장/다시하기는 그 아래 좌우로 묶음. */}
+          <button className="aij-result-studio" onClick={onGoStudio}>
+            ✨ 스튜디오로 바로가기
+          </button>
           <button className="aij-result-save" onClick={onSave}>
             러닝 일지 저장하기
           </button>
           <button className="aij-result-retry" onClick={onRetry}>
             다시하기
-          </button>
-          {/* 요약을 스튜디오 카드 말풍선으로 바로 가져가서 디자인 이어가기. */}
-          <button className="aij-result-studio" onClick={onGoStudio}>
-            ✨ 스튜디오로 바로가기
           </button>
         </div>
       </div>
@@ -475,7 +477,7 @@ function Skip() {
           스튜디오 바로가기
         </button>
         <button className="aij-secondary purple" onClick={() => setStep("chat")}>
-          대화 시작하기
+          이어서 대화하기
         </button>
       </div>
     </section>

@@ -168,9 +168,15 @@ export default function HomePage() {
   const recentSecondary = recentRuns[1];
 
   const goToRecordsArchive = () => {
+    // "이번주 러닝 기록" 헤더 / "이번달 러닝 횟수" 카드 등 특정 날짜를
+    // 콕 집어주지 않는 진입점도 보관함에서 곧장 보라색 하이라이트가 보이도록
+    // 오늘 날짜를 자동 선택. (사용자가 archive 에서 직접 다시 클릭해야 했던
+    // 문제를 방지.)
+    const { y, m } = parseKey(todayKey);
     setArchiveMainTab("records");
     setArchiveView("calendar");
-    // setArchiveView resets archiveCalExpanded to false, so set it true after.
+    setArchiveMonth(y, m);
+    selectDate(todayKey);
     setTimeout(() => setCalExpanded(true), 0);
     router.push("/archive");
   };

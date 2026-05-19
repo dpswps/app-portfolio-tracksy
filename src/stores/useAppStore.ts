@@ -1113,11 +1113,18 @@ export const useAppStore = create<State>()(
       toggleCalExpanded: () => set((s) => ({ archiveCalExpanded: !s.archiveCalExpanded })),
       setCalExpanded: (v) => set({ archiveCalExpanded: v }),
       setArchiveMonth: (y, m) =>
-        set({
-          archiveMonth: { y, m },
-          archiveSelected: null,
-          archiveListExpanded: null,
-          archiveListCount: 4,
+        set((s) => {
+          const sameMonth = s.archiveMonth.y === y && s.archiveMonth.m === m;
+          return {
+            archiveMonth: { y, m },
+            // 같은 월로 다시 설정될 땐 선택된 날짜를 유지.
+            // (홈에서 selectDate 직후 archive 마운트 시 RecordsBody 의
+            //  useEffect 가 같은 월로 setMonth 를 호출해 selection 이 지워지던
+            //  버그 방지.)
+            archiveSelected: sameMonth ? s.archiveSelected : null,
+            archiveListExpanded: null,
+            archiveListCount: 4,
+          };
         }),
       pickDate: (k) =>
         set((s) => {
