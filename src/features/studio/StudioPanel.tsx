@@ -123,9 +123,8 @@ export default function StudioPanel({ tab }: { tab: "edit" | "text" | "sticker" 
   if (tab === "edit") {
     return (
       <>
-        <div className="sp-head">
-          <span>편집</span>
-        </div>
+        {/* sp-head "편집" 라벨은 사용자 요청으로 제거 — 하단 탭 표시(편집/텍스트/
+            스티커/디자인) 만으로도 현재 모드가 충분히 식별되므로 중복 라벨 삭제. */}
         <div className="sp-tools">
           <button
             className="sp-tool"

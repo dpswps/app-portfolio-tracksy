@@ -3998,10 +3998,13 @@ textarea:focus { border-color: var(--primary); }
  * max-height + overflow-y:auto 로 내부 스크롤 유지. */
 .studio-panel {
   margin-top: auto;
-  padding: 12px 4px 6px;
+  /* 컴팩트화 — 상하 패딩을 줄여 패널 자체 높이 감소.
+     이전: 12px 4px 6px / min-height: 150 / max-height: 280
+     변경: 8px 4px 2px / min-height: 118 / max-height: 230 (~20% 감소) */
+  padding: 8px 4px 2px;
   border-top: 1px solid rgba(255,255,255,0.06);
-  min-height: 150px;
-  max-height: 280px;
+  min-height: 118px;
+  max-height: 230px;
   display: flex;
   flex-direction: column;
   background: #0E0E11;
@@ -4026,7 +4029,9 @@ textarea:focus { border-color: var(--primary); }
 
 .sp-tools {
   display: flex; justify-content: space-around; align-items: flex-start;
-  padding: 12px 8px 8px;
+  /* 도구 버튼 행 상하 패딩 축소 — 패널 안에서 더 위쪽에 붙도록.
+     이전: 12px 8px 8px → 변경: 6px 8px 4px */
+  padding: 6px 8px 4px;
   flex-wrap: wrap;
   gap: 4px;
 }
@@ -4034,30 +4039,36 @@ textarea:focus { border-color: var(--primary); }
 .sp-tools.sp-design {
   justify-content: center;
   gap: 22px;
+  /* 텍스트/디자인 서브메뉴는 패널 안에서 세로 중앙 정렬을 유지 — auto 0 가
+     남는 세로 공간을 위/아래로 분산해 자연스러운 여유감을 줌. */
   margin: auto 0;
 }
 .sp-tool {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center;
+  /* 아이콘 ↔ 텍스트 간격 축소: 6px → 4px */
+  gap: 4px;
   color: #fff;
   flex: 1;
   min-width: 56px;
   max-width: 80px;
 }
 .sp-tool .sp-ic {
-  width: 40px; height: 40px;
-  border-radius: 12px;
+  /* 아이콘 배경 박스 크기 축소: 40 → 36 (시각적 컴팩트 + 터치 영역은 36px
+     이상 유지로 충분). border-radius 도 비율에 맞게 12 → 10. */
+  width: 36px; height: 36px;
+  border-radius: 10px;
   background: rgba(255,255,255,0.08);
   display: flex; align-items: center; justify-content: center;
   color: #fff;
 }
-.sp-tool .sp-ic svg { width: 20px; height: 20px; }
+.sp-tool .sp-ic svg { width: 18px; height: 18px; }
 .sp-tool i {
   font-style: normal;
   font-size: 11px;
   color: rgba(255,255,255,0.85);
 }
 .sp-tool .color-wheel {
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   border-radius: 50%;
   background: conic-gradient(#EF4444, #F59E0B, #FBBF24, #10B981, #3B82F6, #8B5CF6, #EC4899, #EF4444);
 }
@@ -4334,21 +4345,28 @@ textarea:focus { border-color: var(--primary); }
   display: flex;
   background: #18181B;
   border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 10px 4px 24px;
+  /* 탭바 컴팩트화 — 특히 하단 24px → 12px 로 절반 가까이 줄여서 가장 큰
+     시각적 공간 절약 효과. (모바일 safe-area 는 .device 의 padding-bottom
+     에서 별도로 처리되므로 여기서 24px 까지 둘 필요 없음.)
+     이전: 10px 4px 24px → 변경: 6px 4px 12px */
+  padding: 6px 4px 12px;
   flex-shrink: 0;
 }
 .st-tab {
   flex: 1;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  display: flex; flex-direction: column; align-items: center;
+  /* 아이콘 ↔ 라벨 간격 축소: 4 → 2 */
+  gap: 2px;
   color: rgba(255,255,255,0.5);
   font-size: 11px;
-  padding: 4px;
+  /* 탭 자체 padding 도 약간 축소: 4 → 3 (터치 영역은 flex:1 로 충분히 넓음) */
+  padding: 3px;
 }
-.st-tab svg { width: 20px; height: 20px; }
+.st-tab svg { width: 18px; height: 18px; }
 .st-tab .tab-tr {
-  width: 20px; height: 20px;
+  width: 18px; height: 18px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 700;
+  font-size: 14px; font-weight: 700;
 }
 .st-tab.active { color: var(--primary); font-weight: 700; }
 .st-tab.active svg { stroke: var(--primary); }
