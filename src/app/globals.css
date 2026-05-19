@@ -3789,17 +3789,33 @@ textarea:focus { border-color: var(--primary); }
  *
  * 9:16 비율을 명시적으로 강제 — width 와 height 를 직접 계산해서 flex 컨테이너
  * 안에서도 비율이 깨지지 않도록 한다.
- *  - width: 290px 또는 viewport 80% 중 작은 값 → 데스크탑에선 max 290 캡,
- *    모바일에선 viewport 의 80% 차지 (좌우 여백 확보)
- *  - height: 그 width × 16/9 → 정확히 9:16 비율
+ *
+ * width 후보(가장 작은 값이 선택됨 — 모든 화면 크기에서 카드가 캔버스에 fit):
+ *   a) 290px              — 데스크탑/큰 화면 최대 크기
+ *   b) 80vw               — 가로폭 기준 (모바일 좌우 여백 확보)
+ *   c) (vh - 200) × 9/16  — 세로 가용 공간 기준 (잘림 방지의 핵심)
+ *       200px = 토 ㄹ바(~50) + 패널(~80, 가장 큰 탭 기준) + 탭바(~55) + 패딩(~15)
+ *       이 조건이 작은 viewport(예: 갤럭시 S21 KakaoTalk 인앱 브라우저, iPhone SE 등)
+ *       에서 카드 높이가 캔버스를 넘지 않도록 자동으로 카드 크기를 줄여준다.
+ *
+ * 100svh(small viewport height) 를 우선 사용 — 모바일에서 URL 바가 표시된
+ * 상태의 가용 높이 기준. svh 미지원 브라우저는 100vh 폴백.
+ *
  * (이전엔 width:100% + aspect-ratio 였는데 flex 안에서 가끔 무시되어 모바일에서
  *  비율이 3:4 로 어그러지는 케이스가 있었음.) */
 .card-stage {
   position: relative;
-  width: min(290px, 80vw);
-  height: calc(min(290px, 80vw) * 16 / 9);
+  /* 폴백 — svh 미지원 브라우저는 100vh 사용. */
+  width: min(290px, 80vw, calc((100vh - 200px) * 9 / 16));
+  height: calc(min(290px, 80vw, calc((100vh - 200px) * 9 / 16)) * 16 / 9);
   display: flex;
   flex-shrink: 0;
+}
+@supports (height: 1svh) {
+  .card-stage {
+    width: min(290px, 80vw, calc((100svh - 200px) * 9 / 16));
+    height: calc(min(290px, 80vw, calc((100svh - 200px) * 9 / 16)) * 16 / 9);
+  }
 }
 
 /* Running card
