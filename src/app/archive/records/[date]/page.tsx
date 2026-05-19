@@ -51,6 +51,13 @@ export default function RecordDetailPage() {
   const userRecords = useAppStore((s) => s.userRecords);
   const deleteUserRecord = useAppStore((s) => s.deleteUserRecord);
   const showToast = useAppStore((s) => s.showToast);
+  // 수동 저장 → 자세히 보기에서 뒤로가기 시 보관함의 "내 기록 보관소" 로
+  // 진입하면서 방금 저장한 날짜가 선택된 상태로 표시되도록 상태 셋업에 사용.
+  const setArchiveMainTab = useAppStore((s) => s.setArchiveMainTab);
+  const setArchiveView = useAppStore((s) => s.setArchiveView);
+  const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
+  const selectDate = useAppStore((s) => s.selectDate);
+  const setCalExpanded = useAppStore((s) => s.setCalExpanded);
   // 같은 날짜에 저장된 AI 러닝일지들 — 메모 아래에 함께 노출.
   //
   // ⚠️ Zustand selector 안에서 직접 `.filter(...)` 를 호출하면 매 호출마다 새
@@ -69,10 +76,22 @@ export default function RecordDetailPage() {
   const rec = userRecords[dateParam] || archiveRecords[dateParam];
 
   const back = () => {
-    // manual save → 자세히 보기 진입(?from=manual) 의 경우엔 홈으로 바로 보냄.
-    // 사용자가 방금 기록을 저장한 후 추가 액션 없이 메인 화면으로 돌아가는 흐름.
+    // manual save → 자세히 보기 진입(?from=manual) 의 경우엔
+    // 보관함의 "내 기록 보관소" 로 보내고, 방금 저장한 날짜를 선택된 상태로
+    // 표시한다. (이전엔 홈으로 보냈으나, 사용자가 보관함에서 흐름을 이어가길
+    // 원해서 변경.)
     if (fromManual) {
-      router.push("/home");
+      const [yStr, mStr] = dateParam.split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      if (!isNaN(y) && !isNaN(m)) {
+        setArchiveMainTab("records");
+        setArchiveView("calendar");
+        setArchiveMonth(y, m);
+        selectDate(dateParam);
+        setTimeout(() => setCalExpanded(true), 0);
+      }
+      router.push("/archive");
       return;
     }
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -267,7 +286,7 @@ export default function RecordDetailPage() {
                     />
                     <span className="rd-ai-journal-q close">&rdquo;</span>
                   </div>
-                  <div className="rd-ai-journal-time">
+                  <div className="rd-ai-journal-meta">
                     {new Date(j.savedAt).toLocaleTimeString("ko-KR", {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -280,7 +299,7 @@ export default function RecordDetailPage() {
           </div>
         )}
 
-        {/* 액션 */}
+        {/* Actions */}
         <div className="rd-actions">
           <button className="rd-edit-btn" onClick={onEdit}>
             기록 수정하기
@@ -298,3 +317,4 @@ export default function RecordDetailPage() {
     </>
   );
 }
+
