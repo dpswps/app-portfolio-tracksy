@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatKoreanDate } from "@/lib/date";
 import Mascot from "@/components/ui/Mascot";
@@ -18,7 +18,7 @@ function toPlainBubble(s: string): string {
     .trim();
 }
 
-export default function JournalsPage() {
+function JournalsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const journals = useAppStore((s) => s.aiJournals);
@@ -144,5 +144,17 @@ export default function JournalsPage() {
         )}
       </section>
     </>
+  );
+}
+
+/**
+ * useSearchParams 가 Next.js 15+ 에서 Suspense boundary 를 요구하기 때문에
+ * 실제 페이지 로직(JournalsPageContent) 을 <Suspense> 로 감싸서 export.
+ */
+export default function JournalsPage() {
+  return (
+    <Suspense fallback={<section className="journals-screen" />}>
+      <JournalsPageContent />
+    </Suspense>
   );
 }

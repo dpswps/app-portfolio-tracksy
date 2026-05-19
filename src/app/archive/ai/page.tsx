@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import AIHeader from "@/features/ai-journal/AIHeader";
@@ -49,7 +49,12 @@ async function fetchSummary(messages: ChatMsg[]): Promise<string> {
   }
 }
 
-export default function AIJournalPage() {
+/**
+ * 본 페이지 콘텐츠 — Intro 가 useSearchParams 를 사용하기 때문에 Next.js 15+
+ * 의 build 가 Suspense boundary 를 요구한다. 그래서 default export 는 단순히
+ * <Suspense> 로 감싸고, 실제 로직은 AIJournalContent 컴포넌트에 위치.
+ */
+function AIJournalContent() {
   const step = useAppStore((s) => s.aiStep);
 
   useEffect(() => {
@@ -72,6 +77,14 @@ export default function AIJournalPage() {
   if (step === "result") return <Result />;
   if (step === "skip") return <Skip />;
   return <Intro />;
+}
+
+export default function AIJournalPage() {
+  return (
+    <Suspense fallback={<section className="aij-screen" />}>
+      <AIJournalContent />
+    </Suspense>
+  );
 }
 
 function BgChatPreview() {
