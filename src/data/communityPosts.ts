@@ -1,6 +1,10 @@
 import type { CommunityPost } from "@/types";
 
 export const communityPosts: CommunityPost[] = [
+  /* 기본 피드 게시글(1~6) — 검색 페이지의 인기 검색어 5종
+   *   #한강러닝 / #5km도전 / #모닝런 / #러닝메이트 / #서울러닝코스
+   *  과 매칭되도록 `tags` 를 각 게시글에 분포시켰다.
+   *  태그 게시판(/community/tag/[tag]) 에서 각 태그당 4~6개의 카드가 노출됨. */
   {
     id: 1,
     type: "photo",
@@ -11,6 +15,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run1.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+    tags: "#한강러닝 #모닝런 #서울러닝코스",
   },
   {
     id: 2,
@@ -22,6 +27,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run2.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#FBBF24,#F59E0B)",
+    tags: "#5km도전 #모닝런",
   },
   {
     id: 3,
@@ -33,6 +39,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run3.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#F472B6,#EC4899)",
+    tags: "#러닝메이트 #모닝런",
   },
   {
     id: 4,
@@ -44,6 +51,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run4.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+    tags: "#러닝메이트 #한강러닝 #서울러닝코스",
   },
   {
     id: 5,
@@ -55,6 +63,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run5.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#FB923C,#F97316)",
+    tags: "#5km도전 #서울러닝코스",
   },
   {
     id: 6,
@@ -66,6 +75,7 @@ export const communityPosts: CommunityPost[] = [
     image: "/run6.jpg",
     tall: true,
     avatarBg: "linear-gradient(135deg,#34D399,#10B981)",
+    tags: "#러닝메이트 #모닝런 #5km도전",
   },
   /* 인기 게시글 (커뮤니티 검색 페이지의 "인기 게시글" 섹션에서 노출되는 3개).
    * 검색에서 누른 썸네일과 동일한 게시글이 열리도록 dedicated entries 로 보관.
@@ -123,7 +133,7 @@ export const communityPosts: CommunityPost[] = [
     tall: true,
     avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
     caption: "오늘 러닝 무드 🎧",
-    tags: "#야간러닝 #도시런 #오운완",
+    tags: "#야간러닝 #도시런 #오운완 #한강러닝 #서울러닝코스",
   },
   {
     id: 202,
@@ -136,7 +146,7 @@ export const communityPosts: CommunityPost[] = [
     tall: true,
     avatarBg: "linear-gradient(135deg,#34D399,#10B981)",
     caption: "데일리 러닝 📅",
-    tags: "#공원러닝 #데일리런 #숲길",
+    tags: "#공원러닝 #데일리런 #숲길 #러닝메이트 #5km도전",
   },
   {
     id: 203,
@@ -149,7 +159,7 @@ export const communityPosts: CommunityPost[] = [
     tall: true,
     avatarBg: "linear-gradient(135deg,#60A5FA,#3B82F6)",
     caption: "야경 러닝 🌙",
-    tags: "#남산타워 #야경 #서울러닝",
+    tags: "#남산타워 #야경 #서울러닝 #한강러닝",
   },
   {
     id: 204,

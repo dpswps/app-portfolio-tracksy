@@ -1,7 +1,6 @@
 "use client";
 
 import { useAppStore } from "@/stores/useAppStore";
-import { layoutTemplates } from "./layoutTemplates";
 
 /**
  * 스튜디오 스티커 풀 — Tracksy 마스코트 캐릭터 12종.
@@ -238,79 +237,39 @@ function DesignTab() {
   const toggle = (m: "theme" | "style") => {
     setSubmenu(submenu === m ? "none" : m);
   };
+  // 테마/스타일 두 하위 메뉴의 슬라이드 행은 모두 DesignSubmenu 가 캔버스 하단
+  // absolute 영역(.design-theme-row) 에 그려준다 — 여기서는 토글 버튼만 노출.
   return (
-    <>
-      <div className="sp-tools sp-design">
-        <button
-          className={`sp-tool${submenu === "theme" ? " active" : ""}`}
-          onClick={() => toggle("theme")}
-        >
-          <span className="sp-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M3 17l5-5 4 4 4-4 5 5" />
-            </svg>
-          </span>
-          <i>테마</i>
-        </button>
-        <button
-          className={`sp-tool${submenu === "style" ? " active" : ""}`}
-          onClick={() => toggle("style")}
-        >
-          <span className="sp-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 3l9 9-9 9-9-9z" />
-            </svg>
-          </span>
-          <i>스타일</i>
-        </button>
-      </div>
-      {submenu === "style" && <StyleLayoutGrid />}
-    </>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────
- * 스타일 → 레이아웃 그리드.
- *
- * layoutTemplates 모듈에서 8개 프리셋(layout-1 ~ layout-8)을 가져와서
- * 썸네일로 표시. 클릭하면 selectedLayoutId(=studioLayoutId)가 바뀌고,
- * RunningCard 의 stats-group JSX 가 즉시 그 레이아웃으로 교체됨.
- * 우측 하단에는 "저장한 스타일 사용하기" 버튼 — 보관함 picker 열기.
- * ────────────────────────────────────────────────────────── */
-function StyleLayoutGrid() {
-  const layoutId = useAppStore((s) => s.studioLayoutId);
-  const setLayout = useAppStore((s) => s.setStudioLayoutId);
-  const showToast = useAppStore((s) => s.showToast);
-  const openSavedStylesPicker = useAppStore((s) => s.setStudioStylePickerOpen);
-
-  return (
-    <div className="sp-layout-grid">
-      {layoutTemplates.map((ly) => {
-        const active = layoutId === ly.id;
-        return (
-          <button
-            key={ly.id}
-            className={`sp-layout-cell${active ? " active" : ""}`}
-            onClick={() => {
-              setLayout(ly.id);
-              showToast(`${ly.name} 레이아웃 적용됨`);
-            }}
-            aria-label={`${ly.name} 레이아웃`}
-            title={ly.desc}
-          >
-            <div className="sp-layout-preview">{ly.preview}</div>
-          </button>
-        );
-      })}
-      {/* 우측 하단 — 보관함의 저장된 스타일 사용 */}
+    <div className="sp-tools sp-design">
       <button
-        className="sp-layout-cell sp-layout-use-saved"
-        onClick={() => openSavedStylesPicker(true)}
+        className={`sp-tool${submenu === "theme" ? " active" : ""}`}
+        onClick={() => toggle("theme")}
       >
-        <span>저장한 스타일{"\n"}사용하기</span>
+        <span className="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M3 17l5-5 4 4 4-4 5 5" />
+          </svg>
+        </span>
+        <i>테마</i>
+      </button>
+      <button
+        className={`sp-tool${submenu === "style" ? " active" : ""}`}
+        onClick={() => toggle("style")}
+      >
+        <span className="sp-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 3l9 9-9 9-9-9z" />
+          </svg>
+        </span>
+        <i>스타일</i>
       </button>
     </div>
   );
 }
+
+/* 스타일(레이아웃) 선택 행은 DesignSubmenu 가 캔버스 하단 absolute 영역에
+ * 그려준다. 이전엔 여기 StyleLayoutGrid 가 패널 하단에 인라인으로 그려졌지만,
+ * 사용자 요청으로 테마 슬라이드와 동일한 위치(.design-theme-row) 에서 뜨도록
+ * DesignSubmenu 의 StyleRow 로 이동시킴. */

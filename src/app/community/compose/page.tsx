@@ -38,6 +38,26 @@ export default function CommunityComposePage() {
   };
 
   /**
+   * 해시태그 입력 정규화.
+   *
+   * 사용자가 다양한 방식으로 태그를 입력해도 일관된 포맷으로 저장한다:
+   *   "한강러닝" → "#한강러닝"
+   *   "한강러닝 모닝런" → "#한강러닝 #모닝런"
+   *   "#한강러닝, #모닝런" → "#한강러닝 #모닝런"
+   *   "한강러닝,모닝런" → "#한강러닝 #모닝런"
+   *
+   * 이렇게 정규화해두면 태그 게시판 매칭 로직(공백 split + 토큰 비교) 이 사용자
+   * 게시글에서도 정확하게 동작한다. (이전엔 # 빠진 입력이 매칭에서 누락됐음.)
+   */
+  const normalizeTagsInput = (raw: string): string =>
+    raw
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s.startsWith("#") ? s : `#${s}`))
+      .join(" ");
+
+  /**
    * 등록하기 — 사용자가 입력한 캡션 + 해시태그 + 선택한 카드의 bg(그라데이션/사진)
    * 로 오늘 날짜 게시글을 만들어 store 에 추가하고 커뮤니티 메인으로 이동.
    * 갤러리 카드는 별도 이미지 URL 이 없어서 bg(CSS string) 만 넘기면 FeedCard 가
@@ -50,7 +70,8 @@ export default function CommunityComposePage() {
     }
     addCommunityPost({
       caption,
-      tags,
+      // 저장 직전에 항상 정규화 — 검색 매칭 시 누락 방지.
+      tags: normalizeTagsInput(tags),
       // bg 가 "url(...)" 형식이면 image 로, 아니면 (그라데이션 등) bg 로 넘김.
       // FeedCard 는 image 가 있으면 url(image) cover 로, 없으면 bg 를 그대로 사용.
       image: selectedCard?.bg?.startsWith("url(")

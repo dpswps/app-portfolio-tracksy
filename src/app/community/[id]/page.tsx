@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { communityPosts } from "@/data/communityPosts";
 import { useAppStore } from "@/stores/useAppStore";
@@ -19,6 +20,13 @@ export default function CommunityPostPage() {
   const showToast = useAppStore((s) => s.showToast);
   const userPosts = useAppStore((s) => s.userCommunityPosts);
   const addUserSavedStyle = useAppStore((s) => s.addUserSavedStyle);
+  const removeCommunityPost = useAppStore((s) => s.removeCommunityPost);
+
+  // 현재 게시글이 "사용자가 직접 등록한 글" 인지 판단 — 점세개 메뉴 노출 여부를
+  // 결정. 사용자 글에만 삭제 옵션이 보이도록 한다(기본 샘플 글은 삭제 불가).
+  const isUserOwned = userPosts.some(
+    (x) => String(x.id) === String(params.id),
+  );
   // 게시글 조회는 사용자가 직접 등록한 게시글 + 기본 게시글 모두에서 찾는다.
   // 사용자 게시글의 id 는 Date.now() 기반이라 기본 게시글(1~6) 과 충돌하지 않음.
   const p =
@@ -26,9 +34,50 @@ export default function CommunityPostPage() {
     communityPosts.find((x) => String(x.id) === String(params.id)) ||
     communityPosts[0];
 
+  /* 점세개 메뉴 — 외부 클릭 시 자동으로 닫히도록 ref 로 boundary 추적. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocPointer = (e: MouseEvent | TouchEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocPointer);
+    document.addEventListener("touchstart", onDocPointer);
+    return () => {
+      document.removeEventListener("mousedown", onDocPointer);
+      document.removeEventListener("touchstart", onDocPointer);
+    };
+  }, [menuOpen]);
+
   const back = () => {
     if (window.history.length > 1) router.back();
     else router.push("/community");
+  };
+
+  /**
+   * 삭제 — 사용자가 직접 등록한 글에 한해서 confirm 후 store 에서 제거하고
+   * 커뮤니티 메인으로 이동. 기본 샘플 글은 메뉴 자체가 안 보이므로 여기 도달
+   * 하지 않지만 안전망으로 isUserOwned 한 번 더 체크.
+   */
+  const onDelete = () => {
+    if (!isUserOwned) {
+      showToast("샘플 게시글은 삭제할 수 없어요");
+      setMenuOpen(false);
+      return;
+    }
+    const ok =
+      typeof window !== "undefined"
+        ? window.confirm("이 게시글을 삭제할까요?")
+        : true;
+    if (!ok) return;
+    removeCommunityPost(p.id);
+    setMenuOpen(false);
+    showToast("게시글이 삭제되었어요");
+    setTimeout(() => router.push("/community"), 200);
   };
 
   /** 스타일 저장하기 — 현재 게시글을 보관함 > 스타일 보관소 > 저장한 스타일에 추가.
@@ -62,6 +111,43 @@ export default function CommunityPostPage() {
           />
           <span>{p.user || "박채원"}</span>
         </div>
+        {/* 우측 상단 점세개 메뉴 — 사용자가 직접 등록한 게시글에서만 노출.
+            클릭하면 작은 드롭다운이 열리고 "삭제하기" 항목을 누르면 confirm
+            후 store 에서 제거 + 커뮤니티 메인으로 이동. */}
+        {isUserOwned && (
+          <div className="cp-menu-wrap" ref={menuRef}>
+            <button
+              type="button"
+              className="cp-menu-btn"
+              aria-label="더보기"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="cp-menu" role="menu">
+                <button
+                  type="button"
+                  className="cp-menu-item cp-menu-item-danger"
+                  role="menuitem"
+                  onClick={onDelete}
+                >
+                  삭제하기
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <section className="comm-post">
         <div className="post-card">

@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { layoutTemplates } from "./layoutTemplates";
 
 type ThemePreset = {
   id: string;
@@ -181,20 +182,20 @@ const THEMES: ThemePreset[] = [
   },
 ];
 
-export default function DesignSubmenu() {
-  const submenu = useAppStore((s) => s.studioDesignSubmenu);
-  const themeOverlay = useAppStore((s) => s.studioThemeOverlay);
-  const setOverlay = useAppStore((s) => s.setStudioThemeOverlay);
-  const showToast = useAppStore((s) => s.showToast);
-
-  /* ──────────────────────────────────────────────────────────
-   * 드래그 스크롤 — 사용자가 슬라이드를 누른 상태에서 좌우로 끌면
-   * 가로 스크롤이 같이 움직이도록.
-   *
-   * touch 환경에서는 기본 native 스크롤로 충분하지만, 마우스/PC에서는
-   * 클릭 후 끌어도 스크롤이 안 되므로 pointer 이벤트로 직접 처리.
-   * 클릭 vs 드래그 구분을 위해 DRAG_THRESHOLD 만큼 움직였을 때만 드래그로 인식.
-   * ────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────
+ * 가로 드래그 스크롤 hook — 한 행을 마우스/터치로 끌어서 좌우로 움직임.
+ *
+ * 1) touch 환경은 기본 native pan-x 로도 충분하지만, 마우스/PC 에서도 클릭 후
+ *    끌어서 스크롤되도록 pointer 이벤트로 직접 처리.
+ * 2) DRAG_THRESHOLD(4px) 이상 움직였을 때만 "드래그" 로 인식 → 그 미만은
+ *    클릭으로 처리되어 항목 선택이 정상 동작.
+ * 3) 드래그 중에는 .dragging 클래스로 자식의 click 을 차단(CSS pointer-events:
+ *    none) → 클릭/드래그 충돌 방지.
+ *
+ * 반환: 핸들러 묶음 + scroller ref + wasDragging() — 클릭 핸들러에서 드래그
+ * 직후의 우발적 click 을 무시할 때 사용.
+ * ────────────────────────────────────────────────────────── */
+function useDragScroll() {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -203,8 +204,6 @@ export default function DesignSubmenu() {
     moved: boolean;
   } | null>(null);
   const DRAG_THRESHOLD = 4;
-
-  if (submenu !== "theme") return null;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = scrollerRef.current;
@@ -216,7 +215,6 @@ export default function DesignSubmenu() {
       moved: false,
     };
   };
-
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     const el = scrollerRef.current;
@@ -235,7 +233,6 @@ export default function DesignSubmenu() {
     e.preventDefault();
     el.scrollLeft = d.startScrollLeft - dx;
   };
-
   const onPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
@@ -247,6 +244,19 @@ export default function DesignSubmenu() {
     scrollerRef.current?.classList.remove("dragging");
     dragRef.current = null;
   };
+
+  const wasDragging = () => !!dragRef.current?.moved;
+
+  return { scrollerRef, onPointerDown, onPointerMove, onPointerEnd, wasDragging };
+}
+
+/* 테마 슬라이드 행 — 캔버스 하단에 absolute 로 떠 있는 가로 스크롤. */
+function ThemeRow() {
+  const themeOverlay = useAppStore((s) => s.studioThemeOverlay);
+  const setOverlay = useAppStore((s) => s.setStudioThemeOverlay);
+  const showToast = useAppStore((s) => s.showToast);
+  const { scrollerRef, onPointerDown, onPointerMove, onPointerEnd, wasDragging } =
+    useDragScroll();
 
   return (
     <div className="design-theme-row">
@@ -270,8 +280,7 @@ export default function DesignSubmenu() {
               aria-label={th.name}
               title={th.name}
               onClick={(e) => {
-                // 드래그가 막 끝난 직후의 click 은 무시 (드래그 중에 우연히 클릭이 잡힐 경우)
-                if (dragRef.current?.moved) {
+                if (wasDragging()) {
                   e.preventDefault();
                   return;
                 }
@@ -291,4 +300,79 @@ export default function DesignSubmenu() {
       </div>
     </div>
   );
+}
+
+/* 스타일(레이아웃) 슬라이드 행 — 테마 행과 동일한 absolute 위치에 그려진다.
+   첫 항목은 "저장한 스타일 사용하기" 버튼(시트 열기), 그 뒤로 layoutTemplates 의
+   8개 프리셋이 가로로 나열. */
+function StyleRow() {
+  const layoutId = useAppStore((s) => s.studioLayoutId);
+  const setLayout = useAppStore((s) => s.setStudioLayoutId);
+  const showToast = useAppStore((s) => s.showToast);
+  const openSavedStylesPicker = useAppStore((s) => s.setStudioStylePickerOpen);
+  const { scrollerRef, onPointerDown, onPointerMove, onPointerEnd, wasDragging } =
+    useDragScroll();
+
+  return (
+    <div className="design-theme-row">
+      <div
+        ref={scrollerRef}
+        className="dtr-scroll dtr-scroll-style"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+      >
+        {/* 가장 왼쪽 — 저장한 스타일 사용하기(시트 열기) */}
+        <button
+          className="dtr-thumb dtr-thumb-saved"
+          aria-label="저장한 스타일 사용하기"
+          title="저장한 스타일 사용하기"
+          onClick={(e) => {
+            if (wasDragging()) {
+              e.preventDefault();
+              return;
+            }
+            openSavedStylesPicker(true);
+          }}
+        >
+          <span className="dtr-name dtr-name-saved">
+            저장한 스타일{"\n"}사용하기
+          </span>
+        </button>
+
+        {/* 8개 레이아웃 프리셋 */}
+        {layoutTemplates.map((ly) => {
+          const isActive = layoutId === ly.id;
+          return (
+            <button
+              key={ly.id}
+              className={`dtr-thumb dtr-thumb-layout${isActive ? " active" : ""}`}
+              aria-label={`${ly.name} 레이아웃`}
+              title={ly.desc}
+              onClick={(e) => {
+                if (wasDragging()) {
+                  e.preventDefault();
+                  return;
+                }
+                setLayout(ly.id);
+                showToast(`${ly.name} 레이아웃 적용됨`);
+              }}
+            >
+              <div className="dtr-layout-preview">{ly.preview}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function DesignSubmenu() {
+  const submenu = useAppStore((s) => s.studioDesignSubmenu);
+
+  // 디자인 탭이 열려 있지만 어떤 하위 메뉴도 선택 안 된 상태에서는 아무것도 그리지 않음.
+  if (submenu === "theme") return <ThemeRow />;
+  if (submenu === "style") return <StyleRow />;
+  return null;
 }

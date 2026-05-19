@@ -238,6 +238,24 @@ type State = {
    */
   userCommunityPosts: CommunityPost[];
 
+  /**
+   * 커뮤니티 검색어 검색 횟수 카운터.
+   * key: 정규화된 검색어(소문자 + 공백 제거 + `#` 제거),
+   * value: 누적 검색 횟수.
+   *
+   * 인기 검색어 노출 순서는 이 카운터를 기준으로 내림차순 정렬한다.
+   * persist 되어 새로고침 후에도 유지.
+   */
+  communitySearchCounts: Record<string, number>;
+
+  /**
+   * 사용자의 최근 검색어 목록 (커뮤니티 검색).
+   * 가장 최근 검색이 인덱스 0 — 검색 페이지에서 칩 형태로 노출.
+   * 최대 5개로 제한되고, 같은 검색어 중복 시 기존 항목을 앞으로 이동.
+   * persist 되어 페이지 이동/새로고침 후에도 유지.
+   */
+  communityRecentSearches: string[];
+
   aiStep: AIStep;
   aiMessages: AIMessage[];
   aiSummary: string | null;
@@ -367,6 +385,16 @@ type State = {
     image?: string;
     bg?: string;
   }) => number;
+  /** 사용자가 직접 등록한 커뮤니티 게시글 삭제. 기본 샘플(id 1~6, 101~, 201~)
+   *  은 userCommunityPosts 에 없으므로 영향 없음 — 사용자 글만 삭제됨. */
+  removeCommunityPost: (id: number | string) => void;
+  /** 커뮤니티 검색어 카운트 1 증가. raw 검색어를 받아 내부에서 정규화 후 키로 사용.
+   *  공백/대소문자/`#` 유무에 관계없이 같은 검색어는 같은 키로 누적된다. */
+  incrementCommunitySearch: (raw: string) => void;
+  /** 최근 검색어 목록 맨 앞에 추가(중복 제거 + 최대 5개로 제한). */
+  addCommunityRecentSearch: (raw: string) => void;
+  /** 특정 최근 검색어 한 개 삭제. */
+  removeCommunityRecentSearch: (kw: string) => void;
   setBestMetric: (m: State["bestMetric"]) => void;
   setAIStep: (s: AIStep) => void;
   pushAIMessage: (m: AIMessage) => void;
@@ -477,6 +505,22 @@ export const useAppStore = create<State>()(
       savedPosts: {},
       composeSelectedCardId: null,
       userCommunityPosts: [],
+
+      /* 초기 인기 검색어 카운트 — 사용자가 아직 검색해본 적 없는 상태에서도
+       * 상위 5개가 의미 있는 순서로 노출되도록 시드 값을 부여한다.
+       * 키는 정규화 형태(#/공백 제거 + 소문자). 사용자가 검색할 때마다 그
+       * 정규화 키의 카운트가 1씩 증가하므로, 시간이 지나면 사용자 검색 트렌드
+       * 가 순위에 반영된다. */
+      communitySearchCounts: {
+        "한강러닝": 50,
+        "5km도전": 42,
+        "모닝런": 38,
+        "러닝메이트": 30,
+        "서울러닝코스": 22,
+      },
+
+      /* 최근 검색어 — 초기값은 빈 배열. 사용자가 검색해야 채워지기 시작한다. */
+      communityRecentSearches: [],
 
       aiStep: "intro",
       aiMessages: DEFAULT_AI_MESSAGES,
@@ -1142,6 +1186,43 @@ export const useAppStore = create<State>()(
           composeSelectedCardId: null,
         }));
         return id;
+      },
+      removeCommunityPost: (id) => {
+        set((s) => ({
+          userCommunityPosts: s.userCommunityPosts.filter(
+            (p) => String(p.id) !== String(id),
+          ),
+        }));
+      },
+      incrementCommunitySearch: (raw) => {
+        // 정규화 — `#` 제거 + 모든 공백 제거 + 소문자. (검색 페이지/태그 페이지
+        // 의 normalize() 규칙과 동일.) 빈 문자열이면 무시.
+        const key = raw.replace(/^#/, "").replace(/\s+/g, "").toLowerCase();
+        if (!key) return;
+        set((s) => ({
+          communitySearchCounts: {
+            ...s.communitySearchCounts,
+            [key]: (s.communitySearchCounts?.[key] ?? 0) + 1,
+          },
+        }));
+      },
+      addCommunityRecentSearch: (raw) => {
+        const kw = (raw ?? "").trim();
+        if (!kw) return;
+        set((s) => {
+          // 기존 동일 검색어를 제거하고(=중복 제거 + "맨 앞으로 이동" 효과)
+          // 새 검색어를 최상단에 prepend. 최대 5개로 제한.
+          const prev = s.communityRecentSearches ?? [];
+          const next = [kw, ...prev.filter((r) => r !== kw)].slice(0, 5);
+          return { communityRecentSearches: next };
+        });
+      },
+      removeCommunityRecentSearch: (kw) => {
+        set((s) => ({
+          communityRecentSearches: (s.communityRecentSearches ?? []).filter(
+            (r) => r !== kw,
+          ),
+        }));
       },
       setBestMetric: (m) => set({ bestMetric: m }),
       setAIStep: (s) => set({ aiStep: s }),
