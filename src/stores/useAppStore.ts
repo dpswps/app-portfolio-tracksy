@@ -93,6 +93,11 @@ type State = {
   toast: string | null;
 
   studioTab: "edit" | "text" | "sticker" | "design";
+  /** 스티커 탭 그리드 펼침/접힘 상태.
+   *  - 펼침(true): 12개 스티커가 2행 6열로 모두 보임
+   *  - 접힘(false): 1행 6개만 보이고 나머지는 max-height 로 숨김
+   *  드래그 핸들 또는 클릭으로 토글. persist 됨. */
+  studioStickersExpanded: boolean;
   studioBackground: string | null;
   studioRotate: number;
   studioFlipH: boolean;
@@ -268,6 +273,7 @@ type State = {
   showToast: (msg: string) => void;
   hideToast: () => void;
   setStudioTab: (t: State["studioTab"]) => void;
+  setStudioStickersExpanded: (v: boolean) => void;
   setStudioBackground: (url: string | null) => void;
   rotateBackground: () => void;
   toggleFlipH: () => void;
@@ -433,6 +439,7 @@ export const useAppStore = create<State>()(
       toast: null,
 
       studioTab: "edit",
+      studioStickersExpanded: true,
       studioBackground: null,
       studioRotate: 0,
       studioFlipH: false,
@@ -538,6 +545,7 @@ export const useAppStore = create<State>()(
       },
       hideToast: () => set({ toast: null }),
       setStudioTab: (t) => set({ studioTab: t }),
+      setStudioStickersExpanded: (v) => set({ studioStickersExpanded: v }),
       setStudioBackground: (url) => {
         get().pushStudioHistory();
         set({

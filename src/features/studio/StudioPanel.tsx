@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 
 /**
@@ -26,23 +27,143 @@ const STICKERS: { key: string; label: string }[] = [
 function StickerGrid() {
   const addSticker = useAppStore((s) => s.addSticker);
   const showToast = useAppStore((s) => s.showToast);
+  const expanded = useAppStore((s) => s.studioStickersExpanded);
+  const setExpanded = useAppStore((s) => s.setStudioStickersExpanded);
+
+  /* ──────────────────────────────────────────────────────────
+   * Drag handle — 스티커 그리드 상단에 위치.
+   *
+   * 동작:
+   *   - 단순 클릭/탭 → 펼침/접힘 토글
+   *   - 위로 드래그(dy < -8) + 접힘 상태 → 펼침
+   *   - 아래로 드래그(dy >  8) + 펼침 상태 → 접힘
+   *   - 키보드: ↑ 펼침 / ↓ 접힘 / Enter·Space 토글
+   *
+   * 보관함의 Calendar 의 drag handle 패턴과 동일 구현. 드래그가 발동되면
+   * 그 직후의 click 이벤트는 한 번 무시 → 중복 토글 방지.
+   * ────────────────────────────────────────────────────────── */
+  const dragStartY = useRef<number | null>(null);
+  const dragStartExpanded = useRef<boolean>(false);
+  const triggered = useRef<boolean>(false);
+  const dragWasTriggered = useRef<boolean>(false);
+  const DRAG_THRESHOLD = 8;
+
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragStartY.current = e.clientY;
+    dragStartExpanded.current = expanded;
+    triggered.current = false;
+    dragWasTriggered.current = false;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  };
+  const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartY.current === null || triggered.current) return;
+    const dy = e.clientY - dragStartY.current;
+    if (!dragStartExpanded.current && dy < -DRAG_THRESHOLD) {
+      triggered.current = true;
+      dragWasTriggered.current = true;
+      setExpanded(true);
+    } else if (dragStartExpanded.current && dy > DRAG_THRESHOLD) {
+      triggered.current = true;
+      dragWasTriggered.current = true;
+      setExpanded(false);
+    }
+  };
+  const onHandlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartY.current !== null) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+    }
+    dragStartY.current = null;
+    triggered.current = false;
+  };
+  const onHandleClick = () => {
+    if (dragWasTriggered.current) {
+      dragWasTriggered.current = false;
+      return;
+    }
+    setExpanded(!expanded);
+  };
+  const onHandleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setExpanded(true);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setExpanded(false);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setExpanded(!expanded);
+    }
+  };
+
   return (
-    <div className="sp-stickers">
-      {STICKERS.map((s) => (
-        <button
-          key={s.key}
-          className="sp-sticker sp-sticker-img"
-          onClick={() => {
-            addSticker(s.key);
-            showToast(`${s.label} 스티커 추가됨`);
-          }}
-          aria-label={s.label}
-          title={s.label}
+    <div className={`sp-stickers-wrap${expanded ? " expanded" : ""}`}>
+      {/* 오버레이 — 패널 위(캔버스 영역) 에 떠 있는 absolute 컨테이너.
+          내부 구성: [핸들(위) + 그리드(아래)]. 핸들은 항상 보이고, 그리드만
+          max-height/opacity 로 접힘 토글된다.
+          접힘 시: 오버레이 = 핸들만 → 패널 바로 위에 작은 chevron 만 노출.
+          펼침 시: 오버레이 = 핸들 + 그리드 → 위쪽으로 확장(캔버스 영역 침범).
+          결과 배치: canvas → 핸들(▼) → 그리드 → 패널 본체 → 탭바. */}
+      <div className="sp-stickers">
+        <div
+          className="sp-stickers-handle"
+          role="button"
+          tabIndex={0}
+          aria-label={expanded ? "스티커 접기" : "스티커 펼치기"}
+          aria-expanded={expanded}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerEnd}
+          onPointerCancel={onHandlePointerEnd}
+          onClick={onHandleClick}
+          onKeyDown={onHandleKeyDown}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={s.key} alt={s.label} />
-        </button>
-      ))}
+          <svg
+            className="sps-chevron"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            {/* 펼침 → ▼ (눌러서/내려서 접기 안내)
+                접힘 → ▲ (눌러서/올려서 펼치기 안내) */}
+            {expanded ? (
+              <polyline points="6 9 12 15 18 9" />
+            ) : (
+              <polyline points="6 15 12 9 18 15" />
+            )}
+          </svg>
+        </div>
+        <div className="sp-stickers-grid">
+          {STICKERS.map((s) => (
+            <button
+              key={s.key}
+              className="sp-sticker sp-sticker-img"
+              onClick={() => {
+                addSticker(s.key);
+                showToast(`${s.label} 스티커 추가됨`);
+                // 사용자가 스티커를 캔버스에 추가한 직후 메뉴 자동 접기.
+                setExpanded(false);
+              }}
+              aria-label={s.label}
+              title={s.label}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={s.key} alt={s.label} />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

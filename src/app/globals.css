@@ -3020,7 +3020,13 @@ textarea:focus { border-color: var(--primary); }
  * 이제 하단 패널과 겹치지 않도록 충분히 위로 올려서 캔버스 안쪽에 안착시킨다. */
 .st-fab-stack {
   position: absolute;
-  right: 10px; bottom: 16px;
+  right: 10px;
+  /* 스티커 탭의 핸들 오버레이(.sp-stickers, ~30px 높이) 가 캔버스 하단을 가리기
+     때문에 FAB 의 bottom 을 50px 로 키워서 핸들 영역 위로 충분히 띄움.
+     스티커 탭 펼침 상태에선 오버레이가 더 커서 FAB 가 가려지는데, 이때는 사용자
+     가 스티커 선택에 집중하는 시점이라 FAB 클릭이 필요 없음(스티커 클릭 시
+     자동 접힘). */
+  bottom: 50px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -4001,21 +4007,19 @@ textarea:focus { border-color: var(--primary); }
   /* 컴팩트화 — 상하 패딩 축소.
      min-height 는 제거 — 이전엔 118px 로 모든 탭에 동일 높이를 강제했지만,
      편집/텍스트/디자인 탭은 버튼 한 줄(약 56px) 만 있어 그 아래로 빈 공간이
-     남았다. 이제 각 탭의 콘텐츠 크기가 패널 높이를 결정 → 편집/텍스트/디자인
-     은 자동으로 작아지고(모두 같은 sp-tools 행 크기로 통일), 스티커 탭만
-     2행 그리드 크기로 자연스럽게 확장된다. */
-  padding: 8px 4px 2px;
+     남았다. 이제 각 탭의 콘텐츠 크기가 패널 높이를 결정.
+     하단 패딩 0 — 스티커 탭에서 화살표 핸들 아래의 빈 공간을 최소화. */
+  padding: 8px 4px 0;
   border-top: 1px solid rgba(255,255,255,0.06);
-  max-height: 230px;
   display: flex;
   flex-direction: column;
   background: #0E0E11;
   flex-shrink: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  /* 이전엔 overflow-y: auto + max-height: 230 이었는데, 스티커 그리드를 패널
+     위쪽(=캔버스 영역) 으로 absolute 띄우면서 그 부분이 패널 overflow 에 의해
+     잘려버렸음. 그리드가 정상적으로 떠오르도록 visible 로 변경. */
+  overflow: visible;
 }
-.studio-panel::-webkit-scrollbar { display: none; }
-.studio-panel { scrollbar-width: none; }
 .sp-head {
   display: flex; justify-content: space-between; align-items: center;
   padding: 0 16px 4px;
@@ -4076,13 +4080,75 @@ textarea:focus { border-color: var(--primary); }
   background: conic-gradient(#EF4444, #F59E0B, #FBBF24, #10B981, #3B82F6, #8B5CF6, #EC4899, #EF4444);
 }
 
+/* 스티커 탭 wrap — 패널 본체에 있는 컨테이너. wrap 자체는 거의 height 0 이고,
+   안의 .sp-stickers 오버레이(absolute) 가 wrap 의 위쪽(=캔버스 영역) 으로
+   떠오른다. 오버레이는 핸들 + 그리드를 flex column 으로 묶어서 핸들이 항상
+   위에 있도록 한다.
+   이렇게 분리한 이유:
+     1) 펼침/접힘 시 패널 자체 높이가 변하지 않음 → 캔버스(편집 화면) 크기 고정.
+     2) 펼친 상태에서 그리드 + 핸들 묶음이 캔버스 위로 부드럽게 떠오른다 —
+        사용자 기대 동작과 일치("편집 화면 위로 스티커 창이 올라오도록").
+     3) 핸들이 항상 그리드 "위쪽" 에 위치 → 사용자의 요청대로 화살표가
+        그리드 위에 노출됨. */
+.sp-stickers-wrap {
+  position: relative;
+  /* wrap 자체엔 콘텐츠 없음(handle/grid 는 absolute 오버레이 안). 화살표(핸들)
+     바로 아래의 빈 공간을 최소화하기 위해 min-height 를 0 으로. */
+  min-height: 0;
+}
+.sp-stickers-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  color: rgba(255, 255, 255, 0.65);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sp-stickers-handle:hover { color: #fff; }
+.sp-stickers-handle .sps-chevron {
+  width: 22px;
+  height: 22px;
+  display: block;
+  transition: transform 0.18s ease;
+}
+/* 오버레이 컨테이너 — wrap 위(캔버스 영역) 에 떠 있는 absolute. 핸들과 그리드를
+   flex column 으로 담는다. 핸들이 첫 자식 → 항상 오버레이 최상단. 그리드가
+   둘째 자식 → 핸들 아래. 오버레이는 항상 보이고(핸들 노출), 그리드만
+   max-height/opacity 로 토글된다. */
 .sp-stickers {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #0E0E11;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+}
+.sp-stickers-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 6px;
-  /* 다른 탭(.sp-tools)와 동일한 상하 8px 패딩 — 탭 전환 시 콘텐츠 시작 라인이
-     동일하게 보이도록 통일. 좌우는 grid 자체에 약간 더 여유가 필요해서 16 유지. */
-  padding: 8px 16px 8px;
+  padding: 6px 16px 12px;
+  /* 접힘 기본 — 보이지 않고 클릭도 안 받음. 핸들은 그대로 노출. */
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: max-height 0.22s ease, opacity 0.18s ease;
+}
+.sp-stickers-wrap.expanded .sp-stickers-grid {
+  /* 펼침: 12개 스티커가 2행 6열 grid 로 모두 보이도록 충분한 max-height. */
+  max-height: 240px;
+  opacity: 1;
+  pointer-events: auto;
 }
 /* ──────────────────────────────────────────────────────────
  * Studio Design > 스타일 — 레이아웃 그리드
@@ -4353,8 +4419,8 @@ textarea:focus { border-color: var(--primary); }
   /* 탭바 컴팩트화 — 특히 하단 24px → 12px 로 절반 가까이 줄여서 가장 큰
      시각적 공간 절약 효과. (모바일 safe-area 는 .device 의 padding-bottom
      에서 별도로 처리되므로 여기서 24px 까지 둘 필요 없음.)
-     이전: 10px 4px 24px → 변경: 6px 4px 12px */
-  padding: 6px 4px 12px;
+     상단 패딩도 추가로 축소: 6 → 3 → 스티커 탭에서 화살표 ↔ 탭 아이콘 간 간격 좁힘. */
+  padding: 3px 4px 12px;
   flex-shrink: 0;
 }
 .st-tab {
