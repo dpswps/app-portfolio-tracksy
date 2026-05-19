@@ -7913,7 +7913,12 @@ textarea:focus { border-color: var(--primary); }
 .studio-card-wrap {
   position: relative;
   display: flex;
-  align-items: center;
+  /* 카드 상단 정렬 — 카드 높이(svh 기반)가 캔버스 가용 높이보다 살짝 클 때
+     center 정렬이면 카드가 위/아래 양쪽으로 균등하게 빠져나가서 상단이
+     캔버스 영역 위로 잘린다(overflow-y: auto 가 위로는 스크롤 불가).
+     flex-start 로 두면 카드 top 이 캔버스 top 에 고정되고, 모자란 영역은
+     아래로만 overflow 되어 필요시 스크롤로 볼 수 있다. */
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
   height: 100%;

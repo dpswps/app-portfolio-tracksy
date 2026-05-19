@@ -292,46 +292,30 @@ function renderLayoutContent({
 
     /* 기본(default) — 기존 풀 레이아웃 (주제목 + 거리 + 통계 3개)
      *
-     * 각 텍스트/라벨/단위/아이콘을 모두 DeletableSlot 으로 감싸서 개별 drag-to-trash
-     * 가 가능하도록 한다. 다음 필드 키들이 각각 독립적으로 삭제됨:
-     *   weekTitle, weekTitleIcon (🏃)
-     *   distance, distanceUnit (km)
-     *   timeIcon (⏱), time, timeLabel (운동 시간)
-     *   paceIcon (⚡), pace, paceLabel (평균 페이스)
-     *   caloriesIcon (🔥), calories, caloriesLabel (kcal)
+     * 한 줄(주제목/거리/시간/페이스/칼로리) 자체를 하나의 그룹으로 보고,
+     * 그 단위로 DeletableSlot 을 씌운다. 그룹 키:
+     *   weekGroup      — "이번주 러닝 기록 🎽"
+     *   distanceGroup  — "5.21 km"
+     *   timeGroup      — "⏱ 00:32:45 운동 시간"
+     *   paceGroup      — "⚡ 6'12'' 평균 페이스"
+     *   caloriesGroup  — "🔥 368 kcal"
      *
-     * 부모 row 는 그 row 안의 모든 요소가 숨겨졌을 때만 렌더하지 않는다 →
-     * 일부만 지우면 row 는 유지되고 남은 요소만 표시됨.
+     * 사용자가 한 그룹을 휴지통으로 드래그하면 그 그룹 전체가 사라진다.
+     * (이전 버전의 개별 요소 삭제는 폐기 — 사용자 요청)
+     *
+     * EditableText 는 그룹 안에서 그대로 — 인라인 텍스트 편집 가능.
      */
     default: {
-      const showWT = !isHidden("weekTitle");
-      const showWTIcon = !isHidden("weekTitleIcon");
-      const showWeek = showWT || showWTIcon;
-
-      const showDist = !isHidden("distance");
-      const showDistU = !isHidden("distanceUnit");
-      const showDistance = showDist || showDistU;
-
-      const showTimeIcon = !isHidden("timeIcon");
-      const showTime = !isHidden("time");
-      const showTimeLbl = !isHidden("timeLabel");
-      const showTimeRow = showTimeIcon || showTime || showTimeLbl;
-
-      const showPaceIcon = !isHidden("paceIcon");
-      const showPace = !isHidden("pace");
-      const showPaceLbl = !isHidden("paceLabel");
-      const showPaceRow = showPaceIcon || showPace || showPaceLbl;
-
-      const showCalIcon = !isHidden("caloriesIcon");
-      const showCal = !isHidden("calories");
-      const showCalLbl = !isHidden("caloriesLabel");
-      const showCalRow = showCalIcon || showCal || showCalLbl;
-
+      const showWeek = !isHidden("weekGroup");
+      const showDistance = !isHidden("distanceGroup");
+      const showTimeRow = !isHidden("timeGroup");
+      const showPaceRow = !isHidden("paceGroup");
+      const showCalRow = !isHidden("caloriesGroup");
       const anyStat = showTimeRow || showPaceRow || showCalRow;
 
       // small preview(보관함 카드) 에서는 DeletableSlot 의 drag 오버헤드 없이
       // 단순 렌더. 스튜디오에서만 drag 활성화.
-      const wrap = (field: string, node: React.ReactNode) =>
+      const wrapGroup = (field: string, node: React.ReactNode) =>
         small ? (
           node
         ) : (
@@ -342,106 +326,107 @@ function renderLayoutContent({
 
       return (
         <>
-          {showWeek && (
-            <div className="rc-week" style={cWeek ? { color: cWeek } : undefined}>
-              {showWT &&
-                wrap(
-                  "weekTitle",
-                  <EditableText
-                    small={small}
-                    locked={cardLocked}
-                    value={card.weekTitle}
-                    onChange={(v) => setCard({ weekTitle: v })}
-                    field="weekTitle"
-                    color={cWeek}
-                  />,
-                )}
-              {showWT && showWTIcon && " "}
-              {showWTIcon && wrap("weekTitleIcon", <span>🏃</span>)}
-            </div>
-          )}
-          {showDistance && (
-            <div className="rc-distance" style={cDist ? { color: cDist } : undefined}>
-              {showDist &&
-                wrap(
-                  "distance",
-                  <EditableText
-                    small={small}
-                    locked={cardLocked}
-                    value={card.distance}
-                    onChange={(v) => setCard({ distance: v })}
-                    field="distance"
-                    color={cDist}
-                  />,
-                )}
-              {showDistU && wrap("distanceUnit", <small>km</small>)}
-            </div>
-          )}
+          {showWeek &&
+            wrapGroup(
+              "weekGroup",
+              <div
+                className="rc-week"
+                style={cWeek ? { color: cWeek } : undefined}
+              >
+                <EditableText
+                  small={small}
+                  locked={cardLocked}
+                  value={card.weekTitle}
+                  onChange={(v) => setCard({ weekTitle: v })}
+                  field="weekTitle"
+                  color={cWeek}
+                />{" "}
+                <span>🎽</span>
+              </div>,
+            )}
+          {showDistance &&
+            wrapGroup(
+              "distanceGroup",
+              <div
+                className="rc-distance"
+                style={cDist ? { color: cDist } : undefined}
+              >
+                <EditableText
+                  small={small}
+                  locked={cardLocked}
+                  value={card.distance}
+                  onChange={(v) => setCard({ distance: v })}
+                  field="distance"
+                  color={cDist}
+                />
+                <small>km</small>
+              </div>,
+            )}
           {anyStat && (
             <div className="rc-stats">
-              {showTimeRow && (
-                <div className="rc-stat" style={cTime ? { color: cTime } : undefined}>
-                  {showTimeIcon &&
-                    wrap("timeIcon", <span className="rc-ic">⏱</span>)}
-                  {showTime &&
-                    wrap(
-                      "time",
-                      <b>
-                        <EditableText
-                          small={small}
-                          locked={cardLocked}
-                          value={card.time}
-                          onChange={(v) => setCard({ time: v })}
-                          field="time"
-                          color={cTime}
-                        />
-                      </b>,
-                    )}
-                  {showTimeLbl && wrap("timeLabel", <i>운동 시간</i>)}
-                </div>
-              )}
-              {showPaceRow && (
-                <div className="rc-stat" style={cPace ? { color: cPace } : undefined}>
-                  {showPaceIcon &&
-                    wrap("paceIcon", <span className="rc-ic">⚡</span>)}
-                  {showPace &&
-                    wrap(
-                      "pace",
-                      <b>
-                        <EditableText
-                          small={small}
-                          locked={cardLocked}
-                          value={card.pace}
-                          onChange={(v) => setCard({ pace: v })}
-                          field="pace"
-                          color={cPace}
-                        />
-                      </b>,
-                    )}
-                  {showPaceLbl && wrap("paceLabel", <i>평균 페이스</i>)}
-                </div>
-              )}
-              {showCalRow && (
-                <div className="rc-stat" style={cCal ? { color: cCal } : undefined}>
-                  {showCalIcon &&
-                    wrap("caloriesIcon", <span className="rc-ic">🔥</span>)}
-                  {showCal &&
-                    wrap(
-                      "calories",
-                      <b>
-                        <EditableText
-                          small={small}
-                          locked={cardLocked}
-                          value={card.calories}
-                          onChange={(v) => setCard({ calories: v })}
-                          field="calories"
-                          color={cCal}
-                        />
-                      </b>,
-                    )}
-                  {showCalLbl && wrap("caloriesLabel", <i>kcal</i>)}
-                </div>
-              )}
+              {showTimeRow &&
+                wrapGroup(
+                  "timeGroup",
+                  <div
+                    className="rc-stat"
+                    style={cTime ? { color: cTime } : undefined}
+                  >
+                    <span className="rc-ic">⏱</span>
+                    <b>
+                      <EditableText
+                        small={small}
+                        locked={cardLocked}
+                        value={card.time}
+                        onChange={(v) => setCard({ time: v })}
+                        field="time"
+                        color={cTime}
+                      />
+                    </b>
+                    <i>운동 시간</i>
+                  </div>,
+                )}
+              {showPaceRow &&
+                wrapGroup(
+                  "paceGroup",
+                  <div
+                    className="rc-stat"
+                    style={cPace ? { color: cPace } : undefined}
+                  >
+                    <span className="rc-ic">⚡</span>
+                    <b>
+                      <EditableText
+                        small={small}
+                        locked={cardLocked}
+                        value={card.pace}
+                        onChange={(v) => setCard({ pace: v })}
+                        field="pace"
+                        color={cPace}
+                      />
+                    </b>
+                    <i>평균 페이스</i>
+                  </div>,
+                )}
+              {showCalRow &&
+                wrapGroup(
+                  "caloriesGroup",
+                  <div
+                    className="rc-stat"
+                    style={cCal ? { color: cCal } : undefined}
+                  >
+                    <span className="rc-ic">🔥</span>
+                    <b>
+                      <EditableText
+                        small={small}
+                        locked={cardLocked}
+                        value={card.calories}
+                        onChange={(v) => setCard({ calories: v })}
+                        field="calories"
+                        color={cCal}
+                      />
+                    </b>
+                    <i>kcal</i>
+                  </div>,
+                )}
             </div>
           )}
         </>
@@ -558,65 +543,41 @@ function EditableText({
 }
 
 /**
- * 카드 빌트인 요소(값/라벨/단위)를 감싸 drag-to-trash 를 제공하는 wrapper.
+ * 카드의 "그룹" 한 묶음(예: 거리+km / 시계아이콘+시간+라벨 등) 을 감싸
+ * 통째로 drag-to-trash 로 지울 수 있게 해주는 wrapper.
  *
- * 텍스트 오버레이의 drag 패턴과 동일한 방식:
- *  - pointerdown 시 dragRef 셋업, 즉시 activate 하지 않음
- *  - pointermove 가 임계치(6px) 를 넘으면 capture + 휴지통 노출 + contentEditable
- *    blur (편집 모드와의 충돌 차단)
- *  - pointerup 시 trash 위면 setCardFieldHidden(field, true) → row/요소 사라짐
- *  - 드래그 없는 단순 탭은 그대로 통과 → 자식의 click/focus 가 자연스럽게 발동
+ * 이전엔 long-press 로 그룹 드래그 모드(러닝 기록 전체 삭제) 를 활성화했지만
+ * 사용자 요청으로 그 기능을 제거함. 이제 DeletableSlot 은 다음 한 가지 역할만
+ * 한다:
+ *   - 짧게 누르고 드래그 → 휴지통에 떨어뜨리면 그 그룹(field) 하나 숨김.
+ *   - 단순 클릭/탭 → 자식의 contentEditable focus → 인라인 편집.
  *
- * field 별로 독립적이라 km/운동 시간/평균 페이스/kcal 같은 라벨도 각각 삭제 가능.
+ * field 는 그룹 단위 키(weekGroup / distanceGroup / timeGroup / paceGroup /
+ * caloriesGroup) 를 받아서 store 의 studioHiddenCardFields 에 기록.
  */
 function DeletableSlot({
   field,
   locked,
   children,
   className,
-  inline = true,
 }: {
   field: string;
   locked: boolean;
   children: React.ReactNode;
   className?: string;
-  /** inline-block 으로 폭 자동(텍스트 길이만큼), false 면 block. */
-  inline?: boolean;
 }) {
   const setDragging = useAppStore((s) => s.setStudioDraggingContent);
   const setOverTrash = useAppStore((s) => s.setStudioDraggingOverTrash);
   const setCardFieldHidden = useAppStore((s) => s.setCardFieldHidden);
-  // 그룹 드래그(long-press) 에 필요한 store 액션 — rc-stats-group 의 위치 commit
-  // 과 휴지통에 떨어졌을 때 card 레이어 통째 숨김 처리에 사용.
-  const setStatsOffset = useAppStore((s) => s.setStudioStatsOffset);
-  const setLayerHidden = useAppStore((s) => s.setLayerHidden);
-  const pushHistory = useAppStore((s) => s.pushStudioHistory);
-  const wrapRef = useRef<HTMLSpanElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     captured: boolean;
     pointerId: number | null;
     startX: number;
     startY: number;
   }>({ captured: false, pointerId: null, startX: 0, startY: 0 });
-  // overTrash 캐시 — 같은 값을 연속 set 하지 않게 해서 TrashZone 재렌더 최소화.
   const lastOverRef = useRef(false);
-  // 임계치를 3px 로 낮춰 즉각 반응. (너무 0 으로 두면 단순 탭이 드래그로 오인됨.)
   const DRAG_THRESHOLD = 3;
-  // ──────────────────────────────────────────────────────────
-  // Long-press → 그룹 드래그 모드
-  //
-  // 사용자가 카드 요소(예: "5.21", "km") 를 LONG_PRESS_MS 만큼 꾹 누르고
-  // 있으면 그룹 모드로 전환 — DeletableSlot 자체를 옮기는 대신 부모
-  // rc-stats-group 전체(러닝 기록 묶음) 가 손가락 따라 움직인다.
-  // 짧게 잡고 곧장 드래그하면 기존처럼 그 요소만 휴지통으로 끌어 삭제.
-  // ──────────────────────────────────────────────────────────
-  const LONG_PRESS_MS = 450;
-  const longPressTimerRef = useRef<number | null>(null);
-  const groupModeRef = useRef(false);
-  // 그룹 모드 진입 시점의 rc-stats-group 의 누적 offset — 이 위에 dxPx/dyPx 를 더해
-  // 새 위치 계산.
-  const groupStartOffsetRef = useRef({ x: 0, y: 0 });
-  const statsGroupElRef = useRef<HTMLElement | null>(null);
 
   const getTrashRect = (): DOMRect | null => {
     if (typeof document === "undefined") return null;
@@ -637,24 +598,15 @@ function DeletableSlot({
   // 잠긴 카드(layer locked)면 drag 자체를 비활성 — 자식 클릭/포커스만 통과.
   if (locked) {
     return (
-      <span
-        className={`deletable-slot${className ? " " + className : ""}`}
-        style={{
-          display: inline ? "inline-block" : "block",
-        }}
-      >
+      <div className={`deletable-slot${className ? " " + className : ""}`}>
         {children}
-      </span>
+      </div>
     );
   }
 
-  const onPointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
-    // 부모 rc-stats-group 의 "전체 카드 드래그" 가 함께 켜지지 않도록 차단.
-    // 개별 요소(예: km, 5.21) 드래그는 DeletableSlot 안에서 완결.
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // 부모 rc-stats-group 의 "전체 카드 드래그" 가 같이 켜지지 않도록 차단.
     e.stopPropagation();
-    // pointer capture 를 pointerdown 시점에 즉시 — 손가락이 작은 라벨 영역을
-    // 벗어나도 이후 pointermove 이벤트가 계속 이 wrapper 에 묶여서 발생.
-    // (small 라벨일수록 손가락이 금방 영역을 벗어나므로 필수.)
     try {
       (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     } catch {
@@ -666,103 +618,33 @@ function DeletableSlot({
       startX: e.clientX,
       startY: e.clientY,
     };
-    // 부모 rc-stats-group 요소 캐시 — 그룹 모드 시 transform 직접 갱신용.
-    statsGroupElRef.current =
-      (wrapRef.current?.closest(".rc-stats-group") as HTMLElement | null) ??
-      null;
-    // Long-press 타이머 시작 — 시간 내 움직임이 없으면 그룹 모드로 전환.
-    groupModeRef.current = false;
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current);
-    }
-    longPressTimerRef.current = window.setTimeout(() => {
-      // 아직 드래그가 시작되지 않았고(captured == false), 그룹 모드도 아닐 때만
-      // 진입 — 움직임이 먼저 감지되면 onPointerMove 에서 타이머를 취소함.
-      if (dragRef.current.captured || groupModeRef.current) return;
-      groupModeRef.current = true;
-      // 현재 statsOffset 을 zustand 에서 직접 읽어와 기준점으로 저장.
-      const cur = useAppStore.getState().studioStatsOffset;
-      groupStartOffsetRef.current = { x: cur.x, y: cur.y };
-      pushHistory();
-      // 휴지통 노출 — 카드 통째 삭제 가능 (rc-stats-group 드래그와 동일 UX).
-      setDragging({ kind: "cardLayer" });
-      // 시각 어포던스 — rc-stats-group 에 'group-selected' 클래스 부여.
-      if (statsGroupElRef.current) {
-        statsGroupElRef.current.classList.add("group-selected");
-      }
-      // 안쪽 contentEditable focus 해제 (편집 모드와 충돌 방지).
-      const active = document.activeElement as HTMLElement | null;
-      if (active && wrapRef.current?.contains(active)) {
-        active.blur();
-      }
-      window.getSelection?.()?.removeAllRanges?.();
-      // 햅틱 피드백 — 가능한 환경에서.
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        try {
-          navigator.vibrate?.(12);
-        } catch {
-          /* noop */
-        }
-      }
-    }, LONG_PRESS_MS);
   };
 
-  const onPointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (d.pointerId !== e.pointerId) return;
     e.stopPropagation();
     const rawDX = e.clientX - d.startX;
     const rawDY = e.clientY - d.startY;
 
-    // ── 그룹 모드: rc-stats-group 전체를 손가락 따라 이동 ───────────
-    if (groupModeRef.current) {
-      const nextX = groupStartOffsetRef.current.x + rawDX;
-      const nextY = groupStartOffsetRef.current.y + rawDY;
-      if (statsGroupElRef.current) {
-        statsGroupElRef.current.style.transform = `translate(${nextX}px, ${nextY}px)`;
-      }
-      const nowOver = isOverRect(getTrashRect(), e.clientX, e.clientY);
-      if (nowOver !== lastOverRef.current) {
-        lastOverRef.current = nowOver;
-        setOverTrash(nowOver);
-      }
-      return;
-    }
-
-    // ── 개별 요소 드래그(기존 동작) ─────────────────────────────────
     if (!d.captured) {
       if (Math.abs(rawDX) < DRAG_THRESHOLD && Math.abs(rawDY) < DRAG_THRESHOLD)
         return;
       d.captured = true;
-      // 움직임 감지 → long-press 타이머 취소 (그룹 모드 진입 X).
-      if (longPressTimerRef.current != null) {
-        window.clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-      // (pointer capture 는 onPointerDown 에서 이미 잡혀 있음 — 여기서 다시
-      // 부르지 않아도 모든 후속 이벤트가 이 wrapper 로 들어옴.)
-      // 안쪽에 활성 contentEditable 이 있으면 blur + 선택 해제로 drag 와의
-      // 충돌을 완전히 차단. 임계치를 넘은 직후에도 brief selection 잔상이
-      // 남지 않도록 즉시 정리.
+      // 안쪽 contentEditable focus 해제 — 드래그 중 텍스트 선택 잔상 제거.
       const active = document.activeElement as HTMLElement | null;
       if (active && e.currentTarget.contains(active)) {
         active.blur();
       }
       window.getSelection?.()?.removeAllRanges?.();
       setDragging({ kind: "cardField", field });
-      // 드래그 시작 시각 효과 — wrapper 에 .dragging 클래스 추가 (직접 DOM
-      // 조작으로 React state 우회 → 추가 재렌더 없음).
       if (wrapRef.current) {
         wrapRef.current.classList.add("dragging");
       }
     }
-    // 요소가 커서/손가락을 1:1 로 따라가도록 translate 만 적용.
-    // (scale 을 함께 적용하면 요소가 줄어들면서 손가락 위치와 어긋나서
-    // "잘 안 잡히는" 느낌이 됨. translate 단독으로 정확한 추적 보장.)
     if (wrapRef.current) {
       wrapRef.current.style.transform = `translate(${rawDX}px, ${rawDY}px)`;
     }
-    // pointer 위치가 trash 위에 있는지 hit-test — 값이 변할 때만 store 갱신.
     const nowOver = isOverRect(getTrashRect(), e.clientX, e.clientY);
     if (nowOver !== lastOverRef.current) {
       lastOverRef.current = nowOver;
@@ -770,17 +652,7 @@ function DeletableSlot({
     }
   };
 
-  /** 드래그 종료 시 공통 cleanup — 그룹 모드/개별 드래그 모두에서 호출. */
   const cleanupAfterDrag = () => {
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    if (statsGroupElRef.current) {
-      statsGroupElRef.current.classList.remove("group-selected");
-    }
-    groupModeRef.current = false;
-    statsGroupElRef.current = null;
     dragRef.current = {
       captured: false,
       pointerId: null,
@@ -789,7 +661,7 @@ function DeletableSlot({
     };
   };
 
-  const onPointerUp = (e: React.PointerEvent<HTMLSpanElement>) => {
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (d.pointerId !== e.pointerId) return;
     e.stopPropagation();
@@ -798,34 +670,6 @@ function DeletableSlot({
     } catch {
       /* noop */
     }
-
-    // ── 그룹 모드 종료 ──────────────────────────────────────────
-    if (groupModeRef.current) {
-      const droppedOnTrash = isOverRect(
-        getTrashRect(),
-        e.clientX,
-        e.clientY,
-      );
-      if (droppedOnTrash) {
-        // 휴지통에 떨어뜨림 → 카드 레이어 통째 숨김.
-        setLayerHidden("card", true);
-      } else {
-        // 새 위치를 store 에 commit.
-        const rawDX = e.clientX - d.startX;
-        const rawDY = e.clientY - d.startY;
-        setStatsOffset(
-          groupStartOffsetRef.current.x + rawDX,
-          groupStartOffsetRef.current.y + rawDY,
-        );
-      }
-      setDragging(null);
-      setOverTrash(false);
-      lastOverRef.current = false;
-      cleanupAfterDrag();
-      return;
-    }
-
-    // ── 개별 요소 드래그 종료 ───────────────────────────────────
     if (d.captured) {
       const droppedOnTrash = isOverRect(
         getTrashRect(),
@@ -838,18 +682,15 @@ function DeletableSlot({
       setDragging(null);
       setOverTrash(false);
       lastOverRef.current = false;
-      // 드래그 시각 효과 정리 — transform 인라인 스타일 제거 + 클래스 해제.
       if (wrapRef.current) {
         wrapRef.current.style.transform = "";
         wrapRef.current.classList.remove("dragging");
       }
     }
-    // 드래그 안 한 경우엔 따로 처리 X — 브라우저가 자식 contentEditable 에
-    // 자연스럽게 focus 를 줘서 편집 모드 진입.
     cleanupAfterDrag();
   };
 
-  const onPointerCancel = (e: React.PointerEvent<HTMLSpanElement>) => {
+  const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (d.pointerId !== e.pointerId) return;
     try {
@@ -857,17 +698,7 @@ function DeletableSlot({
     } catch {
       /* noop */
     }
-    if (groupModeRef.current) {
-      // 취소 — 위치 commit 없이 원위치 (rc-stats-group transform 은
-      // statsOffset 기반 React 재렌더로 복원됨).
-      if (statsGroupElRef.current) {
-        const cur = useAppStore.getState().studioStatsOffset;
-        statsGroupElRef.current.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
-      }
-      setDragging(null);
-      setOverTrash(false);
-      lastOverRef.current = false;
-    } else if (d.captured) {
+    if (d.captured) {
       setDragging(null);
       setOverTrash(false);
       lastOverRef.current = false;
@@ -880,20 +711,17 @@ function DeletableSlot({
   };
 
   return (
-    <span
+    <div
       ref={wrapRef}
       className={`deletable-slot${className ? " " + className : ""}`}
-      style={{
-        display: inline ? "inline-block" : "block",
-        touchAction: "none",
-      }}
+      style={{ touchAction: "none" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
       {children}
-    </span>
+    </div>
   );
 }
 
@@ -930,8 +758,8 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
   const setBubblePos = useAppStore((s) => s.setStudioBubblePos);
   const setDraggingContent = useAppStore((s) => s.setStudioDraggingContent);
   const setDraggingOverTrash = useAppStore((s) => s.setStudioDraggingOverTrash);
-  // 러닝 기록 전체 삭제 — rc-stats-group 을 휴지통에 떨어뜨리면 card 레이어를 숨김.
-  const setLayerHidden = useAppStore((s) => s.setLayerHidden);
+  // (setLayerHidden 은 더 이상 사용 안 함 — stats-group 드래그-투-휴지통으로
+  //  러닝 기록 전체 삭제하던 기능이 제거됨. 그룹 단위 DeletableSlot 으로 대체.)
   // 드래그 중인지 여부 — 드래그 모드일 땐 running-card 의 overflow 를 풀어서
   // 카드 안의 요소가 휴지통 위치까지 시각적으로 이동할 수 있게 한다.
   // (small preview 에서는 드래그 자체가 없으므로 모드 적용 X.)
@@ -1184,28 +1012,24 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
       d.pushed = true;
       d.startX = e.clientX;
       d.startY = e.clientY;
-      // liveOffsetRef 의 시작점은 captured 시점의 store offset.
       liveOffsetRef.current = { x: d.startOffX, y: d.startOffY };
-      // 휴지통 표시 — 러닝 기록 전체를 드래그 중. 휴지통 위에 떨어뜨리면 card 레이어 숨김.
-      setDraggingContent({ kind: "cardLayer" });
+      // (이전엔 setDraggingContent({ kind: "cardLayer" }) 로 휴지통을 띄워
+      // 러닝 기록 전체 삭제도 가능했지만, 사용자 요청으로 "전체 삭제" 기능을
+      // 제거함. 이제 stats-group 드래그는 순수히 "위치 이동" 만 담당. 휴지통은
+      // 그룹 단위 DeletableSlot 드래그에서만 노출된다.)
       return;
     }
 
     // 매 pointermove 마다 setState 를 부르면 RunningCard 가 통째로 재렌더되어
-    // 60fps 가 깨진다(11개 DeletableSlot 모두 reconcile). 대신 DOM 의 transform 만
-    // 직접 갱신해서 React 트리는 건드리지 않음 → 매끈한 이동.
+    // 60fps 가 깨진다. 대신 DOM 의 transform 만 직접 갱신해서 React 트리는
+    // 건드리지 않음 → 매끈한 이동.
     const nextX = d.startOffX + dxPx;
     const nextY = d.startOffY + dyPx;
     liveOffsetRef.current = { x: nextX, y: nextY };
     if (statsGroupRef.current) {
       statsGroupRef.current.style.transform = `translate(${nextX}px, ${nextY}px)`;
     }
-    // trash hit-test — 값이 바뀐 경우에만 store 업데이트 (TrashZone 재렌더 최소화).
-    const nowOver = isOverTrash(e.clientX, e.clientY);
-    if (nowOver !== lastOverTrashRef.current) {
-      lastOverTrashRef.current = nowOver;
-      setDraggingOverTrash(nowOver);
-    }
+    // 휴지통 hit-test 제거 — 이 드래그는 더 이상 삭제 동작을 트리거하지 않음.
   };
 
   const onStatsPointerUp = (e: React.PointerEvent) => {
@@ -1217,19 +1041,11 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
       } catch {
         /* noop */
       }
-      // 휴지통 위에서 떼면 card 레이어 통째로 숨김 (러닝 기록 전체 삭제).
-      // 휴지통 밖에서 떼면 ref 에 누적된 좌표를 store 에 한 번에 commit
-      // (드래그 끝나는 시점에 한 번만 React 재렌더 발생).
-      const droppedOnTrash = isOverTrash(e.clientX, e.clientY);
-      if (droppedOnTrash) {
-        setLayerHidden("card", true);
-      } else {
-        setStatsOffset(liveOffsetRef.current.x, liveOffsetRef.current.y);
-      }
+      // 항상 새 위치를 store 에 commit — 휴지통 드롭 삭제 분기 제거됨.
+      setStatsOffset(liveOffsetRef.current.x, liveOffsetRef.current.y);
     }
-    // 드래그 상태/하이라이트 cleanup.
-    setDraggingContent(null);
-    setDraggingOverTrash(false);
+    // setDraggingContent / setDraggingOverTrash 호출 제거 — 이 드래그는
+    // 휴지통과 무관해서 그 상태들을 건드릴 필요가 없다.
     lastOverTrashRef.current = false;
     d.pointerId = null;
     d.captured = false;

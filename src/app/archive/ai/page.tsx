@@ -327,8 +327,10 @@ function Loading() {
       <div className="aij-loading-modal">
         <div className="aij-loading-circle">
           <div className="aij-loading-mascot">
+            {/* 요약 중 — 캐릭터가 "?" 말풍선과 함께 생각하는 모습.
+                트랙시 챗봇 기본 이미지 대신 think_cha (생각하는 캐릭터) 사용. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
+          <img src="/think_cha.png" alt="" draggable={false} />
             <span className="aij-q">?</span>
           </div>
         </div>
@@ -389,8 +391,10 @@ function Result() {
           </div>
           <div className="aij-result-mascot-row">
             <div className="aij-result-mascot">
+              {/* 러닝 일지 결과 — 캐릭터가 응원해주는 모습.
+                  트랙시 챗봇 기본 이미지 대신 cheer_cha (응원하는 캐릭터) 사용. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/tracksy-chatbot.png" alt="" draggable={false} />
+          <img src="/cheer_cha.png" alt="" draggable={false} />
             </div>
             <div className="aij-cheer-bubble">오늘도 수고했어! 😊</div>
           </div>
