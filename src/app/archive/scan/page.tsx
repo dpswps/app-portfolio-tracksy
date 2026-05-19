@@ -71,6 +71,16 @@ export default function ArchiveScanPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  // 파일 선택 직후 미리 압축해둔 base64 — onAnalyze 시 그대로 fetch 에 사용한다.
+  // 이렇게 분리한 이유: 갤럭시 S21/Samsung Files 조합 등 일부 Android 환경에서
+  // 파일 선택 후 시간이 지나면 OS 가 파일 참조 권한을 회수해서, "기록 분석하기"
+  // 버튼을 누른 시점엔 FileReader 가 NotReadableError 로 실패한다("permission
+  // problems that have occurred after a reference to a file was acquired").
+  // 권한이 살아있는 onFileSelected 콜백 안에서 즉시 읽어 base64 로 박제해두면
+  // 이 문제를 우회할 수 있다. base64 는 단순 문자열이라 권한 만료와 무관.
+  const [compressedBase64, setCompressedBase64] = useState<string | null>(null);
+  // 파일 선택 후 압축이 진행 중인 상태 — 분석 버튼을 일시 비활성화.
+  const [preparing, setPreparing] = useState(false);
   // OCR 단계별 실패를 사용자에게 화면으로 표시 — 콘솔에 안 나오는 모바일 환경에서
   // 어디서 실패했는지 즉시 확인하기 위함. errorMessage 는 한 줄짜리 사용자용 문구,
   // debugMessage 는 그 아래에 작은 회색 글씨로 표시되는 기술적 디테일(에러 메시지/
@@ -95,7 +105,7 @@ export default function ArchiveScanPage() {
     fileInputRef.current?.click();
   };
 
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file
     if (!file) return;
@@ -103,6 +113,8 @@ export default function ArchiveScanPage() {
       showToast("이미지 파일만 업로드할 수 있어요");
       return;
     }
+    // 1) 미리보기 — URL.createObjectURL 은 화면 썸네일 렌더링용. OCR 경로와는
+    //    무관(아래의 압축은 file 자체에서 별도로 진행됨).
     const url = URL.createObjectURL(file);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -110,10 +122,80 @@ export default function ArchiveScanPage() {
     });
     setFileName(file.name);
     setPickedFile(file);
-    // 이전 분석에서 남은 에러 메시지 정리 — 새 파일로 다시 시도하는 흐름.
+    setCompressedBase64(null);
     setErrorMessage(null);
     setDebugMessage(null);
     showToast("사진을 업로드했어요");
+
+    /* 2) 파일 권한이 살아있는 지금 즉시 base64 로 압축해 박제.
+     *
+     * 갤럭시 S21 + Samsung Files 같은 환경에서 onFileSelected 콜백 종료 후
+     * 일정 시간이 지나면 OS 가 file 객체의 read 권한을 회수한다 → "기록 분석
+     * 하기" 누를 때 FileReader 가 NotReadableError 로 실패. 그래서 선택 직후
+     * 같은 micro-task 사이클 안에서 readAsDataURL → Image → canvas → JPEG
+     * base64 까지 완료한 뒤 결과만 state 에 저장해둔다.
+     *
+     * 어느 단계에서 실패해도 화면에 정확한 단계명 + debug 메시지를 노출.  */
+    setPreparing(true);
+    try {
+      console.log("[ocr] selected file type:", file.type);
+      console.log("[ocr] selected file size:", file.size);
+
+      // (a) FileReader — fresh 권한으로 즉시 읽기.
+      let dataUrl: string;
+      try {
+        dataUrl = await readFileAsDataUrl(file);
+      } catch (err) {
+        console.error("[ocr] readFileAsDataUrl failed:", err);
+        setErrorMessage("이미지 읽기 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
+      }
+
+      // (b) Image decode.
+      let img: HTMLImageElement;
+      try {
+        img = await loadImageFromDataUrl(dataUrl);
+      } catch (err) {
+        console.error("[ocr] loadImageFromDataUrl failed:", err);
+        setErrorMessage("이미지 로딩 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      console.log("[ocr] image width:", img.width);
+      console.log("[ocr] image height:", img.height);
+
+      // (c) canvas + JPEG 압축.
+      let compressed: string;
+      try {
+        compressed = compressImageToJpegBase64(img, 1000, 0.65);
+      } catch (err) {
+        console.error("[ocr] compressImageToJpegBase64 failed:", err);
+        setErrorMessage("이미지 변환 실패");
+        setDebugMessage(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      console.log("[ocr] compressed base64 length:", compressed.length);
+
+      // (d) base64 sanity check.
+      if (
+        !compressed ||
+        compressed.length < 200 ||
+        !compressed.startsWith("data:image/")
+      ) {
+        console.error("[ocr] base64 invalid — length:", compressed?.length);
+        setErrorMessage("base64 생성 실패");
+        setDebugMessage(
+          `length=${compressed?.length ?? 0}, prefix=${compressed?.slice(0, 30) ?? ""}`,
+        );
+        return;
+      }
+
+      // (e) 캐시 — 이후 onAnalyze 에서 그대로 fetch 에 사용.
+      setCompressedBase64(compressed);
+    } finally {
+      setPreparing(false);
+    }
   };
 
   const removePreview = (e: React.MouseEvent) => {
@@ -123,6 +205,10 @@ export default function ArchiveScanPage() {
     setPreviewUrl(null);
     setFileName(null);
     setPickedFile(null);
+    // 캐시된 base64 + 에러 상태도 함께 초기화.
+    setCompressedBase64(null);
+    setErrorMessage(null);
+    setDebugMessage(null);
   };
 
   /** OCR 결과에서 의미있는 항목이 하나라도 있는지 */
@@ -140,28 +226,36 @@ export default function ArchiveScanPage() {
     );
 
   /**
-   * OCR 업로드 — 갤럭시 S21 등 구형 Android 호환을 위해 모든 단계를 명시적으로
-   * 분리해 try/catch 한다. 각 단계 시작 시 console.log 로 진단 정보 출력,
-   * 실패 시 errorMessage/debugMessage 로 모바일 화면에도 표시.
+   * OCR 업로드 — 압축은 이미 onFileSelected 에서 완료됨. 여기서는 캐시된 base64
+   * 를 그대로 fetch 에 보낸다. 갤럭시 S21 등에서 파일 권한이 만료된 후에도
+   * base64 문자열은 그대로 유효하므로 NotReadableError 가 발생하지 않음.
    *
    * 시퀀스:
-   *   1) 파일 선택 확인  → "파일이 선택되지 않았습니다"
-   *   2) FileReader     → "이미지 읽기 실패"
-   *   3) Image.onload   → "이미지 로딩 실패"
-   *   4) canvas + JPEG → "이미지 변환 실패"
-   *   5) base64 길이검사 → "base64 생성 실패"
-   *   6) fetch          → "OCR 요청 전송 실패"
-   *   7) 결과 파싱       → 기존 로직 그대로 (router.push 등)
+   *   1) 캐시 base64 확인  → 없으면 "이미지 준비가 완료되지 않았습니다"
+   *   2) fetch("/api/ocr") → 실패 시 "OCR 요청 전송 실패"
+   *   3) 결과 파싱         → 기존 로직 그대로
    */
   const onAnalyze = async () => {
-    // 중복 실행 방지.
     if (analyzing) return;
 
-    // (1) 파일 선택 확인.
+    // 파일 자체가 없으면 단순 안내.
     if (!pickedFile) {
       console.error("[ocr] no pickedFile");
       setErrorMessage("파일이 선택되지 않았습니다");
       setDebugMessage(null);
+      return;
+    }
+
+    // 압축이 아직 안 끝났거나 실패한 상태 — onFileSelected 에서 setError 가
+    // 이미 호출됐으면 그 메시지가 화면에 떠 있고, 그렇지 않으면 안내만 한다.
+    if (!compressedBase64) {
+      if (preparing) {
+        setErrorMessage(null);
+        setDebugMessage("이미지 준비 중입니다. 잠시 후 다시 시도해주세요.");
+      } else if (!errorMessage) {
+        setErrorMessage("이미지 준비가 완료되지 않았습니다");
+        setDebugMessage("사진을 다시 선택해주세요.");
+      }
       return;
     }
 
@@ -170,63 +264,14 @@ export default function ArchiveScanPage() {
     setDebugMessage(null);
 
     try {
-      console.log("[ocr] selected file type:", pickedFile.type);
-      console.log("[ocr] selected file size:", pickedFile.size);
-
-      // (2) FileReader → dataURL.
-      let dataUrl: string;
-      try {
-        dataUrl = await readFileAsDataUrl(pickedFile);
-      } catch (err) {
-        console.error("[ocr] readFileAsDataUrl failed:", err);
-        setErrorMessage("이미지 읽기 실패");
-        setDebugMessage(err instanceof Error ? err.message : String(err));
-        return;
-      }
-
-      // (3) new Image().onload — 디코딩.
-      let img: HTMLImageElement;
-      try {
-        img = await loadImageFromDataUrl(dataUrl);
-      } catch (err) {
-        console.error("[ocr] loadImageFromDataUrl failed:", err);
-        setErrorMessage("이미지 로딩 실패");
-        setDebugMessage(err instanceof Error ? err.message : String(err));
-        return;
-      }
-      console.log("[ocr] image width:", img.width);
-      console.log("[ocr] image height:", img.height);
-
-      // (4) canvas + toDataURL("image/jpeg", 0.65).
-      let compressed: string;
-      try {
-        compressed = compressImageToJpegBase64(img, 1000, 0.65);
-      } catch (err) {
-        console.error("[ocr] compressImageToJpegBase64 failed:", err);
-        setErrorMessage("이미지 변환 실패");
-        setDebugMessage(err instanceof Error ? err.message : String(err));
-        return;
-      }
-      console.log("[ocr] compressed base64 length:", compressed.length);
-
-      // (5) base64 유효성 — 너무 짧으면 toDataURL 이 사실상 실패한 것.
-      if (!compressed || compressed.length < 200 || !compressed.startsWith("data:image/")) {
-        console.error("[ocr] base64 invalid — length:", compressed?.length);
-        setErrorMessage("base64 생성 실패");
-        setDebugMessage(
-          `length=${compressed?.length ?? 0}, prefix=${compressed?.slice(0, 30) ?? ""}`,
-        );
-        return;
-      }
-
-      // (6) fetch("/api/ocr").
+      // fetch("/api/ocr") — 캐시된 base64 전송.
       console.log("[ocr] before fetch");
       let response: Response;
       try {
         response = await fetch("/api/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: compressed }),
+          body: JSON.stringify({ image: compressedBase64 }),
         });
       } catch (err) {
         console.error("[ocr] fetch threw:", err);
@@ -237,15 +282,16 @@ export default function ArchiveScanPage() {
       console.log("[ocr] fetch status:", response.status);
 
       if (!response.ok) {
-        // non-2xx — 응답 body 를 읽어 debug 메시지에 포함.
         const bodyText = await response.text().catch(() => "");
         console.error("[ocr] non-ok response:", response.status, bodyText);
         setErrorMessage("OCR 요청 전송 실패");
-        setDebugMessage(`HTTP ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ""}`);
+        setDebugMessage(
+          `HTTP ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ""}`,
+        );
         return;
       }
 
-      // (7) 결과 파싱 + 라우팅 — 기존 로직 유지.
+      // 결과 파싱 + 라우팅 — 기존 로직 유지.
       const ocrJson = (await response.json()) as { result?: ScanResult };
       const result = ocrJson?.result;
 
@@ -261,18 +307,17 @@ export default function ArchiveScanPage() {
           kcal: null,
           elev: null,
           splits: null,
-          screenshot: compressed,
+          screenshot: compressedBase64,
         });
         router.push("/archive/manual");
         return;
       }
 
-      setPendingScanData({ ...result, screenshot: compressed });
+      setPendingScanData({ ...result, screenshot: compressedBase64 });
       showToast("사진에서 기록을 추출했어요");
       router.push("/archive/manual");
     } finally {
-      // 성공/실패 무관하게 loading 해제 + 파일 input 초기화.
-      // input 은 ref 로 관리되므로 ref 경유로 처리.
+      // 성공/실패 무관하게 loading 해제 + 파일 input 초기화(ref 경유).
       setAnalyzing(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -420,9 +465,13 @@ export default function ArchiveScanPage() {
         <button
           className="primary-btn am-save"
           onClick={onAnalyze}
-          disabled={analyzing}
+          disabled={analyzing || preparing}
         >
-          {analyzing ? "분석 중…" : "기록 분석하기"}
+          {analyzing
+            ? "분석 중…"
+            : preparing
+              ? "준비 중…"
+              : "기록 분석하기"}
         </button>
       )}
     </div>
