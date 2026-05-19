@@ -3464,11 +3464,15 @@ textarea:focus { border-color: var(--primary); }
 .crop-actions {
   position: absolute;
   left: 50%;
-  bottom: -56px;
+  /* 이전엔 bottom: -56px 로 카드 바깥쪽에 배치되어 있었는데, 모바일에서 카드
+     아래가 패널/탭바와 거의 맞닿아 있어 버튼이 가려지고 스크롤해야 보였음.
+     카드 안쪽 하단(bottom: 12px) 으로 옮겨 항상 화면에 보이도록 수정.
+     z-index 5 로 올려 크롭 마스크/그리드 위에 떠 있도록 함. */
+  bottom: 12px;
   transform: translateX(-50%);
   display: flex;
   gap: 10px;
-  z-index: 3;
+  z-index: 5;
 }
 .crop-btn {
   padding: 8px 16px;
@@ -3477,9 +3481,13 @@ textarea:focus { border-color: var(--primary); }
   font-weight: 600;
   border: none;
   cursor: pointer;
+  /* 카드 안 사진 배경 위에 떠 있는 상태이므로 살짝 더 진한 배경 + 그림자로
+     가독성 확보. */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .crop-btn.crop-cancel {
-  background: rgba(255,255,255,0.15);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
 }
 .crop-btn.crop-apply {
