@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import { galleryCards } from "@/data/galleryCards";
@@ -10,11 +11,22 @@ export default function GalleryBody() {
   const router = useRouter();
   const { y, m } = useAppStore((s) => s.galleryFilter);
   const setSheet = useAppStore((s) => s.setGallerySheet);
+  const setGalleryFilter = useAppStore((s) => s.setGalleryFilter);
   // 사용자가 스튜디오에서 저장한 카드들과 기본 샘플을 함께 노출.
   // 사용자 카드는 항상 위쪽(=최신순)에 먼저, 그 뒤에 샘플 카드.
   const userGalleryCards = useAppStore((s) => s.userGalleryCards);
   const allCards = [...userGalleryCards, ...galleryCards];
   const filteredCards = allCards.filter((c) => c.y === y && c.m === m);
+
+  /* 갤러리 보관소 진입 시 현재 연/월로 자동 동기화.
+   * 사용자가 6월에 들어오면 6월, 7월에 들어오면 7월이 기본으로 보이도록.
+   * (마운트 시 한 번만 동기화 — 같은 세션 안에서 사용자가 다른 연/월로
+   * 이동하는 건 그대로 허용.) */
+  useEffect(() => {
+    const now = new Date();
+    setGalleryFilter({ y: now.getFullYear(), m: now.getMonth() + 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="gallery-area">

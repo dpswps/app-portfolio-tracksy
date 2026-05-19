@@ -115,10 +115,21 @@ input, textarea, select {
 #screen:has(.studio-bg-screen) {
   background: #0E0E11;
 }
-/* 스플래시 페이지 — 보라 그라데이션 시작 색(#B794F6) 으로 상단 패딩 매칭.
- * (가운데/아래 톤 차이는 미세하므로 상단 색에 맞춤.) */
+/* 스플래시 페이지 — 새 bg_cover 이미지가 .splash 전체에 깔리므로 #screen 의
+ * 상단 padding 영역(10px) 도 이미지와 자연스럽게 이어지게 같은 이미지를 깐다.
+ * (단색 보라 #B794F6 배경은 더 이상 사용하지 않음 — 새 디자인은 이미지 기반.) */
 #screen:has(.splash) {
-  background: #B794F6;
+  background-image: url("/bg_cover.png");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+/* 홈 / 커뮤니티 / 보관함 — 페이지 본문이 흰 배경이므로 #screen 의 상단 padding
+ * 영역(노치 아래 10px) 도 흰색으로 맞춰서 회색이 비치지 않게 한다. */
+#screen:has(.home-screen),
+#screen:has(.community-screen),
+#screen:has(.archive-screen) {
+  background: #fff;
 }
 
 /* App header */
@@ -188,33 +199,71 @@ input, textarea, select {
 .nav-item.nav-fab span:not(.fab) { color: var(--primary); font-weight: 600; margin-top: -2px; }
 
 /* === SPLASH === */
+/* 스플래시(접속) 페이지 — 새 디자인.
+ * 보내주신 디자인 시안 기준:
+ *   - 전체 배경: public/bg_cover.png 를 cover 로 모바일 화면 가득
+ *     (보라 그라데이션 + 곡선 트랙 + "EVERY STEP COUNT" + "RUN" 등 장식)
+ *   - 중앙(살짝 위쪽) 캐릭터: public/start_cha_big.png, 약 130×165px
+ *     (시안의 캐릭터 사이즈에 맞춰 117→130 으로 살짝 키움)
+ *   - 캐릭터 바로 아래에 TRACKSY 타이틀 + 한 줄 서브카피
+ *   - "시작하기" 버튼 제거 → 페이지 자체에서 3초 뒤 자동 라우팅 */
 .splash {
-  background: linear-gradient(180deg, #B794F6 0%, #9F7AEA 100%);
+  background-image: url("/bg_cover.png");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
   height: 100%;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  color: #fff;
+  align-items: center;
+  /* 시안 기준 — 캐릭터+텍스트 그룹이 화면 중앙보다 살짝 위(약 40% 지점) 에
+     자리잡도록 justify-content 대신 padding-top 비율 + flex-start 사용.
+     모바일 키 가변에도 비율 유지를 위해 vh 기반. */
+  justify-content: flex-start;
+  padding-top: 32vh;
+  padding-bottom: 0;
+  color: #000;
   text-align: center;
-  padding-bottom: 120px;
 }
-.splash .mascot-wrap {
-  width: 160px; height: 160px;
-  border-radius: 36px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 28px;
+.splash .splash-character {
+  width: 130px;
+  height: 165px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
 }
-.splash .mascot-img {
-  width: 160px; height: 160px;
+.splash .splash-character-img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,0.18));
-  animation: mascot-bob 1.6s ease-in-out infinite;
+  /* 좌우 반전 — 시안의 캐릭터 방향에 맞춤. translateY 애니메이션과 scaleX(-1)
+     을 같이 쓰기 위해 keyframe 안에 scaleX(-1) 을 명시적으로 포함. */
+  animation: mascot-bob-flip 1.6s ease-in-out infinite;
 }
 @keyframes mascot-bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
-.splash h1 { font-size: 32px; font-weight: 900; letter-spacing: 0.15em; margin-bottom: 10px; }
-.splash p { font-size: 14px; opacity: 0.9; font-weight: 400; }
+@keyframes mascot-bob-flip {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50%      { transform: scaleX(-1) translateY(-6px); }
+}
+.splash .splash-title {
+  font-family: var(--font-pretendard, "Pretendard"), system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  color: #000;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+}
+.splash .splash-sub {
+  font-family: var(--font-pretendard, "Pretendard"), system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+  opacity: 1;
+  margin: 0;
+}
 
 /* === LOGIN === */
 .login-screen {
@@ -4094,7 +4143,9 @@ textarea:focus { border-color: var(--primary); }
 .sp-tool .sp-ic svg { width: 18px; height: 18px; }
 .sp-tool i {
   font-style: normal;
-  font-size: 11px;
+  /* 스튜디오 하단 도구 라벨(잘라내기, 회전, 좌우 반전, 상하 반전, 비율 수정,
+     글꼴, 글자크기, 색상, 테마, 스타일) 의 글자 크기 — 사용자 요청으로 +1px. */
+  font-size: 12px;
   color: rgba(255,255,255,0.85);
 }
 .sp-tool .color-wheel {
@@ -4103,21 +4154,18 @@ textarea:focus { border-color: var(--primary); }
   background: conic-gradient(#EF4444, #F59E0B, #FBBF24, #10B981, #3B82F6, #8B5CF6, #EC4899, #EF4444);
 }
 
-/* 스티커 탭 wrap — 패널 본체에 있는 컨테이너. wrap 자체는 거의 height 0 이고,
-   안의 .sp-stickers 오버레이(absolute) 가 wrap 의 위쪽(=캔버스 영역) 으로
-   떠오른다. 오버레이는 핸들 + 그리드를 flex column 으로 묶어서 핸들이 항상
-   위에 있도록 한다.
-   이렇게 분리한 이유:
-     1) 펼침/접힘 시 패널 자체 높이가 변하지 않음 → 캔버스(편집 화면) 크기 고정.
-     2) 펼친 상태에서 그리드 + 핸들 묶음이 캔버스 위로 부드럽게 떠오른다 —
-        사용자 기대 동작과 일치("편집 화면 위로 스티커 창이 올라오도록").
-     3) 핸들이 항상 그리드 "위쪽" 에 위치 → 사용자의 요청대로 화살표가
-        그리드 위에 노출됨. */
+/* 스티커 탭 wrap — 패널 본체에 있는 컨테이너.
+   .sp-stickers(핸들 + 그리드) 가 in-flow 로 wrap 안에 그대로 배치된다.
+   다른 탭(.sp-tools) 의 버튼들이 패널 영역 안에 자리잡는 것과 동일한 패턴 —
+   스티커 그리드도 동일하게 패널 영역 안에서 핸들 바로 아래에 표시.
+   (이전엔 .sp-stickers 를 absolute 로 캔버스 위에 띄웠지만, 사용자 요청으로
+    "다른 버튼들처럼" 패널 안에 고정된 위치로 변경.)
+   collapsed 상태(그리드 숨김) 일 때만 min-height 69px 로 다른 탭과 같은 높이
+   유지 → 탭 전환 시 캔버스/카드 위치 흔들림 방지. expanded 일 땐 자식 그리드
+   가 추가 높이를 차지해 패널이 아래로 확장됨. */
 .sp-stickers-wrap {
   position: relative;
-  /* wrap 자체엔 콘텐츠 없음(handle/grid 는 absolute 오버레이 안). 화살표(핸들)
-     바로 아래의 빈 공간을 최소화하기 위해 min-height 를 0 으로. */
-  min-height: 0;
+  min-height: 69px;
 }
 .sp-stickers-handle {
   display: flex;
@@ -4138,20 +4186,9 @@ textarea:focus { border-color: var(--primary); }
   display: block;
   transition: transform 0.18s ease;
 }
-/* 오버레이 컨테이너 — wrap 위(캔버스 영역) 에 떠 있는 absolute. 핸들과 그리드를
-   flex column 으로 담는다. 핸들이 첫 자식 → 항상 오버레이 최상단. 그리드가
-   둘째 자식 → 핸들 아래. 오버레이는 항상 보이고(핸들 노출), 그리드만
-   max-height/opacity 로 토글된다. */
+/* 핸들 + 그리드 컨테이너 — in-flow 로 패널 안에 배치. 핸들이 첫 자식이라 항상
+   상단에 표시되고, 그리드는 핸들 바로 아래. 그리드는 expanded 토글로만 보임. */
 .sp-stickers {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  background: #0E0E11;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
 }
@@ -4452,7 +4489,8 @@ textarea:focus { border-color: var(--primary); }
   /* 아이콘 ↔ 라벨 간격 축소: 4 → 2 */
   gap: 2px;
   color: rgba(255,255,255,0.5);
-  font-size: 11px;
+  /* 스튜디오 전용 하단 탭바 라벨(편집/텍스트/스티커/디자인) — 사용자 요청 +1px. */
+  font-size: 12px;
   /* 탭 자체 padding 도 약간 축소: 4 → 3 (터치 영역은 flex:1 로 충분히 넓음) */
   padding: 3px;
 }
@@ -4460,7 +4498,8 @@ textarea:focus { border-color: var(--primary); }
 .st-tab .tab-tr {
   width: 18px; height: 18px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700;
+  /* 텍스트 탭의 "Tr" 아이콘 글자 — 사용자 요청 +1px. */
+  font-size: 15px; font-weight: 700;
 }
 .st-tab.active { color: var(--primary); font-weight: 700; }
 .st-tab.active svg { stroke: var(--primary); }
@@ -4627,14 +4666,16 @@ textarea:focus { border-color: var(--primary); }
   padding: 10px 18px 4px;
 }
 .archive-head h1 {
-  font-size: 22px;
+  /* 보관함 본문 텍스트 +1px (사용자 요청). */
+  font-size: 23px;
   font-weight: 800;
   color: var(--text);
   margin-bottom: 4px;
   letter-spacing: -0.02em;
 }
 .archive-sub {
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px (사용자 요청). */
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -4647,7 +4688,8 @@ textarea:focus { border-color: var(--primary); }
   flex: 1;
   padding: 9px 6px;
   border-radius: 999px;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px (사용자 요청). */
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   background: var(--primary-softer);
@@ -4664,9 +4706,10 @@ textarea:focus { border-color: var(--primary); }
   text-align: center;
   color: var(--text-muted);
 }
+/* aet-emoji 는 이모지 아이콘이라 +1 적용 안 함. h3/p 는 본문 텍스트라 +1. */
 .archive-empty-tab .aet-emoji { font-size: 44px; margin-bottom: 14px; }
-.archive-empty-tab h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.archive-empty-tab p { font-size: 13px; }
+.archive-empty-tab h3 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.archive-empty-tab p { font-size: 14px; }
 
 /* Records area */
 .records-area {
@@ -4687,7 +4730,8 @@ textarea:focus { border-color: var(--primary); }
   color: var(--text-soft);
 }
 .mb-title {
-  font-size: 14px; font-weight: 700;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 15px; font-weight: 700;
   color: var(--text);
   margin: 0 4px;
 }
@@ -4795,7 +4839,8 @@ textarea:focus { border-color: var(--primary); }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-muted);
   padding: 6px 0 6px;
 }
@@ -4850,6 +4895,34 @@ textarea:focus { border-color: var(--primary); }
   color: #fff !important;
 }
 .cal-day.sel .cd-dot { background: #fff; }
+/* 오늘 날짜 표시 — 숫자 둘레에 보라 ring 으로 "오늘" 강조.
+   .cal-day 가 grid 셀 자체이고 .cd-num 이 숫자 텍스트라, 숫자만 정확히 원형으로
+   감싸기 위해 inline-flex + 고정 width/height + 50% border-radius 사용.
+   다른 상태(.sel/.has) 와 동시 적용 시:
+     - sel(선택): 셀 배경이 보라색이라 ring 이 묻혀버림 → ring 을 흰색으로 전환.
+     - has(기록 있음): ring 은 그대로, 아래 dot 은 그대로. */
+.cal-day.today .cd-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1.6px solid var(--primary);
+  border-radius: 50%;
+  color: var(--primary);
+  font-weight: 700;
+  line-height: 1;
+}
+.cal-day.today.sel .cd-num {
+  /* 선택된 오늘 — 셀 배경(보라)에 ring 이 묻히므로 ring/텍스트를 흰색으로. */
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #fff;
+}
+.cal-day.today.sun .cd-num,
+.cal-day.today.sat .cd-num {
+  /* 일/토요일 컬러를 ring/텍스트에 그대로 반영해서 요일색 일관성 유지. */
+  color: inherit;
+}
 
 /* Selected date block */
 .sel-block {
@@ -4874,13 +4947,15 @@ textarea:focus { border-color: var(--primary); }
   object-fit: contain;
 }
 .sel-title {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 2px;
 }
 .sel-sub {
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
   margin-bottom: 8px;
@@ -4894,7 +4969,8 @@ textarea:focus { border-color: var(--primary); }
   padding: 14px 14px 16px;
 }
 .sr-date {
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-soft);
   margin-bottom: 10px;
 }
@@ -4910,7 +4986,8 @@ textarea:focus { border-color: var(--primary); }
   align-items: center;
 }
 .sr-stat b {
-  font-size: 22px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 23px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -4918,13 +4995,15 @@ textarea:focus { border-color: var(--primary); }
 }
 .sr-stat i {
   font-style: normal;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-soft);
   margin-top: 4px;
 }
 .sr-stat small {
-  font-size: 10px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -4938,7 +5017,8 @@ textarea:focus { border-color: var(--primary); }
   padding: 10px 12px;
   background: var(--primary-softer);
   border-radius: 10px;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   color: var(--text);
   line-height: 1.45;
   white-space: pre-wrap;
@@ -4968,7 +5048,8 @@ textarea:focus { border-color: var(--primary); }
 .lr-rec-hint {
   margin-top: 10px;
   text-align: right;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   font-weight: 600;
   color: var(--primary);
 }
@@ -4977,7 +5058,8 @@ textarea:focus { border-color: var(--primary); }
   padding: 10px 12px;
   background: var(--primary-softer);
   border-radius: 10px;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   color: var(--text);
   line-height: 1.45;
   white-space: pre-wrap;
@@ -5037,7 +5119,8 @@ textarea:focus { border-color: var(--primary); }
 .rd-header-title {
   flex: 1;
   text-align: center;
-  font-size: 15px;
+  /* 보관함 본문 텍스트 +1px. (back-btn 의 ‹ 글리프 사이즈는 아이콘이라 미수정.) */
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
 }
@@ -5059,7 +5142,8 @@ textarea:focus { border-color: var(--primary); }
   overflow: hidden;
 }
 .rd-hero-date {
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-soft);
   margin-bottom: 8px;
@@ -5071,7 +5155,8 @@ textarea:focus { border-color: var(--primary); }
   margin-bottom: 8px;
 }
 .rd-hero-distance b {
-  font-size: 44px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 45px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.03em;
@@ -5080,7 +5165,8 @@ textarea:focus { border-color: var(--primary); }
   word-break: break-all;
 }
 .rd-hero-distance small {
-  font-size: 16px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-soft);
 }
@@ -5088,7 +5174,8 @@ textarea:focus { border-color: var(--primary); }
   display: inline-block;
   padding: 5px 12px;
   border-radius: 999px;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   font-weight: 700;
   background: #fff;
   border: 1px solid var(--primary-soft);
@@ -5133,7 +5220,8 @@ textarea:focus { border-color: var(--primary); }
   overflow: hidden;
 }
 .rd-cell b {
-  font-size: 18px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 19px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -5141,19 +5229,22 @@ textarea:focus { border-color: var(--primary); }
 }
 .rd-cell i {
   font-style: normal;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-soft);
   margin-top: 4px;
 }
 .rd-cell small {
-  font-size: 10px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
 }
 
 .rd-section-label {
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-soft);
   margin-bottom: 6px;
@@ -5188,11 +5279,13 @@ textarea:focus { border-color: var(--primary); }
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   padding: 8px 4px;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   align-items: center;
 }
 .rd-splits-head {
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-soft);
@@ -5211,13 +5304,15 @@ textarea:focus { border-color: var(--primary); }
   padding: 12px 14px 14px;
 }
 .rd-note-label {
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-soft);
   margin-bottom: 6px;
 }
 .rd-note-text {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   color: var(--text);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -5240,14 +5335,16 @@ textarea:focus { border-color: var(--primary); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   font-weight: 700;
   color: var(--primary-dark);
   margin-bottom: 8px;
   padding: 0 2px;
 }
 .rd-ai-journals-count {
-  font-size: 10px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
   background: var(--primary);
@@ -5289,7 +5386,8 @@ textarea:focus { border-color: var(--primary); }
   color: var(--text);
 }
 .rd-ai-journal-quote {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   text-align: center;
@@ -5299,7 +5397,8 @@ textarea:focus { border-color: var(--primary); }
 }
 .rd-ai-journal-q {
   color: var(--primary);
-  font-size: 16px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 17px;
   font-weight: 800;
 }
 .rd-ai-journal-q.open { margin-right: 3px; }
@@ -5310,7 +5409,8 @@ textarea:focus { border-color: var(--primary); }
 }
 .rd-ai-journal-time {
   margin-top: 8px;
-  font-size: 10px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 11px;
   color: var(--text-muted);
   text-align: right;
 }
@@ -5327,7 +5427,8 @@ textarea:focus { border-color: var(--primary); }
   border-radius: 12px;
   background: var(--primary);
   color: #fff;
-  font-size: 14px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 15px;
   font-weight: 700;
   border: none;
   cursor: pointer;
@@ -5340,7 +5441,8 @@ textarea:focus { border-color: var(--primary); }
   background: transparent;
   border: 1px solid var(--border-soft);
   color: var(--text-muted);
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -5362,13 +5464,15 @@ textarea:focus { border-color: var(--primary); }
   text-align: center;
 }
 .rd-empty-title {
-  font-size: 14px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 15px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 6px;
 }
 .rd-empty-sub {
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   color: var(--text-muted);
   margin-bottom: 16px;
 }
@@ -5412,14 +5516,40 @@ textarea:focus { border-color: var(--primary); }
   background: transparent;
 }
 .lr-date {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
+}
+/* 리스트 뷰에서 오늘 행 — 날짜 앞에 작은 보라 원형 dot 추가로 "오늘" 강조.
+   .list-row.today 는 행 자체에 부여되고, 안의 .lr-date 가 inline-flex 가 되어
+   ::before pseudo-element 의 원형 dot 을 텍스트 좌측에 정렬한다. */
+.list-row.today .lr-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-weight: 700;
+}
+.list-row.today .lr-date::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+/* expanded(접힌 행이 펼쳐진 상태) 에도 동일하게 적용 — .lr-head 안의 .lr-date
+   가 같은 selector 로 매칭. */
+.list-row.today.expanded {
+  border-color: var(--primary);
 }
 .lr-stats {
   flex: 1;
   text-align: right;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-soft);
   display: inline-flex;
   justify-content: flex-end;
@@ -5430,7 +5560,8 @@ textarea:focus { border-color: var(--primary); }
 .lr-stats b {
   color: var(--text);
   font-weight: 700;
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
 }
 .lr-stats em {
   font-style: normal;
@@ -5440,7 +5571,8 @@ textarea:focus { border-color: var(--primary); }
 .lr-empty {
   flex: 1;
   text-align: right;
-  font-size: 12px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 13px;
   color: var(--text-muted);
 }
 .lr-arrow {
@@ -5472,7 +5604,8 @@ textarea:focus { border-color: var(--primary); }
   align-items: center;
 }
 .lr-stat b {
-  font-size: 20px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 21px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -5480,12 +5613,14 @@ textarea:focus { border-color: var(--primary); }
 }
 .lr-stat i {
   font-style: normal;
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-soft);
   margin-top: 4px;
 }
 .lr-stat small {
-  font-size: 10px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -5500,19 +5635,22 @@ textarea:focus { border-color: var(--primary); }
 }
 .lr-empty-mascot img { width: 100%; height: 100%; object-fit: contain; }
 .lr-empty-title {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 700;
   margin-bottom: 4px;
 }
 .lr-empty-sub {
-  font-size: 11px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 12px;
 }
 .lr-empty-cta {
   margin-top: 0;
   padding: 11px 16px;
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
 }
 
 .list-more {
@@ -5522,7 +5660,8 @@ textarea:focus { border-color: var(--primary); }
   background: var(--primary-softer);
   border-radius: 12px;
   color: var(--primary-dark);
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -5542,7 +5681,8 @@ textarea:focus { border-color: var(--primary); }
   border: 1px solid var(--primary-soft);
   border-radius: 12px;
   color: var(--primary-dark);
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 600;
 }
 .list-collapse:hover {
@@ -5557,13 +5697,15 @@ textarea:focus { border-color: var(--primary); }
   padding: 16px 18px 4px;
 }
 .record-intro h2 {
-  font-size: 22px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 23px;
   font-weight: 800;
   color: var(--text);
   margin-bottom: 6px;
 }
 .record-intro p {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   color: var(--text-soft);
 }
 
@@ -5572,7 +5714,8 @@ textarea:focus { border-color: var(--primary); }
   padding: 10px 14px 6px;
 }
 .import-section h3 {
-  font-size: 13px;
+  /* 보관함 본문 텍스트 +1px. */
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 6px;
@@ -8403,7 +8546,8 @@ textarea:focus { border-color: var(--primary); }
 .dtr-name {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  font-size: 10px;
+  /* 디자인 > 테마 슬라이드 썸네일 라벨(없음/마스코트/반짝이/...) — 사용자 요청 +1px. */
+  font-size: 11px;
   color: #fff;
   background: linear-gradient(transparent, rgba(0,0,0,0.55));
   padding: 12px 4px 4px;
@@ -8442,7 +8586,8 @@ textarea:focus { border-color: var(--primary); }
   position: static;
   background: transparent;
   padding: 0;
-  font-size: 10px;
+  /* 디자인 > 스타일 슬라이드 "저장한 스타일 사용하기" 버튼 글자 — 사용자 요청 +1px. */
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
   text-align: center;

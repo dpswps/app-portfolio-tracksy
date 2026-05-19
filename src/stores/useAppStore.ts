@@ -88,6 +88,10 @@ const DEFAULT_INQUIRIES: Inquiry[] = [
 
 type State = {
   user: { name: string; birth: string; email: string; style: string; avatarUrl?: string | null; coverUrl?: string | null };
+  /** 사용자가 signup(정보 입력) 을 완료했는지. 스플래시 페이지가 3초 뒤
+   *  자동 라우팅 시 — true 면 /home, false 면 /login 으로 이동.
+   *  persist 되어 앱 재실행 시에도 유지. */
+  hasOnboarded: boolean;
 
   modal: Modal;
   toast: string | null;
@@ -236,6 +240,10 @@ type State = {
   communityTab: "hot" | "new";
   savedPosts: Record<string, boolean>;
   composeSelectedCardId: string | null;
+  /** 커뮤니티 글쓰기에서 선택한 "저장된 템플릿(StyleCard)" id.
+   *  카드 가져오기 와 동일한 패턴 — picker 페이지에서 선택하면 여기에 저장되고
+   *  compose 페이지가 미리보기 + 등록 시 사용. */
+  composeSelectedTemplateId: string | null;
   /**
    * 사용자가 커뮤니티 글쓰기에서 직접 올린 게시글들.
    * 새 게시글은 배열의 맨 앞에 추가되어 Hot 피드 최상단에 노출된다.
@@ -269,6 +277,7 @@ type State = {
   inquiries: Inquiry[];
 
   setUser: (p: Partial<State["user"]>) => void;
+  setOnboarded: (v: boolean) => void;
   setModal: (m: Modal) => void;
   showToast: (msg: string) => void;
   hideToast: () => void;
@@ -380,6 +389,7 @@ type State = {
   connectPartner: (id: string) => void;
   togglePostSaved: (id: string | number) => boolean;
   setComposeSelectedCardId: (id: string | null) => void;
+  setComposeSelectedTemplateId: (id: string | null) => void;
   /**
    * 커뮤니티 글쓰기에서 등록하기 누르면 호출.
    * 오늘 날짜로 게시글을 만들어 userCommunityPosts 맨 앞에 추가.
@@ -434,6 +444,7 @@ export const useAppStore = create<State>()(
         email: "tracksy1@gmail.com",
         style: "산책/러닝",
       },
+      hasOnboarded: false,
 
       modal: null,
       toast: null,
@@ -511,6 +522,7 @@ export const useAppStore = create<State>()(
       communityTab: "hot",
       savedPosts: {},
       composeSelectedCardId: null,
+      composeSelectedTemplateId: null,
       userCommunityPosts: [],
 
       /* 초기 인기 검색어 카운트 — 사용자가 아직 검색해본 적 없는 상태에서도
@@ -537,6 +549,7 @@ export const useAppStore = create<State>()(
       inquiries: DEFAULT_INQUIRIES,
 
       setUser: (p) => set((s) => ({ user: { ...s.user, ...p } })),
+      setOnboarded: (v) => set({ hasOnboarded: v }),
       setModal: (m) => set({ modal: m }),
       showToast: (msg) => {
         set({ toast: msg });
@@ -1172,6 +1185,8 @@ export const useAppStore = create<State>()(
         return next;
       },
       setComposeSelectedCardId: (id) => set({ composeSelectedCardId: id }),
+      setComposeSelectedTemplateId: (id) =>
+        set({ composeSelectedTemplateId: id }),
       addCommunityPost: ({ caption, tags, image, bg }) => {
         const id = Date.now();
         const newPost: CommunityPost = {
@@ -1192,6 +1207,7 @@ export const useAppStore = create<State>()(
           userCommunityPosts: [newPost, ...s.userCommunityPosts],
           // 글쓰기 화면 정리 — 다음에 글 쓸 때 깨끗한 상태로 시작
           composeSelectedCardId: null,
+          composeSelectedTemplateId: null,
         }));
         return id;
       },

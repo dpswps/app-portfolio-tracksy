@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import Calendar from "./Calendar";
 import RecordsList from "./RecordsList";
@@ -12,6 +13,16 @@ export default function RecordsBody() {
   const setView = useAppStore((s) => s.setArchiveView);
   const setMonth = useAppStore((s) => s.setArchiveMonth);
   const setModal = useAppStore((s) => s.setModal);
+
+  /* 보관함 진입 시 현재 월로 자동 설정 — 사용자가 보관함을 열면 항상 오늘 날짜
+   * 가 속한 월이 먼저 보이도록. (사용자가 같은 세션 안에서 이전/다음 달로
+   * 이동하는 건 setMonth 가 처리하므로 useEffect 빈 의존성 배열로 마운트 시
+   * 한 번만 동기화.) */
+  useEffect(() => {
+    const now = new Date();
+    setMonth(now.getFullYear(), now.getMonth() + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const prev = () => {
     const { y, m } = month;

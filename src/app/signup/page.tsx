@@ -8,6 +8,7 @@ import { useAppStore } from "@/stores/useAppStore";
 export default function SignupPage() {
   const router = useRouter();
   const setUser = useAppStore((s) => s.setUser);
+  const setOnboarded = useAppStore((s) => s.setOnboarded);
   const showToast = useAppStore((s) => s.showToast);
 
   const [name, setName] = useState("");
@@ -30,6 +31,8 @@ export default function SignupPage() {
       birth: `${year}.${month.padStart(2, "0")}.${day.padStart(2, "0")}`,
       style,
     });
+    // signup 완료 — 다음 앱 실행 시 스플래시가 자동으로 /home 으로 보내도록.
+    setOnboarded(true);
     showToast("계정이 만들어졌어요!");
     setTimeout(() => router.replace("/home"), 600);
   };

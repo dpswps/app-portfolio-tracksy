@@ -130,6 +130,11 @@ export default function Calendar() {
   // grid는 항상 totalRows 높이. 접힘 시 startRow만큼 위로 밀어 보여줄 주만 노출.
   const translatePct = expanded ? 0 : -(startRow / totalRows) * 100;
 
+  // 오늘 날짜의 dateKey — 캘린더에서 "today" 셀에 원형 표시를 위한 비교 기준.
+  // 컴포넌트가 마운트되는 시점의 today 를 한 번만 계산해서 사용.
+  const _now = new Date();
+  const todayKey = dateKey(_now.getFullYear(), _now.getMonth() + 1, _now.getDate());
+
   return (
     <>
       <div className={`cal-card${expanded ? " expanded" : ""}`}>
@@ -151,11 +156,13 @@ export default function Calendar() {
             {cells.map((c, i) => {
               const has = !!allRecords[c.key];
               const isSel = selected === c.key;
+              const isToday = c.key === todayKey && !c.other;
               const dow = i % 7;
               const cls = ["cal-day"];
               if (c.other) cls.push("other");
               if (has) cls.push("has");
               if (isSel) cls.push("sel");
+              if (isToday) cls.push("today");
               if (dow === 0) cls.push("sun");
               if (dow === 6) cls.push("sat");
               return (

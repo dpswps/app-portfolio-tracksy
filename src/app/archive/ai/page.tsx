@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import AIHeader from "@/features/ai-journal/AIHeader";
 
@@ -113,6 +113,13 @@ function BlurredChat() {
 
 function Intro() {
   const setStep = useAppStore((s) => s.setAIStep);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  /* 스튜디오에서 진입했는지 — ?from=studio 쿼리로 감지.
+   * true 면 주 버튼이 "저장된 러닝일지 불러오기" 로 바뀌고, 클릭 시 chat 흐름
+   * 대신 /archive/journals 페이지로 이동해서 저장된 일지 중 하나를 골라 스튜디오
+   * 카드 말풍선에 적용한다. (보관함에서 진입할 땐 쿼리가 없어 기존 동작 유지.) */
+  const fromStudio = searchParams?.get("from") === "studio";
 
   return (
     <section className="aij-screen">
@@ -132,9 +139,20 @@ function Intro() {
             <span>몇 가지 질문에 답하면 충분해요.</span>
           </li>
         </ul>
-        <button className="primary-btn aij-primary" onClick={() => setStep("chat")}>
-          대화 시작 하기
-        </button>
+        {fromStudio ? (
+          <button
+            className="primary-btn aij-primary"
+            onClick={() =>
+              router.push("/archive/journals?from=studio")
+            }
+          >
+            저장된 러닝일지 불러오기
+          </button>
+        ) : (
+          <button className="primary-btn aij-primary" onClick={() => setStep("chat")}>
+            대화 시작 하기
+          </button>
+        )}
         <button className="aij-secondary" onClick={() => setStep("skip")}>
           건너뛰기
         </button>

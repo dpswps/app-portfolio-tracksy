@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatKoreanDate } from "@/lib/date";
@@ -9,11 +9,33 @@ import Mascot from "@/components/ui/Mascot";
 
 type JournalEntry = ReturnType<typeof useAppStore.getState>["aiJournals"][number];
 
+/** AI 요약 HTML(<br/>) → 카드 말풍선 plain text 변환. ai/page.tsx 의 toPlainBubble
+ *  과 동일 로직 — 스튜디오 카드에 들어가는 텍스트도 같은 정규화 적용. */
+function toPlainBubble(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
 export default function JournalsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const journals = useAppStore((s) => s.aiJournals);
   const removeAIJournal = useAppStore((s) => s.removeAIJournal);
+  const setStudioCardData = useAppStore((s) => s.setStudioCardData);
   const showToast = useAppStore((s) => s.showToast);
+  /* 스튜디오 진입 컨텍스트 — ?from=studio 가 있으면 각 일지 카드에 "러닝 일지
+   * 사용하기" 버튼이 표시되고, 클릭 시 스튜디오 카드 말풍선에 그 일지 요약을
+   * 박아 넣은 뒤 스튜디오로 이동한다. 보관함에서 일반 진입했을 땐 버튼이
+   * 안 보이고 기존 일지 목록 UI 그대로. */
+  const fromStudio = searchParams?.get("from") === "studio";
+
+  const onUseInStudio = (summary: string) => {
+    setStudioCardData({ bubble: toPlainBubble(summary) });
+    showToast("러닝 일지를 카드에 적용했어요");
+    router.push("/studio");
+  };
 
   const back = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -81,6 +103,21 @@ export default function JournalsPage() {
                         ))}
                         <span className="journal-q close">&quot;</span>
                       </p>
+                      {fromStudio && (
+                        <button
+                          className="primary-btn journal-card-use"
+                          onClick={() => onUseInStudio(j.summary)}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            marginTop: 12,
+                            textAlign: "center",
+                            textDecoration: "none",
+                          }}
+                        >
+                          러닝 일지 사용하기 ✨
+                        </button>
+                      )}
                       <button
                         className="journal-card-remove"
                         onClick={() => onRemove(j.id)}

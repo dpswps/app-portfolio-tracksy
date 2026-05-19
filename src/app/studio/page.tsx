@@ -240,12 +240,14 @@ export default function StudioPage() {
         {/* 통합 휴지통 — 텍스트/스티커를 드래그할 때만 나타남. 위로 끌어 떨어뜨리면 삭제. */}
         <TrashZone />
         <div className="st-fab-stack">
-          {/* AI 오늘의 러닝일지 — 보관함의 동일 버튼과 똑같이 동작.
-              둘 다 /archive/ai 로 가고, 진입 직전 resetAI()로 이전 세션 잔재를 정리해서
-              항상 intro 부터 시작되도록 한다.
-              아이콘은 트랙시 챗봇 캐릭터(public/tracksy-chatbot.png) 사용. */}
+          {/* AI 오늘의 러닝일지 — 같은 /archive/ai 로 가지만 ?from=studio 쿼리로
+              "스튜디오에서 진입했다" 는 컨텍스트를 전달한다.
+              이 컨텍스트가 있으면 intro 의 주 버튼이 "대화 시작 하기" 대신
+              "저장된 러닝일지 불러오기" 로 바뀌어서 /archive/journals?from=studio
+              로 이동, 사용자가 거기서 일지를 골라 스튜디오 카드 말풍선에 즉시
+              적용할 수 있다. (보관함에서 진입할 땐 쿼리가 없어 기존 흐름 유지.) */}
           <Link
-            href="/archive/ai"
+            href="/archive/ai?from=studio"
             className="st-fab st-fab-mascot"
             aria-label="AI 오늘의 러닝일지"
             onClick={resetAI}

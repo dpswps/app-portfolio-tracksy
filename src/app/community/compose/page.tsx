@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { galleryCards } from "@/data/galleryCards";
+import { styleCards } from "@/data/styleCards";
 
 export default function CommunityComposePage() {
   const router = useRouter();
@@ -11,8 +12,16 @@ export default function CommunityComposePage() {
   const showToast = useAppStore((s) => s.showToast);
   const composeSelectedCardId = useAppStore((s) => s.composeSelectedCardId);
   const setComposeSelectedCardId = useAppStore((s) => s.setComposeSelectedCardId);
+  const composeSelectedTemplateId = useAppStore(
+    (s) => s.composeSelectedTemplateId,
+  );
+  const setComposeSelectedTemplateId = useAppStore(
+    (s) => s.setComposeSelectedTemplateId,
+  );
   const addCommunityPost = useAppStore((s) => s.addCommunityPost);
   const userGalleryCards = useAppStore((s) => s.userGalleryCards);
+  const userSavedStyles = useAppStore((s) => s.userSavedStyles);
+  const removedSavedStyleIds = useAppStore((s) => s.removedSavedStyleIds);
 
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
@@ -25,16 +34,46 @@ export default function CommunityComposePage() {
       ) ?? null
     : null;
 
+  /**
+   * 템플릿 픽커에서 선택된 StyleCard 조회.
+   * 보관함 > 스타일 보관소 > 저장한 스타일 탭과 동일한 머지 규칙(사용자 우선 +
+   * 삭제 처리된 id 제외). 카드보다 우선순위 없음 — 한 번에 하나만 선택 가능.
+   */
+  const selectedTemplate = (() => {
+    if (!composeSelectedTemplateId) return null;
+    const sampleCards = styleCards.saved || [];
+    const seen = new Set<string>();
+    const merged = [] as typeof userSavedStyles;
+    for (const c of [...userSavedStyles, ...sampleCards]) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      merged.push(c);
+    }
+    return (
+      merged.find(
+        (c) =>
+          String(c.id) === String(composeSelectedTemplateId) &&
+          !removedSavedStyleIds.includes(c.id),
+      ) ?? null
+    );
+  })();
+
   const back = () => {
     if (window.history.length > 1) router.back();
     else router.push("/community");
   };
 
   const goToPicker = () => router.push("/community/compose/cards");
+  const goToTemplatePicker = () =>
+    router.push("/community/compose/templates");
 
   const removeCard = (e: React.MouseEvent) => {
     e.stopPropagation();
     setComposeSelectedCardId(null);
+  };
+  const removeTemplate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setComposeSelectedTemplateId(null);
   };
 
   /**
@@ -64,20 +103,23 @@ export default function CommunityComposePage() {
    * 그대로 background 로 그려준다.
    */
   const onSubmit = () => {
-    if (!caption.trim() && !tags.trim() && !selectedCard) {
-      showToast("내용을 입력하거나 카드를 가져와주세요");
+    // 카드/템플릿 둘 다 미리보기로 받을 수 있지만, 등록 시 우선순위는
+    // selectedCard > selectedTemplate. 둘 다 없고 텍스트도 없으면 안내.
+    if (!caption.trim() && !tags.trim() && !selectedCard && !selectedTemplate) {
+      showToast("내용을 입력하거나 카드/템플릿을 가져와주세요");
       return;
     }
+    const visualBg = selectedCard?.bg ?? selectedTemplate?.bg;
     addCommunityPost({
       caption,
       // 저장 직전에 항상 정규화 — 검색 매칭 시 누락 방지.
       tags: normalizeTagsInput(tags),
       // bg 가 "url(...)" 형식이면 image 로, 아니면 (그라데이션 등) bg 로 넘김.
       // FeedCard 는 image 가 있으면 url(image) cover 로, 없으면 bg 를 그대로 사용.
-      image: selectedCard?.bg?.startsWith("url(")
-        ? selectedCard.bg.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+      image: visualBg?.startsWith("url(")
+        ? visualBg.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
         : undefined,
-      bg: selectedCard?.bg,
+      bg: visualBg,
     });
     setCaption("");
     setTags("");
@@ -143,6 +185,67 @@ export default function CommunityComposePage() {
               </svg>
             </button>
           </div>
+        ) : selectedTemplate ? (
+          /* 선택된 템플릿(StyleCard) 미리보기 — 카드 미리보기와 동일한 .cc-gcard
+             컴포지션 재사용. 보관함의 스타일 카드 시각을 그대로 가져오되, StyleCard
+             는 stats 가 동적 배열이라 .slice(0, 6) 로 최대 6개까지 노출 (카드의
+             고정 6필드와 시각적 길이 균형 유지). */
+          <div
+            className="compose-canvas has-card-preview"
+            onClick={goToTemplatePicker}
+            role="button"
+            tabIndex={0}
+          >
+            <div
+              className="cc-gcard"
+              aria-label={`${selectedTemplate.title} 템플릿`}
+            >
+              <div
+                className="cc-gcard-bg"
+                style={{ background: selectedTemplate.bg }}
+              />
+              <div className="cc-gcard-overlay" />
+              <div className="cc-gcard-content">
+                <div className="cc-gcard-meta">{selectedTemplate.date}</div>
+                <div className="cc-gcard-title">{selectedTemplate.title}</div>
+                <div
+                  className="cc-gcard-dist"
+                  style={
+                    selectedTemplate.distColor
+                      ? { color: selectedTemplate.distColor }
+                      : undefined
+                  }
+                >
+                  {selectedTemplate.dist}
+                  <small>킬로미터</small>
+                </div>
+                <div className="cc-gcard-stats">
+                  {selectedTemplate.stats.slice(0, 6).map((s, i) => (
+                    <div key={i}>
+                      <b>{s.v}</b>
+                      <i>{s.l}</i>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="cc-card-remove"
+              onClick={removeTemplate}
+              aria-label="템플릿 제거"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
         ) : (
           <div className="compose-canvas">
             {/* 캐릭터 + 카드 아이콘 — public/tracksy-card.png (트랙시 마스코트가 카드 액자
@@ -183,7 +286,7 @@ export default function CommunityComposePage() {
         <div className="compose-actions">
           <button
             className="compose-template-btn"
-            onClick={() => showToast("저장된 템플릿을 불러왔어요")}
+            onClick={goToTemplatePicker}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
               <path d="M6 3h12v18l-6-4-6 4z" />

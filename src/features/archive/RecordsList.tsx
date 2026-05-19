@@ -27,14 +27,24 @@ export default function RecordsList() {
   const items = all.slice(0, count);
   const hasMore = all.length > items.length;
 
+  // 오늘 날짜 key — 리스트 행 중 오늘에 해당하는 항목에 "today" 원형 표시를
+  // 위한 비교 기준.
+  const _now = new Date();
+  const todayKey = dateKey(_now.getFullYear(), _now.getMonth() + 1, _now.getDate());
+
   return (
     <div className="list-card-wrap">
       {items.map((it) => {
         const isExp = expanded === it.key;
+        const isToday = it.key === todayKey;
         const dateLabel = formatKoreanDate(it.key);
         if (!isExp) {
           return (
-            <button key={it.key} className="list-row" onClick={() => toggle(it.key)}>
+            <button
+              key={it.key}
+              className={`list-row${isToday ? " today" : ""}`}
+              onClick={() => toggle(it.key)}
+            >
               <span className="lr-date">{dateLabel}</span>
               {it.rec ? (
                 <span className="lr-stats">
@@ -64,7 +74,10 @@ export default function RecordsList() {
         }
         if (!it.rec) {
           return (
-            <div key={it.key} className="list-row expanded">
+            <div
+              key={it.key}
+              className={`list-row expanded${isToday ? " today" : ""}`}
+            >
               <button className="lr-head" onClick={() => toggle(it.key)}>
                 <span className="lr-date">{dateLabel}</span>
                 <span className="lr-arrow up">⌃</span>
@@ -90,7 +103,10 @@ export default function RecordsList() {
         const thirdValue = it.rec.bpm != null ? String(it.rec.bpm) : (it.rec.time || "—");
         const thirdUnit = it.rec.bpm != null ? "bpm" : "";
         return (
-          <div key={it.key} className="list-row expanded">
+          <div
+            key={it.key}
+            className={`list-row expanded${isToday ? " today" : ""}`}
+          >
             <button className="lr-head" onClick={() => toggle(it.key)}>
               <span className="lr-date">{dateLabel}</span>
               <span className="lr-arrow up">⌃</span>
