@@ -3998,12 +3998,14 @@ textarea:focus { border-color: var(--primary); }
  * max-height + overflow-y:auto 로 내부 스크롤 유지. */
 .studio-panel {
   margin-top: auto;
-  /* 컴팩트화 — 상하 패딩을 줄여 패널 자체 높이 감소.
-     이전: 12px 4px 6px / min-height: 150 / max-height: 280
-     변경: 8px 4px 2px / min-height: 118 / max-height: 230 (~20% 감소) */
+  /* 컴팩트화 — 상하 패딩 축소.
+     min-height 는 제거 — 이전엔 118px 로 모든 탭에 동일 높이를 강제했지만,
+     편집/텍스트/디자인 탭은 버튼 한 줄(약 56px) 만 있어 그 아래로 빈 공간이
+     남았다. 이제 각 탭의 콘텐츠 크기가 패널 높이를 결정 → 편집/텍스트/디자인
+     은 자동으로 작아지고(모두 같은 sp-tools 행 크기로 통일), 스티커 탭만
+     2행 그리드 크기로 자연스럽게 확장된다. */
   padding: 8px 4px 2px;
   border-top: 1px solid rgba(255,255,255,0.06);
-  min-height: 118px;
   max-height: 230px;
   display: flex;
   flex-direction: column;
@@ -4027,21 +4029,22 @@ textarea:focus { border-color: var(--primary); }
   display: flex; align-items: center; justify-content: center;
 }
 
+/* 4개 탭(편집/텍스트/스티커/디자인) 모두 동일한 상하 패딩과 정렬을 갖도록 통일.
+   - 모두 패널 상단에 align-items: flex-start 로 anchored.
+   - 세로 중앙 정렬(margin: auto 0)은 제거 — 각 탭의 콘텐츠 시작 위치가 동일해야
+     "탭 전환 시 메뉴들이 같은 자리에서 떠 있는" 일관된 인상을 준다. */
 .sp-tools {
   display: flex; justify-content: space-around; align-items: flex-start;
-  /* 도구 버튼 행 상하 패딩 축소 — 패널 안에서 더 위쪽에 붙도록.
-     이전: 12px 8px 8px → 변경: 6px 8px 4px */
-  padding: 6px 8px 4px;
+  padding: 8px 12px 8px;
   flex-wrap: wrap;
   gap: 4px;
 }
 .sp-tools.sp-text,
 .sp-tools.sp-design {
+  /* 텍스트/디자인 서브메뉴는 항목이 적어 가운데 정렬 + 더 넓은 gap 으로 시각적
+     균형을 맞춤. 세로 중앙 정렬은 제거해 편집 탭과 같은 상단 위치 유지. */
   justify-content: center;
   gap: 22px;
-  /* 텍스트/디자인 서브메뉴는 패널 안에서 세로 중앙 정렬을 유지 — auto 0 가
-     남는 세로 공간을 위/아래로 분산해 자연스러운 여유감을 줌. */
-  margin: auto 0;
 }
 .sp-tool {
   display: flex; flex-direction: column; align-items: center;
@@ -4077,7 +4080,9 @@ textarea:focus { border-color: var(--primary); }
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 6px;
-  padding: 12px 16px;
+  /* 다른 탭(.sp-tools)와 동일한 상하 8px 패딩 — 탭 전환 시 콘텐츠 시작 라인이
+     동일하게 보이도록 통일. 좌우는 grid 자체에 약간 더 여유가 필요해서 16 유지. */
+  padding: 8px 16px 8px;
 }
 /* ──────────────────────────────────────────────────────────
  * Studio Design > 스타일 — 레이아웃 그리드
