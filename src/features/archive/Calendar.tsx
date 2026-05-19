@@ -116,9 +116,23 @@ export default function Calendar() {
   const totalRows = Math.ceil(cells.length / 7);
   const visibleRowsCollapsed = 2;
 
+  // 오늘 날짜의 dateKey — 캘린더에서 "today" 셀에 원형 표시를 위한 비교 기준.
+  // 컴포넌트가 마운트되는 시점의 today 를 한 번만 계산해서 사용.
+  const _now = new Date();
+  const todayKey = dateKey(_now.getFullYear(), _now.getMonth() + 1, _now.getDate());
+
+  // 접힘 상태에서 어떤 주를 보여줄지 결정하는 기준(anchor):
+  //  1. 사용자가 선택한 날짜가 현재 표시 중인 월 셀에 있으면 그 날짜.
+  //  2. 그렇지 않고 오늘 날짜가 현재 표시 중인 월 셀에 있으면 오늘 날짜.
+  //     → 접힘 상태에서 자동으로 "오늘이 속한 주" 가 포커싱됨.
+  //  3. 둘 다 아니면 해당 월의 마지막 날(기존 fallback).
   let anchor = selected;
   if (!anchor || !cells.some((c) => c.key === anchor)) {
-    anchor = dateKey(y, m, daysInMonth);
+    if (cells.some((c) => c.key === todayKey && !c.other)) {
+      anchor = todayKey;
+    } else {
+      anchor = dateKey(y, m, daysInMonth);
+    }
   }
   const anchorIdx = cells.findIndex((c) => c.key === anchor);
   let startRow = Math.max(0, Math.floor(anchorIdx / 7));
@@ -129,11 +143,6 @@ export default function Calendar() {
   const visibleRows = expanded ? totalRows : visibleRowsCollapsed;
   // grid는 항상 totalRows 높이. 접힘 시 startRow만큼 위로 밀어 보여줄 주만 노출.
   const translatePct = expanded ? 0 : -(startRow / totalRows) * 100;
-
-  // 오늘 날짜의 dateKey — 캘린더에서 "today" 셀에 원형 표시를 위한 비교 기준.
-  // 컴포넌트가 마운트되는 시점의 today 를 한 번만 계산해서 사용.
-  const _now = new Date();
-  const todayKey = dateKey(_now.getFullYear(), _now.getMonth() + 1, _now.getDate());
 
   return (
     <>

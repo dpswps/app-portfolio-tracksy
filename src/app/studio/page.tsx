@@ -138,8 +138,10 @@ export default function StudioPage() {
   };
 
   const back = () => {
-    if (window.history.length > 1) router.back();
-    else router.push("/home");
+    // 스튜디오 좌상단 뒤로가기 버튼은 항상 홈으로 이동.
+    // (router.back 으로 처리하면 AI 러닝일지 등 직전 페이지로 되돌아가게 되어
+    //  사용자가 의도한 "홈으로 나가기" 동작과 어긋남.)
+    router.push("/home");
   };
 
   const onPickPhoto = () => {

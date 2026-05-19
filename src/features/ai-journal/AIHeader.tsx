@@ -1,17 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 
 export default function AIHeader() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const resetAI = useAppStore((s) => s.resetAI);
+  // 진입 컨텍스트 — /archive/ai?from=studio 일 때 X 누르면 /studio 로 복귀.
+  // 보관함에서 진입했을 땐 기존대로 /archive 로 돌려보낸다.
+  const fromStudio = searchParams?.get("from") === "studio";
 
   const onClose = () => {
-    // store 상태 먼저 깨끗이 정리해서 다음 진입 시 stale 화면(skip/loading/result)이 안 뜨게 함
+    // resetAI 로 stale 화면 정리
     resetAI();
-    // back 대신 명시적으로 보관함으로 보내서 history depth에 따라 동작이 달라지지 않게 함
-    router.push("/archive");
+    // 진입 경로에 맞게 라우팅
+    router.push(fromStudio ? "/studio" : "/archive");
   };
 
   return (

@@ -894,20 +894,34 @@ export const useAppStore = create<State>()(
         // record 의 시간/칼로리 등도 함께 카드 데이터에 반영해서 모든 레이아웃에서 가져온
         // 기록이 일관되게 보이도록.
         const nextBubble = latestJournal ? latestJournal.summary : "";
-        set((s) => ({
-          studioCardData: {
-            ...s.studioCardData,
-            distance: rec.dist,
-            pace: rec.pace,
-            time: rec.time ?? s.studioCardData.time,
-            calories:
-              rec.kcal != null ? String(rec.kcal) : s.studioCardData.calories,
-            // AI 일지가 있을 땐 그걸로 채워서 자동 노출, 없을 땐 비워서 숨김.
-            bubble: nextBubble,
-          },
-          // 기록을 새로 불러왔으니 bubble 의 사용자 지정 위치도 초기화 → 기본 위치로
-          studioBubblePos: null,
-        }));
+        // 기록을 새로 불러올 때, 사용자가 이전에 드래그-투-휴지통으로 숨겼던
+        // 카드 필드/그룹(weekGroup, distanceGroup, timeGroup, paceGroup,
+        // caloriesGroup) 과 카드 레이어 자체의 숨김 상태를 함께 초기화한다.
+        // 그렇지 않으면 기록을 불러와도 화면에 안 보여서 "안 불러와진다" 처럼
+        // 보이는 버그가 발생.
+        set((s) => {
+          const nextHiddenLayers = { ...s.studioHiddenLayers };
+          delete nextHiddenLayers["card"];
+          return {
+            studioCardData: {
+              ...s.studioCardData,
+              distance: rec.dist,
+              pace: rec.pace,
+              time: rec.time ?? s.studioCardData.time,
+              calories:
+                rec.kcal != null ? String(rec.kcal) : s.studioCardData.calories,
+              // AI 일지가 있을 땐 그걸로 채워서 자동 노출, 없을 땐 비워서 숨김.
+              bubble: nextBubble,
+            },
+            // 기록을 새로 불러왔으니 bubble 의 사용자 지정 위치도 초기화 → 기본 위치로
+            studioBubblePos: null,
+            // 숨겨진 카드 필드(주차/거리/시간/페이스/칼로리 그룹) 전부 초기화 →
+            // 새로 불러온 기록 값이 즉시 보이도록.
+            studioHiddenCardFields: {},
+            // 카드 레이어 자체를 숨겼던 경우에도 보이도록 복구.
+            studioHiddenLayers: nextHiddenLayers,
+          };
+        });
       },
       setStudioRecordPickerOpen: (open) => set({ studioRecordPickerOpen: open }),
       setStudioDraggingContent: (item) => set({ studioDraggingContent: item }),
