@@ -4907,15 +4907,17 @@ textarea:focus { border-color: var(--primary); }
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: 1.6px solid var(--primary);
+  /* 연보라색 원 채우기 — 경계선 없이 배경만으로 오늘 강조. */
+  border: none;
+  background: #F0EEFF;
   border-radius: 50%;
   color: var(--primary);
   font-weight: 700;
   line-height: 1;
 }
 .cal-day.today.sel .cd-num {
-  /* 선택된 오늘 — 셀 배경(보라)에 ring 이 묻히므로 ring/텍스트를 흰색으로. */
-  border-color: rgba(255, 255, 255, 0.85);
+  /* 선택된 오늘 — 셀 배경(보라) 위에 올라가므로 fill 을 흰색 반투명 + 글자 흰색. */
+  background: rgba(255, 255, 255, 0.25);
   color: #fff;
 }
 .cal-day.today.sun .cd-num,
