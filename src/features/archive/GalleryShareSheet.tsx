@@ -2,18 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { downloadCardAsImage } from "@/lib/downloadCard";
 
 /**
- * 갤러리 게시물 상세 페이지의 공유 아이콘 버튼을 누르면 뜨는 바텀시트.
+ * Bottom sheet shown when the user taps the share icon on the gallery detail
+ * page. Mirrors the design of the studio export screen with four light cards
+ * (Instagram / KakaoTalk / Copy link / Save to phone gallery).
  *
- * 디자인은 스튜디오 export 화면(/studio/export)의 "공유 및 저장" 섹션과 동일한
- * 라이트 카드 4종(인스타 / 카카오톡 / 링크 복사 / 휴대폰 갤러리 저장)으로 구성.
- *
- * 인터랙션:
- *  - 오버레이를 탭하거나, 옵션 버튼을 누르면 닫힘.
- *  - 상단 핸들바(.gf-sheet-handle) 영역을 아래로 잡아당기면 시트가 따라
- *    내려오고, 일정 임계치(시트 높이의 25% 또는 80px) 이상이거나 빠른
- *    flick 속도로 떼면 닫히고, 그 외엔 원위치로 스냅 백.
+ * Interactions:
+ *  - Tap overlay or any option button -> close.
+ *  - Drag the handle bar down: sheet follows the finger; release past 25% of
+ *    sheet height (or with a fast flick) closes, otherwise snaps back.
  */
 export default function GalleryShareSheet() {
   const setModal = useAppStore((s) => s.setModal);
@@ -21,12 +20,8 @@ export default function GalleryShareSheet() {
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
-  // 드래그 누적 거리(px) — 0 이상만 적용(아래로 끄는 방향).
   const [dragY, setDragY] = useState(0);
-  // 드래그 종료 시 닫힘 애니메이션이 시작되면 transform 트랜지션을 켜야
-  // 부드러운 슬라이드 다운이 됨. 평소엔 끄고(직접 추종), 종료 시점에 켠다.
   const [animating, setAnimating] = useState(false);
-  // 시트 자체가 닫히는 중인지 여부 — true 일 때 onTransitionEnd 에서 모달 해제.
   const closingRef = useRef(false);
 
   const close = () => setModal(null);
@@ -36,12 +31,22 @@ export default function GalleryShareSheet() {
     close();
   };
 
-  /**
-   * 핸들바에서 pointer 이벤트를 직접 받아 드래그 추적.
-   * - touch-action: none 가 CSS 로 걸려 있어 모바일에서 스크롤과 충돌 안 함.
-   * - 드래그 거리는 아래(+) 방향만 시트에 반영. 위로 끌 땐 0 으로 고정.
-   * - pointerup 시점에 임계치를 넘었는지 / 빠른 flick 인지 판단.
-   */
+  const onSaveToGallery = async () => {
+    try {
+      const result = await downloadCardAsImage(
+        ".gd-card-wrap .running-card, .running-card",
+      );
+      if (result === "shared") {
+        showToast("공유 시트에서 '사진에 저장'을 선택하세요");
+      } else if (result === "downloaded") {
+        showToast("내 사진첩(다운로드 폴더)에 저장되었습니다");
+      }
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+    close();
+  };
+
   useEffect(() => {
     const handleEl = handleRef.current;
     const sheetEl = sheetRef.current;
@@ -55,7 +60,7 @@ export default function GalleryShareSheet() {
     let captured = false;
 
     const DISMISS_DIST = Math.max(80, sheetEl.clientHeight * 0.25);
-    const FLICK_VELOCITY = 0.6; // px/ms 이상이면 빠른 flick 으로 간주
+    const FLICK_VELOCITY = 0.6;
 
     const onDown = (e: PointerEvent) => {
       dragging = true;
@@ -64,7 +69,7 @@ export default function GalleryShareSheet() {
       lastY = e.clientY;
       startTime = performance.now();
       lastTime = startTime;
-      setAnimating(false); // 드래그 중엔 트랜지션 비활성 — 손가락 따라가도록
+      setAnimating(false);
     };
 
     const onMove = (e: PointerEvent) => {
@@ -77,7 +82,6 @@ export default function GalleryShareSheet() {
         captured = true;
       }
       if (captured) {
-        // 위로 끌 땐 약간만 따라오게 dampen, 아래로 끌 땐 1:1 추종.
         setDragY(dy > 0 ? dy : dy * 0.15);
         lastY = e.clientY;
         lastTime = performance.now();
@@ -94,15 +98,14 @@ export default function GalleryShareSheet() {
       }
       const dy = lastY - startY;
       const dt = Math.max(1, lastTime - startTime);
-      const velocity = dy / dt; // px/ms
+      const velocity = dy / dt;
 
       const shouldClose =
         dy > DISMISS_DIST || (dy > 24 && velocity > FLICK_VELOCITY);
 
-      setAnimating(true); // 트랜지션 켜고 (close: 화면 밖으로 / cancel: 0 으로)
+      setAnimating(true);
       if (shouldClose) {
         closingRef.current = true;
-        // 시트 높이만큼 더 내려서 화면 밖으로 사라지게.
         setDragY(sheetEl.clientHeight + 40);
       } else {
         setDragY(0);
@@ -122,7 +125,6 @@ export default function GalleryShareSheet() {
     };
   }, []);
 
-  // 닫힘 트랜지션이 끝나면 실제로 모달 상태를 null 로 — 그래야 시트가 unmount.
   const onSheetTransitionEnd = () => {
     if (closingRef.current) {
       closingRef.current = false;
@@ -145,8 +147,6 @@ export default function GalleryShareSheet() {
         }}
         onTransitionEnd={onSheetTransitionEnd}
       >
-        {/* 드래그 가능한 핸들 영역 — 핸들바 자체는 작지만 hit-area 를 넉넉히
-            확보하기 위해 wrapper 의 padding/높이를 살짝 키움. */}
         <div
           ref={handleRef}
           className="gs-share-handle-area"
@@ -177,7 +177,7 @@ export default function GalleryShareSheet() {
         >
           <span className="er-ic kk">K</span>
           <span>카카오톡 공유하기</span>
-          <span className="er-arrow">›</span>
+          <span className="er-arrow">&rsaquo;</span>
         </button>
         <button
           className="export-row"
@@ -185,15 +185,12 @@ export default function GalleryShareSheet() {
         >
           <span className="er-ic">🔗</span>
           <span>공유 링크 복사</span>
-          <span className="er-arrow">›</span>
+          <span className="er-arrow">&rsaquo;</span>
         </button>
-        <button
-          className="export-row"
-          onClick={() => handle("내 사진첩에 보관되었습니다")}
-        >
+        <button className="export-row" onClick={onSaveToGallery}>
           <span className="er-ic">🖼</span>
           <span>내 휴대폰 갤러리 저장</span>
-          <span className="er-arrow">›</span>
+          <span className="er-arrow">&rsaquo;</span>
         </button>
       </div>
     </>

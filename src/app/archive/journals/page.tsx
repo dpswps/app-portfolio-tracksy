@@ -6,6 +6,7 @@ import { Suspense, useMemo } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatKoreanDate } from "@/lib/date";
 import Mascot from "@/components/ui/Mascot";
+import { deleteJournalByNumericId } from "@/lib/userData";
 
 type JournalEntry = ReturnType<typeof useAppStore.getState>["aiJournals"][number];
 
@@ -56,6 +57,9 @@ function JournalsPageContent() {
 
   const onRemove = (id: number) => {
     removeAIJournal(id);
+    deleteJournalByNumericId(id).catch((err) =>
+      console.warn("[journals] supabase delete failed", err),
+    );
     showToast("일지를 삭제했어요");
   };
 

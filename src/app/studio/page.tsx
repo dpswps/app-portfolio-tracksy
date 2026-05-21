@@ -16,6 +16,8 @@ import TrashZone from "@/features/studio/TrashZone";
 import LayerPanel from "@/features/studio/LayerPanel";
 import DesignSubmenu from "@/features/studio/DesignSubmenu";
 import { useAppStore } from "@/stores/useAppStore";
+import { insertGalleryCard } from "@/lib/userData";
+import { uploadImage } from "@/lib/storage";
 
 export default function StudioPage() {
   const router = useRouter();
@@ -72,7 +74,7 @@ export default function StudioPage() {
    * - 저장 후 갤러리 필터를 오늘 월로 점프시켜서 사용자가 보관함→갤러리 진입 시
    *   바로 자기 카드를 볼 수 있게 함.
    */
-  const onSaveCard = () => {
+  const onSaveCard = async () => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
@@ -83,15 +85,37 @@ export default function StudioPage() {
     // calories 는 숫자 — studioCardData.calories 는 문자열이라 parseInt
     const kcalNum = parseInt(studioCardData.calories.replace(/\D/g, ""), 10);
 
+    // dataURL 배경/테마 오버레이는 Storage 로 먼저 옮긴다.
+    // 이렇게 해야:
+    //   1) localStorage quota 초과 안 남 (Zustand persist 가 dataURL 통째로 저장하면 5MB+ 쉽게 터짐)
+    //   2) 다른 기기 / 새로고침 / DB 동기화 후에도 같은 이미지 사용 가능
+    // 한 번 storage URL 로 바꿔두면 다음 저장부터는 startsWith("data:") 분기로 건너뜀.
+    let resolvedBg: string | null = studioBackground;
+    let resolvedOverlay: string | null = studioThemeOverlay;
+    if (resolvedBg && resolvedBg.startsWith("data:")) {
+      try {
+        resolvedBg = await uploadImage("gallery-cards", resolvedBg, { prefix: "bg" });
+      } catch (err) {
+        console.warn("[studio] bg upload failed", err);
+      }
+    }
+    if (resolvedOverlay && resolvedOverlay.startsWith("data:")) {
+      try {
+        resolvedOverlay = await uploadImage("gallery-cards", resolvedOverlay, { prefix: "overlay" });
+      } catch (err) {
+        console.warn("[studio] overlay upload failed", err);
+      }
+    }
+
     // 갤러리 그리드에서 미리보기로 쓰일 단순 bg — 사진/그라데이션 둘 다 호환되는 CSS.
-    const cardBg = studioBackground
-      ? `url("${studioBackground}") center / cover no-repeat`
+    const cardBg = resolvedBg
+      ? `url("${resolvedBg}") center / cover no-repeat`
       : "linear-gradient(180deg,#FFC18D 0%,#DDA9C9 25%,#A989B8 50%,#4D3F62 80%,#2A2536 100%)";
 
     // 전체 시각 상태 스냅샷 — 갤러리 상세에서 편집한 모습 그대로 재현하는 데 사용.
     const snapshot = {
-      bg: studioBackground,
-      themeOverlay: studioThemeOverlay,
+      bg: resolvedBg,
+      themeOverlay: resolvedOverlay,
       layoutId: studioLayoutId,
       ratio: studioRatio,
       rotate: studioRotate,
@@ -110,7 +134,7 @@ export default function StudioPage() {
       hiddenLayers: { ...studioHiddenLayers },
     };
 
-    addUserGalleryCard({
+    const newCard = {
       id: Date.now(),
       y,
       m,
@@ -127,6 +151,18 @@ export default function StudioPage() {
       comments: 0,
       bg: cardBg,
       snapshot,
+    };
+
+    // Zustand 추가 시 quota 초과로 set 이 실패할 수도 있어서 try.
+    try {
+      addUserGalleryCard(newCard);
+    } catch (err) {
+      console.warn("[studio] zustand add failed", err);
+    }
+    // 서버에 영구 저장. 위에서 이미 storage 로 옮겼으니 insertGalleryCard 내부의
+    // persistSnapshotImages 는 추가 업로드 없이 끝남.
+    insertGalleryCard(newCard).catch((err) => {
+      console.warn("[studio] gallery insert failed", err);
     });
 
     // 갤러리 보관소 필터를 오늘 월로 맞춰서 보관함 진입 시 즉시 노출

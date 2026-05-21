@@ -174,6 +174,7 @@ function TextTab() {
   const submenu = useAppStore((s) => s.studioTextSubmenu);
   const setSubmenu = useAppStore((s) => s.setStudioTextSubmenu);
   const addText = useAppStore((s) => s.addStudioText);
+  const setActiveTextId = useAppStore((s) => s.setActiveStudioText);
   const showToast = useAppStore((s) => s.showToast);
   // 카드 빌트인 필드도 텍스트 편집 대상 — 카드 텍스트를 탭하면 activeCardField
   // 가 설정되고, 그 상태에서 글꼴/글자크기/색상 모두 그 필드에 적용된다.
@@ -183,8 +184,18 @@ function TextTab() {
   const hasActive =
     texts.some((t) => t.id === activeId) || activeCardField != null;
   const toggle = (m: "font" | "size" | "color") => {
+    // 활성 텍스트가 없을 때:
+    //  - 캔버스에 텍스트가 하나라도 있으면 → 가장 최근 텍스트를 자동 선택해서
+    //    바로 도구를 열어준다. (사용자가 텍스트 추가 후 매번 다시 탭해야 했던
+    //    번거로움 제거.)
+    //  - 텍스트가 하나도 없으면 → 토스트로 안내.
     if (!hasActive) {
-      showToast("먼저 텍스트를 선택하거나 추가해주세요");
+      if (texts.length > 0) {
+        setActiveTextId(texts[texts.length - 1].id);
+        setSubmenu(m);
+        return;
+      }
+      showToast("먼저 텍스트를 추가해주세요");
       return;
     }
     setSubmenu(submenu === m ? "none" : m);
@@ -388,7 +399,3 @@ function DesignTab() {
     </div>
   );
 }
-
-/* 스타일(레이아웃) 선택 행은 DesignSubmenu 가 캔버스 하단 absolute 영역에
- * 그려준다. 이전엔 여기 StyleLayoutGrid 가 패널 하단에 인라인으로 그려졌지만,
-/* The style row is rendered by DesignSubmenu in the canvas-bottom absolute area. */

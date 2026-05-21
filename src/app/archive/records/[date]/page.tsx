@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { archiveRecords } from "@/data/archiveRecords";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatKoreanDate } from "@/lib/date";
+import { deleteRecordByDate } from "@/lib/records";
 
 /**
  * 페이스 문자열(예: "5'56\"")을 분 단위 숫자로 변환.
@@ -137,6 +138,9 @@ export default function RecordDetailPage() {
         : true;
     if (!ok) return;
     deleteUserRecord(dateParam);
+    deleteRecordByDate(dateParam).catch((err) => {
+      console.warn("[record-detail] supabase delete failed", err);
+    });
     showToast("기록이 삭제되었어요");
     setTimeout(() => router.push("/archive"), 200);
   };

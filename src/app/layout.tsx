@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import DeviceFrame from "@/components/chrome/DeviceFrame";
+import SessionProvider from "@/components/auth/SessionProvider";
+import PWARegister from "@/components/PWARegister";
 import "./globals.css";
 
 const notoKr = Noto_Sans_KR({
@@ -13,6 +15,12 @@ const notoKr = Noto_Sans_KR({
 export const metadata: Metadata = {
   title: "TRACKSY — 오늘의 러닝을, 나만의 이야기로",
   description: "러닝 기록을 한곳에 모으고 예쁜 러닝카드로 꾸며 저장/공유할 수 있는 앱.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Tracksy",
+  },
 };
 
 /* viewport-fit=cover — iOS safe-area (노치/다이나믹 아일랜드/제스처바)
@@ -27,6 +35,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  themeColor: "#7C5CFF",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -42,7 +51,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <DeviceFrame>{children}</DeviceFrame>
+        <SessionProvider>
+          <PWARegister />
+          <DeviceFrame>{children}</DeviceFrame>
+        </SessionProvider>
       </body>
     </html>
   );

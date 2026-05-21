@@ -1,0 +1,25 @@
+{
+  "name": "Tracksy — 오늘의 러닝을, 나만의 이야기로",
+  "short_name": "Tracksy",
+  "description": "러닝 기록을 한 곳에 모으고 예쁜 러닝 카드로 꾸며 저장·공유할 수 있는 앱.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F5F3FF",
+  "theme_color": "#7C5CFF",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/start_cha_big.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/start_cha.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

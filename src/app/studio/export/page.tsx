@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import RunningCard from "@/features/studio/RunningCard";
 import { useAppStore } from "@/stores/useAppStore";
+import { downloadCardAsImage } from "@/lib/downloadCard";
 
 export default function StudioExportPage() {
   const router = useRouter();
@@ -13,11 +14,24 @@ export default function StudioExportPage() {
     else router.push("/studio");
   };
 
+  const onSaveToGallery = async () => {
+    try {
+      const result = await downloadCardAsImage(".export-preview .running-card");
+      if (result === "shared") {
+        showToast("공유 시트에서 '사진에 저장'을 선택하세요");
+      } else if (result === "downloaded") {
+        showToast("내 사진첩(다운로드 폴더)에 저장되었습니다");
+      }
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
+
   return (
     <>
       <div className="app-header export-header">
         <button className="back-btn" onClick={back} style={{ color: "#fff" }}>
-          ‹
+          &lsaquo;
         </button>
         <div className="title" style={{ color: "#fff" }}>
           갤러리 보관소에 저장 완료
@@ -45,17 +59,17 @@ export default function StudioExportPage() {
           <button className="export-row" onClick={() => showToast("카카오톡으로 공유했어요")}>
             <span className="er-ic kk">K</span>
             <span>카카오톡 공유하기</span>
-            <span className="er-arrow">›</span>
+            <span className="er-arrow">&rsaquo;</span>
           </button>
           <button className="export-row" onClick={() => showToast("공유 링크가 복사되었어요")}>
             <span className="er-ic">🔗</span>
             <span>공유 링크 복사</span>
-            <span className="er-arrow">›</span>
+            <span className="er-arrow">&rsaquo;</span>
           </button>
-          <button className="export-row" onClick={() => showToast("내 사진첩에 보관되었습니다")}>
+          <button className="export-row" onClick={onSaveToGallery}>
             <span className="er-ic">🖼</span>
             <span>내 휴대폰 갤러리 저장</span>
-            <span className="er-arrow">›</span>
+            <span className="er-arrow">&rsaquo;</span>
           </button>
         </div>
       </section>

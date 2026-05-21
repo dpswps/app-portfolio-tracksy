@@ -969,7 +969,17 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
       }
     : undefined;
 
-  void ratio;
+  /**
+   * 자른 비율(예 "9/16", "3/4")을 카드 root 의 aspectRatio CSS 로 적용.
+   * CropOverlay 에서 자르기 적용 시 `${canvas.width}/${canvas.height}` 형태로
+   * studioRatio 가 갱신되는데, 이 값이 카드 컨테이너에 안 들어가서 자른 모양과
+   * 카드 모양이 어긋났었음. (이전엔 `void ratio` 로 명시적 무시.)
+   */
+  const cardAspectStyle: React.CSSProperties | undefined = small
+    ? undefined
+    : ratio && /^\d+(?:\.\d+)?\/\d+(?:\.\d+)?$/.test(ratio)
+      ? { aspectRatio: ratio.replace("/", " / ") }
+      : undefined;
 
   const onStatsPointerDown = (e: React.PointerEvent) => {
     if (small) return;
@@ -1055,6 +1065,7 @@ export default function RunningCard({ small = false }: { small?: boolean }) {
     <div
       ref={cardRef}
       className={`running-card${small ? " small" : ""}${isDragging ? " dragging-mode" : ""} layout-${layoutId || "default"}`}
+      style={cardAspectStyle}
     >
       {!bgHidden && <div className="rc-photo" style={photoStyle} />}
       {!bgHidden && <div className="rc-grad" />}

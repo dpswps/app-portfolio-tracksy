@@ -17,7 +17,9 @@ export default function EyedropperLoupe() {
   const setActive = useAppStore((s) => s.setStudioEyedropperActive);
   const bg = useAppStore((s) => s.studioBackground);
   const activeTextId = useAppStore((s) => s.studioActiveTextId);
+  const activeCardField = useAppStore((s) => s.studioActiveCardField);
   const updateText = useAppStore((s) => s.updateStudioText);
+  const setCardTextColor = useAppStore((s) => s.setStudioCardTextColor);
   const pushHistory = useAppStore((s) => s.pushStudioHistory);
   const showToast = useAppStore((s) => s.showToast);
 
@@ -132,12 +134,23 @@ export default function EyedropperLoupe() {
       draggingRef.current = false;
       (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
     }
+    // 스포이드 적용 대상: 텍스트 오버레이가 active 면 그쪽, 아니면
+    // 카드 빌트인 필드(weekTitle/distance/time/pace/calories/bubble).
+    // 이전엔 텍스트 오버레이만 받아서 카드 필드에 색이 안 들어갔음.
     if (activeTextId != null) {
       if (!pushedRef.current) {
         pushHistory();
         pushedRef.current = true;
       }
       updateText(activeTextId, { color });
+    } else if (activeCardField) {
+      if (!pushedRef.current) {
+        pushHistory();
+        pushedRef.current = true;
+      }
+      setCardTextColor(activeCardField, color);
+    } else {
+      showToast("먼저 텍스트를 선택해주세요");
     }
     setActive(false);
   };

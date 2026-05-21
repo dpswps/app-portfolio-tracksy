@@ -3,34 +3,53 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 /**
  * 접속(스플래시) 페이지.
  *
  * 동작:
- *   - 페이지 진입 후 약 3초 뒤 자동 라우팅.
- *   - hasOnboarded === true → /home (이미 signup 완료한 사용자)
- *   - 그 외(처음 켜는 사용자) → /login
- *
- * UI:
- *   - 전체 배경: public/bg_cover.png (cover 로 모바일 화면 가득)
- *   - 중앙 캐릭터: public/start_cha.png (약 117×149px)
- *   - 캐릭터 아래: "TRACKSY" (Pretendard 900, #000, 20pt) + 서브카피
- *   - 하단 "시작하기" 버튼 제거됨 — 자동 라우팅으로 대체.
- *
- * 기존 페이지 전환 로직(/login → /signup → /home) 자체는 그대로 유지.
- * 스플래시가 어디로 보낼지만 hasOnboarded 로 분기.
+ *   - 약 3초 뒤 자동 라우팅. 그 사이 Supabase 세션을 확인.
+ *   - 세션 있음 + profile.has_onboarded=true → /home
+ *   - 세션 있음 + has_onboarded=false → /signup (정보 입력 미완료)
+ *   - 세션 없음 → /login
+ *   - Supabase 미설정 / 오류 → Zustand 의 hasOnboarded 기반 fallback
  */
 export default function SplashPage() {
   const router = useRouter();
   const hasOnboarded = useAppStore((s) => s.hasOnboarded);
 
   useEffect(() => {
-    // 약 3초 뒤 라우팅. router.replace 로 스플래시가 뒤로가기 스택에 남지 않게.
+    let cancelled = false;
+    let target: string | null = null;
+
+    async function decide() {
+      try {
+        const sb = getSupabaseBrowser();
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) return "/login";
+        const { data: profile } = await sb
+          .from("profiles")
+          .select("has_onboarded")
+          .eq("id", user.id)
+          .maybeSingle();
+        return profile?.has_onboarded ? "/home" : "/signup";
+      } catch {
+        return hasOnboarded ? "/home" : "/login";
+      }
+    }
+
+    decide().then((to) => {
+      if (!cancelled) target = to;
+    });
+
     const tid = window.setTimeout(() => {
-      router.replace(hasOnboarded ? "/home" : "/login");
+      router.replace(target ?? (hasOnboarded ? "/home" : "/login"));
     }, 3000);
-    return () => window.clearTimeout(tid);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
   }, [router, hasOnboarded]);
 
   return (

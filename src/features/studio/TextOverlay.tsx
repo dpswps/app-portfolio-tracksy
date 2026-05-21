@@ -34,7 +34,7 @@ function StxItem({
   zIndex?: number;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   onChange: (text: string) => void;
-  onBlur: () => void;
+  onBlur: (e: React.FocusEvent<HTMLDivElement>) => void;
   onCommit: () => void;
   /** 더블클릭으로 명시적 편집 모드 진입 요청. */
   onEditRequest: () => void;
@@ -343,17 +343,33 @@ export default function TextOverlay() {
               zIndex={zIndex}
               onPointerDown={onPointerDownItem(t.id, t.x, t.y)}
               onChange={(text) => updateText(t.id, { text })}
-              onBlur={() => {
+              onBlur={(e) => {
                 const current = useAppStore
                   .getState()
                   .studioTexts.find((x) => x.id === t.id);
                 if (current && current.text.trim() === "") {
                   removeText(t.id);
-                } else {
-                  // 입력 완료 — active 를 해제해서 `.stx.active` 점선 outline 이
-                  // 사라지게 한다. 다시 편집하려면 더블클릭으로 진입.
-                  setActive(null);
+                  return;
                 }
+                // blur 가 발생한 직후의 포커스 대상이 스튜디오 패널 안의 도구
+                // 버튼(글꼴/글자크기/색상 tab, 폰트 picker, 색상 picker, 슬라이더,
+                // 레이어 패널 등) 이면 active 를 해제하지 않는다. 그러지 않으면
+                // 사용자가 도구를 누르는 순간 텍스트 선택이 풀려서 적용이 안 됨.
+                const next = (e.relatedTarget as HTMLElement | null) ||
+                  (document.activeElement as HTMLElement | null);
+                if (
+                  next &&
+                  (next.closest(".sp-text") ||
+                    next.closest(".text-color-row") ||
+                    next.closest(".text-font-row") ||
+                    next.closest(".text-size-slider") ||
+                    next.closest(".tfont") ||
+                    next.closest(".tcolor") ||
+                    next.closest(".studio-panel"))
+                ) {
+                  return;
+                }
+                setActive(null);
               }}
               onCommit={() => {
                 const current = useAppStore

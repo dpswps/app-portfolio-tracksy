@@ -4,6 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/stores/useAppStore";
 import AIHeader from "@/features/ai-journal/AIHeader";
+import { insertJournal } from "@/lib/userData";
+import { dateKey } from "@/lib/date";
 
 const MOOD_LABEL: Record<string, string> = {
   good: "좋아",
@@ -387,6 +389,13 @@ function Result() {
 
   const onSave = () => {
     addAIJournal(summary);
+    const now = new Date();
+    insertJournal({
+      date: dateKey(now.getFullYear(), now.getMonth() + 1, now.getDate()),
+      savedAt: now.toISOString(),
+      // store 의 addAIJournal 이 stripHtml 적용. 서버에는 동일 형식으로 저장.
+      summary: summary.replace(/<[^>]+>/g, ""),
+    }).catch((err) => console.warn("[ai] journal insert failed", err));
     showToast("러닝 일지가 저장되었어요");
     resetAI();
     setTimeout(() => {

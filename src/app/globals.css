@@ -196,6 +196,15 @@ input, textarea, select {
   border: 4px solid #fff;
 }
 .nav-item .fab svg { width: 22px; height: 22px; }
+/* 러닝화 아이콘 — 펜 SVG(22px) 보다 크게(34px) 표시해서 FAB 내부에서 더 강조.
+   filter 로 흰색으로 톤 보정해서 보라 배경 위에서 잘 보이도록. */
+.nav-item .fab .fab-shoe {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  display: block;
+}
 .nav-item.nav-fab span:not(.fab) { color: var(--primary); font-weight: 600; margin-top: -2px; }
 
 /* === SPLASH === */

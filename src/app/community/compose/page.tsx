@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { galleryCards } from "@/data/galleryCards";
 import { styleCards } from "@/data/styleCards";
+import { createPost } from "@/lib/community";
 
 export default function CommunityComposePage() {
   const router = useRouter();
@@ -110,16 +111,31 @@ export default function CommunityComposePage() {
       return;
     }
     const visualBg = selectedCard?.bg ?? selectedTemplate?.bg;
+    const normalizedTags = normalizeTagsInput(tags);
+    const imageUrl = visualBg?.startsWith("url(")
+      ? visualBg.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+      : undefined;
+    const bgValue = visualBg && !visualBg.startsWith("url(") ? visualBg : "linear-gradient(180deg,#DDD6FE 0%,#A78BFA 100%)";
+
+    // 1) Zustand 우선 반영 (optimistic)
     addCommunityPost({
       caption,
-      // 저장 직전에 항상 정규화 — 검색 매칭 시 누락 방지.
-      tags: normalizeTagsInput(tags),
-      // bg 가 "url(...)" 형식이면 image 로, 아니면 (그라데이션 등) bg 로 넘김.
-      // FeedCard 는 image 가 있으면 url(image) cover 로, 없으면 bg 를 그대로 사용.
-      image: visualBg?.startsWith("url(")
-        ? visualBg.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
-        : undefined,
+      tags: normalizedTags,
+      image: imageUrl,
       bg: visualBg,
+    });
+    // 2) Supabase 영구 저장 (이미지가 dataURL/blob 이면 Storage 로)
+    createPost({
+      type: "photo",
+      caption,
+      tags: normalizedTags,
+      image: imageUrl,
+      bg: bgValue,
+      tall: true,
+      avatarBg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+      likes: 0,
+    }).catch((err) => {
+      console.warn("[community] post create failed", err);
     });
     setCaption("");
     setTags("");

@@ -41,10 +41,15 @@ export default function BottomNav() {
       </Link>
       <div className={`nav-item nav-fab${active === "record" ? " active" : ""}`}>
         <span className="fab">
-          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <path d="M13 4l3 3-7 7-3 1 1-3 6-8z" />
-            <path d="M14 5l2 2" />
-          </svg>
+          {/* 기존 펜 아이콘 → 러닝화 아이콘으로 교체.
+              크기는 CSS(.fab img) 에서 더 크게 설정해서 시각적 강조. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/foot_shoe.png"
+            alt=""
+            className="fab-shoe"
+            draggable={false}
+          />
         </span>
         <span>기록</span>
       </div>

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { archiveRecords } from "@/data/archiveRecords";
 import { KO_DOW, dateKey, pad2 } from "@/lib/date";
+import { upsertRecord } from "@/lib/records";
 
 function formatDateInput(y: number, m: number, d: number) {
   return `${y}.${pad2(m)}.${pad2(d)}`;
@@ -300,7 +301,7 @@ function ManualForm() {
     else router.push("/archive");
   };
 
-  const save = () => {
+  const save = async () => {
     if (!date || !dist) {
       showToast("날짜와 거리는 필수예요");
       return;
@@ -338,7 +339,7 @@ function ManualForm() {
     // 기존 기록의 splits/screenshot은 보존, 다른 필드는 form 기준
     const preserved = userRecords[key] || archiveRecords[key];
 
-    addRecord(key, {
+    const recordPayload = {
       ...preserved,
       ...(isFinite(bpmNum) ? { bpm: bpmNum } : { bpm: undefined }),
       ...(isFinite(cadenceNum)
@@ -355,7 +356,16 @@ function ManualForm() {
       pace: paceSave,
       time: timeSave,
       note: note.trim() || undefined,
-    });
+    };
+    // 1) Zustand 에 우선 반영 (optimistic).
+    addRecord(key, recordPayload);
+    // 2) Supabase 에 영구 저장. 실패해도 사용자 흐름은 끊지 않음.
+    try {
+      await upsertRecord(key, recordPayload);
+    } catch (err) {
+      console.warn("[manual] supabase upsert failed", err);
+      showToast("저장은 됐는데 서버 동기화에 실패했어요. 네트워크 확인 후 새로고침 해주세요.");
+    }
     const [yy, mm] = key.split("-").map(Number);
     setArchiveMonth(yy, mm);
     if (archiveSelected !== key) {

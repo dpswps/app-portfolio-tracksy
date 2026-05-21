@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { uploadImage } from "@/lib/storage";
+import { upsertProfile } from "@/lib/supabase/auth";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,36 +26,51 @@ export default function ProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (user.avatarUrl) {
-      try {
-        URL.revokeObjectURL(user.avatarUrl);
-      } catch {}
+    // optimistic 미리보기 (objectURL)
+    const previewUrl = URL.createObjectURL(file);
+    if (user.avatarUrl && user.avatarUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(user.avatarUrl); } catch {}
     }
-    setUser({ avatarUrl: url });
-    showToast("프로필 사진이 변경되었어요");
+    setUser({ avatarUrl: previewUrl });
     e.target.value = "";
+    try {
+      const publicUrl = await uploadImage("avatars", file, { prefix: "avatar" });
+      setUser({ avatarUrl: publicUrl });
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+      await upsertProfile({ avatar_url: publicUrl }).catch(() => {});
+      showToast("프로필 사진이 변경되었어요");
+    } catch (err) {
+      console.warn("[profile] avatar upload failed", err);
+      showToast("업로드 실패 — 잠시 후 다시 시도해주세요");
+    }
   };
 
   const onPickCover = () => {
     coverInputRef.current?.click();
   };
 
-  const onCoverSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onCoverSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (user.coverUrl) {
-      try {
-        URL.revokeObjectURL(user.coverUrl);
-      } catch {}
+    const previewUrl = URL.createObjectURL(file);
+    if (user.coverUrl && user.coverUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(user.coverUrl); } catch {}
     }
-    setUser({ coverUrl: url });
-    showToast("배경 이미지가 변경되었어요");
+    setUser({ coverUrl: previewUrl });
     e.target.value = "";
+    try {
+      const publicUrl = await uploadImage("covers", file, { prefix: "cover" });
+      setUser({ coverUrl: publicUrl });
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+      await upsertProfile({ cover_url: publicUrl }).catch(() => {});
+      showToast("배경 이미지가 변경되었어요");
+    } catch (err) {
+      console.warn("[profile] cover upload failed", err);
+      showToast("업로드 실패 — 잠시 후 다시 시도해주세요");
+    }
   };
 
   const copyProfileUrl = async () => {

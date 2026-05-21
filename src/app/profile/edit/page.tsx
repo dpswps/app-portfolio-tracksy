@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AppHeader from "@/components/ui/AppHeader";
 import { useAppStore } from "@/stores/useAppStore";
+import { upsertProfile } from "@/lib/supabase/auth";
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -19,16 +20,22 @@ export default function ProfileEditPage() {
   const [email, setEmail] = useState(user.email || "");
   const [style, setStyle] = useState(user.style || "산책/러닝");
 
-  const save = () => {
+  const save = async () => {
     if (!name) return showToast("이름을 입력해주세요");
     if (!year || !month || !day) return showToast("생년월일을 입력해주세요");
     if (!email || !email.includes("@")) return showToast("올바른 이메일을 입력해주세요");
-    setUser({
-      name,
-      birth: `${year}.${month.padStart(2, "0")}.${day.padStart(2, "0")}`,
-      email,
-      style,
-    });
+    const birth = `${year}.${month.padStart(2, "0")}.${day.padStart(2, "0")}`;
+    setUser({ name, birth, email, style });
+    try {
+      await upsertProfile({
+        name,
+        birth: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`,
+        email,
+        style,
+      });
+    } catch (err) {
+      console.warn("[profile-edit] supabase update failed", err);
+    }
     showToast("프로필이 수정되었어요");
     setTimeout(() => router.back(), 600);
   };
