@@ -32,10 +32,18 @@ export default function DeviceFrame({ children }: { children: React.ReactNode })
   }, [pathname, setModal]);
 
   const isSplash = pathname === "/";
+  // 관리자 페이지는 데스크탑 풀스크린이어야 해서 DeviceFrame(모바일 프레임)
+  // 전체를 우회한다. /admin/* 경로는 그대로 children 렌더링.
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const showNav = useMemo(() => {
-    if (isSplash) return false;
+    if (isSplash || isAdmin) return false;
     return !HIDE_NAV_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  }, [pathname, isSplash]);
+  }, [pathname, isSplash, isAdmin]);
+
+  if (isAdmin) {
+    // ModalPortal / ToastHost 는 일반 앱 컨텍스트라 어드민에서는 생략.
+    return <>{children}</>;
+  }
 
   /* 상단 시간/와이파이/배터리 등 시뮬레이션 status bar 제거.
    * 실제 모바일 기기에서는 시스템 상태바가 그대로 사용되며,

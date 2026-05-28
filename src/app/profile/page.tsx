@@ -29,22 +29,36 @@ export default function ProfilePage() {
   const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // 업로드 실패 시 복구를 위해 이전 값을 보관.
+    const previousAvatar = user.avatarUrl ?? null;
     // optimistic 미리보기 (objectURL)
     const previewUrl = URL.createObjectURL(file);
-    if (user.avatarUrl && user.avatarUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(user.avatarUrl); } catch {}
+    if (previousAvatar && previousAvatar.startsWith("blob:")) {
+      try { URL.revokeObjectURL(previousAvatar); } catch {}
     }
     setUser({ avatarUrl: previewUrl });
     e.target.value = "";
     try {
       const publicUrl = await uploadImage("avatars", file, { prefix: "avatar" });
+      // upload 성공 → 미리보기를 진짜 URL 로 교체 후 DB 반영.
+      // upsertProfile 도 try 안에 두어, 실패 시 catch 로 빠지게 함 (false-positive
+      // "변경되었어요" 토스트가 뜨던 버그 — 이전엔 .catch(() => {}) 로 삼키고
+      // 무조건 성공 메시지를 보였음).
+      await upsertProfile({ avatar_url: publicUrl });
       setUser({ avatarUrl: publicUrl });
       try { URL.revokeObjectURL(previewUrl); } catch {}
-      await upsertProfile({ avatar_url: publicUrl }).catch(() => {});
       showToast("프로필 사진이 변경되었어요");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.warn("[profile] avatar upload failed", err);
-      showToast("업로드 실패 — 잠시 후 다시 시도해주세요");
+      // 실패 시 이전 이미지로 복구 → 사용자에게 "변경 안 됨" 시각적으로 표시.
+      setUser({ avatarUrl: previousAvatar });
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+      showToast(
+        msg.includes("size") || msg.includes("file_size")
+          ? "이미지 용량이 너무 커요 (5MB 이내 권장)"
+          : "프로필 이미지 변경에 실패했어요. 잠시 후 다시 시도해주세요.",
+      );
     }
   };
 
@@ -55,21 +69,29 @@ export default function ProfilePage() {
   const onCoverSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const previousCover = user.coverUrl ?? null;
     const previewUrl = URL.createObjectURL(file);
-    if (user.coverUrl && user.coverUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(user.coverUrl); } catch {}
+    if (previousCover && previousCover.startsWith("blob:")) {
+      try { URL.revokeObjectURL(previousCover); } catch {}
     }
     setUser({ coverUrl: previewUrl });
     e.target.value = "";
     try {
       const publicUrl = await uploadImage("covers", file, { prefix: "cover" });
+      await upsertProfile({ cover_url: publicUrl });
       setUser({ coverUrl: publicUrl });
       try { URL.revokeObjectURL(previewUrl); } catch {}
-      await upsertProfile({ cover_url: publicUrl }).catch(() => {});
       showToast("배경 이미지가 변경되었어요");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.warn("[profile] cover upload failed", err);
-      showToast("업로드 실패 — 잠시 후 다시 시도해주세요");
+      setUser({ coverUrl: previousCover });
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+      showToast(
+        msg.includes("size") || msg.includes("file_size")
+          ? "이미지 용량이 너무 커요 (5MB 이내 권장)"
+          : "배경 이미지 변경에 실패했어요. 잠시 후 다시 시도해주세요.",
+      );
     }
   };
 

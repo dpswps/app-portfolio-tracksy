@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AppHeader from "@/components/ui/AppHeader";
 import { useAppStore } from "@/stores/useAppStore";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 import type { Inquiry } from "@/types";
 
 export default function InquiryPage() {
@@ -14,17 +15,53 @@ export default function InquiryPage() {
   const [type, setType] = useState<Inquiry["type"]>("서비스 이용");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
+    if (busy) return;
     if (!title || !body) {
       showToast("제목과 내용을 입력해주세요");
       return;
     }
-    const id = Date.now();
-    const date = new Date().toISOString().slice(0, 16).replace("T", " ").replace(/-/g, ".");
-    prependInquiry({ id, type, title, body, date, status: "wait" });
+    setBusy(true);
+
+    const localId = Date.now();
+    const date = new Date()
+      .toISOString()
+      .slice(0, 16)
+      .replace("T", " ")
+      .replace(/-/g, ".");
+
+    // 1) Zustand 에 우선 반영 (optimistic).
+    prependInquiry({ id: localId, type, title, body, date, status: "wait" });
+
+    // 2) Supabase 에 영구 저장. RLS 가 본인만 insert 허용 → 비로그인 시 실패.
+    try {
+      const sb = getSupabaseBrowser();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        // 비로그인이라도 Zustand 에는 들어가있어서 본인 디바이스에선 보임.
+        showToast("로그인 후 문의하시면 답변을 받을 수 있어요");
+      } else {
+        const { error } = await sb.from("inquiries").insert({
+          user_id: user.id,
+          type,
+          title,
+          body,
+        });
+        if (error) {
+          console.warn("[inquiry] supabase insert failed", error);
+          showToast(`전송 실패: ${error.message}`);
+          setBusy(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("[inquiry] error", err);
+    }
+
     showToast("문의가 등록되었어요");
-    setTimeout(() => router.replace(`/inquiry/${id}`), 500);
+    setTimeout(() => router.replace(`/inquiry/${localId}`), 500);
   };
 
   return (
@@ -64,8 +101,8 @@ export default function InquiryPage() {
             placeholder="문의하실 내용을 자세히 적어주세요"
           />
         </div>
-        <button className="primary-btn" onClick={submit}>
-          문의 완료하기
+        <button className="primary-btn" onClick={submit} disabled={busy}>
+          {busy ? "전송 중…" : "문의 완료하기"}
         </button>
       </section>
     </>

@@ -39,10 +39,13 @@ export default function BottomNav() {
         </svg>
         <span>스튜디오</span>
       </Link>
-      <div className={`nav-item nav-fab${active === "record" ? " active" : ""}`}>
+      <Link
+        href="/record"
+        className={`nav-item nav-fab${active === "record" ? " active" : ""}`}
+      >
         <span className="fab">
-          {/* 기존 펜 아이콘 → 러닝화 아이콘으로 교체.
-              크기는 CSS(.fab img) 에서 더 크게 설정해서 시각적 강조. */}
+          {/* 러닝화 아이콘 — 중앙 강조 FAB. 클릭하면 +button 과 동일한
+              /record 진입점으로 이동 (이전엔 div 라 클릭 안 됐던 버그). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/foot_shoe.png"
@@ -52,7 +55,7 @@ export default function BottomNav() {
           />
         </span>
         <span>기록</span>
-      </div>
+      </Link>
       <Link href="/community" className={`nav-item${active === "community" ? " active" : ""}`}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <circle cx="9" cy="9" r="3" />

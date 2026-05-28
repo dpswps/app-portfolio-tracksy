@@ -115,6 +115,9 @@ function ManualForm() {
   const showToast = useAppStore((s) => s.showToast);
   const addRecord = useAppStore((s) => s.addRecord);
   const setArchiveMonth = useAppStore((s) => s.setArchiveMonth);
+  /** AI 챗봇 잔여 state(aiStep="result", aiSummary 등) 가 남아있으면 manual 저장
+   *  후 자세히보기 화면에서 옛 AI 일지가 다시 떠 보이는 경우가 있어 매번 reset. */
+  const resetAI = useAppStore((s) => s.resetAI);
   const pickDate = useAppStore((s) => s.pickDate);
   const archiveSelected = useAppStore((s) => s.archiveSelected);
   const userRecords = useAppStore((s) => s.userRecords);
@@ -357,6 +360,8 @@ function ManualForm() {
       time: timeSave,
       note: note.trim() || undefined,
     };
+    // AI 챗봇 화면이 떠있던 state 가 잔재로 남지 않도록 매 manual 저장마다 reset.
+    resetAI();
     // 1) Zustand 에 우선 반영 (optimistic).
     addRecord(key, recordPayload);
     // 2) Supabase 에 영구 저장. 실패해도 사용자 흐름은 끊지 않음.

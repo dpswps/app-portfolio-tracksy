@@ -1,17 +1,24 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import AppHeader from "@/components/ui/AppHeader";
 import { useAppStore } from "@/stores/useAppStore";
 import { signUpWithPassword, signInWithPassword, upsertProfile } from "@/lib/supabase/auth";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
-export default function SignupPage() {
+export const dynamic = "force-dynamic";
+
+function SignupContent() {
   const router = useRouter();
+  const params = useSearchParams();
   const setUser = useAppStore((s) => s.setUser);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
   const showToast = useAppStore((s) => s.showToast);
+
+  /** ?social=1 로 들어왔으면 OAuth 콜백 후 정보 입력 모드.
+   *  이메일·비밀번호 필드 숨김 (이미 OAuth 로 인증돼있음). */
+  const isSocial = params?.get("social") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,15 +29,35 @@ export default function SignupPage() {
   const [style, setStyle] = useState("산책/러닝");
   const [busy, setBusy] = useState(false);
 
+  // 소셜 로그인 사용자의 이름·이메일을 OAuth metadata 에서 미리 채워줌.
+  useEffect(() => {
+    if (!isSocial) return;
+    const sb = getSupabaseBrowser();
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const meta = user.user_metadata ?? {};
+      const candidate =
+        (typeof meta.name === "string" && meta.name) ||
+        (typeof meta.full_name === "string" && meta.full_name) ||
+        (typeof meta.preferred_username === "string" && meta.preferred_username) ||
+        "";
+      if (candidate && !name) setName(candidate);
+      if (user.email && !email) setEmail(user.email);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSocial]);
+
   const submit = async () => {
     if (busy) return;
-    if (!email || !password) {
-      showToast("이메일과 비밀번호를 입력해주세요");
-      return;
-    }
-    if (password.length < 6) {
-      showToast("비밀번호는 6자 이상이어야 해요");
-      return;
+    if (!isSocial) {
+      if (!email || !password) {
+        showToast("이메일과 비밀번호를 입력해주세요");
+        return;
+      }
+      if (password.length < 6) {
+        showToast("비밀번호는 6자 이상이어야 해요");
+        return;
+      }
     }
     if (!name) {
       showToast("이름을 입력해주세요");
@@ -43,30 +70,29 @@ export default function SignupPage() {
 
     setBusy(true);
     const birth = `${year}.${month.padStart(2, "0")}.${day.padStart(2, "0")}`;
-    // profiles.birth 는 date 타입이라 YYYY-MM-DD 포맷으로 변환
     const birthIso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
     try {
-      // 1) auth 계정 생성. 이메일 확인 OFF 라서 곧바로 세션 발급됨.
-      await signUpWithPassword({ email, password });
-
-      // 2) 세션이 즉시 활성화되지 않으면 보강 로그인.
-      const sb = getSupabaseBrowser();
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) {
-        await signInWithPassword({ email, password });
+      if (!isSocial) {
+        // 1) 이메일+비밀번호 신규 가입.
+        await signUpWithPassword({ email, password });
+        const sb = getSupabaseBrowser();
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          await signInWithPassword({ email, password });
+        }
       }
 
-      // 3) profiles 행 업데이트 (트리거가 만든 빈 행에 정보 채움).
+      // 소셜이든 일반 가입이든 profile 정보는 동일하게 업서트.
       await upsertProfile({
         name,
         birth: birthIso,
-        email,
+        // 소셜 사용자의 이메일은 OAuth 로 받은 값을 그대로 사용 (수정 안 받음).
+        ...(isSocial ? {} : { email }),
         style,
         has_onboarded: true,
       });
 
-      // 4) Zustand 동기화 — SessionProvider 가 곧 따라잡겠지만 즉시 반영.
       setUser({ name, birth, email, style });
       setOnboarded(true);
       showToast("계정이 만들어졌어요!");
@@ -86,30 +112,44 @@ export default function SignupPage() {
     <>
       <AppHeader fallback="/login" />
       <section className="signup-screen">
-        <h2>정보 입력</h2>
-        <p className="sub">트랙시에 등록할 내 정보를 입력하세요</p>
+        <h2>{isSocial ? "프로필 정보 입력" : "정보 입력"}</h2>
+        <p className="sub">
+          {isSocial
+            ? "마지막 한 단계 — 추가 정보를 입력해주세요"
+            : "트랙시에 등록할 내 정보를 입력하세요"}
+        </p>
 
-        <div className="field">
-          <label>이메일</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="example@email.com"
-            autoComplete="email"
-          />
-        </div>
+        {!isSocial && (
+          <>
+            <div className="field">
+              <label>이메일</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@email.com"
+                autoComplete="email"
+              />
+            </div>
+            <div className="field">
+              <label>비밀번호</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="6자 이상"
+                autoComplete="new-password"
+              />
+            </div>
+          </>
+        )}
 
-        <div className="field">
-          <label>비밀번호</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="6자 이상"
-            autoComplete="new-password"
-          />
-        </div>
+        {isSocial && email && (
+          <div className="field">
+            <label>이메일 (소셜 계정)</label>
+            <input type="email" value={email} readOnly style={{ background: "#f5f5f5", color: "#888" }} />
+          </div>
+        )}
 
         <div className="field">
           <label>이름</label>
@@ -146,9 +186,17 @@ export default function SignupPage() {
         </div>
 
         <button className="primary-btn" onClick={submit} disabled={busy}>
-          {busy ? "생성 중…" : "계정 만들기"}
+          {busy ? "생성 중…" : isSocial ? "시작하기" : "계정 만들기"}
         </button>
       </section>
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<section className="signup-screen" />}>
+      <SignupContent />
+    </Suspense>
   );
 }

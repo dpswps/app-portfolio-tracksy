@@ -12,7 +12,14 @@ export default function ProfileEditPage() {
   const setUser = useAppStore((s) => s.setUser);
   const showToast = useAppStore((s) => s.showToast);
 
-  const [yInit, mInit, dInit] = (user.birth || "").split(".");
+  /** birth 는 두 가지 포맷 모두 받음:
+   *   - "1995.08.15" (Zustand 로컬 캐시 포맷)
+   *   - "1995-08-15" (DB ISO 포맷, SessionProvider 가 사용할 수도)
+   *  점·하이픈 어느 쪽이든 split.
+   */
+  const [yInit = "", mInit = "", dInit = ""] = (user.birth || "")
+    .split(/[.\-/]/)
+    .map((s) => s.trim());
   const [name, setName] = useState(user.name || "");
   const [year, setYear] = useState(yInit || "");
   const [month, setMonth] = useState(mInit || "");

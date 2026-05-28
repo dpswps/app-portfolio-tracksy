@@ -75,102 +75,144 @@ export default function StudioPage() {
    *   바로 자기 카드를 볼 수 있게 함.
    */
   const onSaveCard = async () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    const d = now.getDate();
-    const dows = ["일", "월", "화", "수", "목", "금", "토"];
-    const dateStr = `${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")} (${dows[now.getDay()]})`;
-
-    // calories 는 숫자 — studioCardData.calories 는 문자열이라 parseInt
-    const kcalNum = parseInt(studioCardData.calories.replace(/\D/g, ""), 10);
-
-    // dataURL 배경/테마 오버레이는 Storage 로 먼저 옮긴다.
-    // 이렇게 해야:
-    //   1) localStorage quota 초과 안 남 (Zustand persist 가 dataURL 통째로 저장하면 5MB+ 쉽게 터짐)
-    //   2) 다른 기기 / 새로고침 / DB 동기화 후에도 같은 이미지 사용 가능
-    // 한 번 storage URL 로 바꿔두면 다음 저장부터는 startsWith("data:") 분기로 건너뜀.
-    let resolvedBg: string | null = studioBackground;
-    let resolvedOverlay: string | null = studioThemeOverlay;
-    if (resolvedBg && resolvedBg.startsWith("data:")) {
-      try {
-        resolvedBg = await uploadImage("gallery-cards", resolvedBg, { prefix: "bg" });
-      } catch (err) {
-        console.warn("[studio] bg upload failed", err);
-      }
+    // 동시 저장 방지 — async 흐름이 진행 중일 때 사용자가 또 누르면 race 가
+    // 생겨서 카드가 두 번 저장되거나 한쪽이 빈 카드로 들어갈 수 있음.
+    // window timestamp 로 lock 관리 — 30 초 지나면 stale 로 보고 해제 (이전엔
+    // boolean 이었는데, 어떤 이유로 finally 가 실행 안 되거나 페이지 떠나면
+    // lock 이 영구히 true 가 되어 다음 저장이 막히던 버그가 있었음).
+    type WinFlag = { __tracksy_saving_at?: number };
+    const w = window as WinFlag;
+    const now = Date.now();
+    if (w.__tracksy_saving_at && now - w.__tracksy_saving_at < 30_000) {
+      showToast("저장 진행 중이에요…");
+      return;
     }
-    if (resolvedOverlay && resolvedOverlay.startsWith("data:")) {
-      try {
-        resolvedOverlay = await uploadImage("gallery-cards", resolvedOverlay, { prefix: "overlay" });
-      } catch (err) {
-        console.warn("[studio] overlay upload failed", err);
-      }
-    }
+    w.__tracksy_saving_at = now;
+    showToast("저장 중… 잠시만요");
 
-    // 갤러리 그리드에서 미리보기로 쓰일 단순 bg — 사진/그라데이션 둘 다 호환되는 CSS.
-    const cardBg = resolvedBg
-      ? `url("${resolvedBg}") center / cover no-repeat`
-      : "linear-gradient(180deg,#FFC18D 0%,#DDA9C9 25%,#A989B8 50%,#4D3F62 80%,#2A2536 100%)";
-
-    // 전체 시각 상태 스냅샷 — 갤러리 상세에서 편집한 모습 그대로 재현하는 데 사용.
-    const snapshot = {
-      bg: resolvedBg,
-      themeOverlay: resolvedOverlay,
-      layoutId: studioLayoutId,
-      ratio: studioRatio,
-      rotate: studioRotate,
-      flipH: studioFlipH,
-      flipV: studioFlipV,
-      crop: studioCrop,
-      cardData: { ...studioCardData },
-      cardTextColors: { ...studioCardTextColors },
-      bubblePos: studioBubblePos,
-      statsOffset: studioStatsOffset,
-      // 깊은 복사 — 향후 store 가 mutate 되어도 스냅샷은 그대로 유지.
-      texts: studioTexts.map((t) => ({ ...t })),
-      stickers: placedStickers.map((p) => ({ ...p })),
-      layerOrder: [...studioLayerOrder],
-      layerOpacities: { ...studioLayerOpacities },
-      hiddenLayers: { ...studioHiddenLayers },
-    };
-
-    const newCard = {
-      id: Date.now(),
-      y,
-      m,
-      date: dateStr,
-      title: studioCardData.weekTitle?.trim() || "내 러닝 카드",
-      dist: studioCardData.distance || "0.00",
-      pace: studioCardData.pace || "—",
-      time: studioCardData.time || "—",
-      kcal: isFinite(kcalNum) ? kcalNum : 0,
-      elev: "—",
-      bpm: 0,
-      cadence: 0,
-      likes: 0,
-      comments: 0,
-      bg: cardBg,
-      snapshot,
-    };
-
-    // Zustand 추가 시 quota 초과로 set 이 실패할 수도 있어서 try.
     try {
-      addUserGalleryCard(newCard);
-    } catch (err) {
-      console.warn("[studio] zustand add failed", err);
-    }
-    // 서버에 영구 저장. 위에서 이미 storage 로 옮겼으니 insertGalleryCard 내부의
-    // persistSnapshotImages 는 추가 업로드 없이 끝남.
-    insertGalleryCard(newCard).catch((err) => {
-      console.warn("[studio] gallery insert failed", err);
-    });
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      const d = now.getDate();
+      const dows = ["일", "월", "화", "수", "목", "금", "토"];
+      const dateStr = `${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")} (${dows[now.getDay()]})`;
 
-    // 갤러리 보관소 필터를 오늘 월로 맞춰서 보관함 진입 시 즉시 노출
-    setGalleryFilter({ y, m });
-    setArchiveMainTab("gallery");
-    showToast("갤러리 보관소에 저장되었습니다");
-    // 저장 후 공유/저장 옵션 화면으로 이동 (사용자가 그리워한 popup 화면).
-    router.push("/studio/export");
+      // calories 는 숫자 — studioCardData.calories 는 문자열이라 parseInt
+      const kcalNum = parseInt(studioCardData.calories.replace(/\D/g, ""), 10);
+
+      // dataURL 배경/테마 오버레이는 Storage 로 먼저 옮긴다.
+      // 이렇게 해야:
+      //   1) localStorage quota 초과 안 남 (Zustand persist 가 dataURL 통째로 저장하면 5MB+ 쉽게 터짐)
+      //   2) 다른 기기 / 새로고침 / DB 동기화 후에도 같은 이미지 사용 가능
+      // 한 번 storage URL 로 바꿔두면 다음 저장부터는 startsWith("data:") 분기로 건너뜀.
+      let resolvedBg: string | null = studioBackground;
+      let resolvedOverlay: string | null = studioThemeOverlay;
+      let bgUploadFailed = false;
+      if (resolvedBg && resolvedBg.startsWith("data:")) {
+        try {
+          // 자른 이미지가 크면 업로드가 길어질 수 있어서 명시적 timeout.
+          resolvedBg = await uploadImage("gallery-cards", resolvedBg, {
+            prefix: "bg",
+            timeoutMs: 25_000,
+          });
+        } catch (err) {
+          console.warn("[studio] bg upload failed", err);
+          bgUploadFailed = true;
+          // 업로드 실패 시 snapshot 에는 dataURL 저장하면 localStorage 폭발하니까
+          // null 로 보내고 사용자에게 명확히 알림. 카드 자체는 그라데이션으로 저장됨.
+          resolvedBg = null;
+        }
+      }
+      if (resolvedOverlay && resolvedOverlay.startsWith("data:")) {
+        try {
+          resolvedOverlay = await uploadImage("gallery-cards", resolvedOverlay, {
+            prefix: "overlay",
+            timeoutMs: 25_000,
+          });
+        } catch (err) {
+          console.warn("[studio] overlay upload failed", err);
+          resolvedOverlay = null;
+        }
+      }
+
+      // bg 업로드 실패하면 export 화면 진입 안 하고 여기서 멈춤 — 사용자가 다시 시도하게.
+      if (bgUploadFailed) {
+        showToast("배경 이미지 업로드에 실패했어요. 네트워크 확인 후 다시 저장해주세요.");
+        return;
+      }
+
+      // 갤러리 그리드에서 미리보기로 쓰일 단순 bg — 사진/그라데이션 둘 다 호환되는 CSS.
+      const cardBg = resolvedBg
+        ? `url("${resolvedBg}") center / cover no-repeat`
+        : "linear-gradient(180deg,#FFC18D 0%,#DDA9C9 25%,#A989B8 50%,#4D3F62 80%,#2A2536 100%)";
+
+      const snapshot = {
+        bg: resolvedBg,
+        themeOverlay: resolvedOverlay,
+        layoutId: studioLayoutId,
+        ratio: studioRatio,
+        rotate: studioRotate,
+        flipH: studioFlipH,
+        flipV: studioFlipV,
+        crop: studioCrop,
+        cardData: { ...studioCardData },
+        cardTextColors: { ...studioCardTextColors },
+        bubblePos: studioBubblePos,
+        statsOffset: studioStatsOffset,
+        texts: studioTexts.map((t) => ({ ...t })),
+        stickers: placedStickers.map((p) => ({ ...p })),
+        layerOrder: [...studioLayerOrder],
+        layerOpacities: { ...studioLayerOpacities },
+        hiddenLayers: { ...studioHiddenLayers },
+      };
+
+      const newCard = {
+        id: Date.now(),
+        y,
+        m,
+        date: dateStr,
+        title: studioCardData.weekTitle?.trim() || "내 러닝 카드",
+        dist: studioCardData.distance || "0.00",
+        pace: studioCardData.pace || "—",
+        time: studioCardData.time || "—",
+        kcal: isFinite(kcalNum) ? kcalNum : 0,
+        elev: "—",
+        bpm: 0,
+        cadence: 0,
+        likes: 0,
+        comments: 0,
+        bg: cardBg,
+        snapshot,
+      };
+
+      // Zustand 추가 시 quota 초과로 set 이 실패할 수도 있어서 try.
+      try {
+        addUserGalleryCard(newCard);
+      } catch (err) {
+        console.warn("[studio] zustand add failed", err);
+      }
+      // 서버에 영구 저장. 위에서 이미 storage 로 옮겼으니 insertGalleryCard 내부의
+      // persistSnapshotImages 는 추가 업로드 없이 끝남.
+      // catch 만 하면 사용자는 실패 인지를 못함 — Promise 결과를 await 하지는 않되,
+      // 에러 발생 시 toast 로 알린다.
+      insertGalleryCard(newCard).catch((err) => {
+        console.warn("[studio] gallery insert failed", err);
+        showToast("서버 저장 실패 — 로컬에는 저장됨 (재로그인 후 다시 시도)");
+      });
+
+      // 갤러리 보관소 필터를 오늘 월로 맞춰서 보관함 진입 시 즉시 노출
+      setGalleryFilter({ y, m });
+      setArchiveMainTab("gallery");
+      showToast("갤러리 보관소에 저장되었습니다");
+      router.push("/studio/export");
+    } catch (err) {
+      console.warn("[studio] save failed", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(`저장 실패: ${msg.slice(0, 60)}`);
+    } finally {
+      (window as { __tracksy_saving_at?: number }).__tracksy_saving_at = undefined;
+    }
   };
 
   const back = () => {

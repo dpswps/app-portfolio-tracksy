@@ -13,6 +13,84 @@
  * @param filename 저장될 파일명 (기본 "tracksy-card-<timestamp>.png").
  * @returns "shared" | "downloaded" | "cancelled"
  */
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 캡쳐 직전에 카드 안의 외부 이미지(Storage URL 등 다른 origin) 를 fetch → data URL 로
+ * 치환한다. 이렇게 안 하면 html-to-image 가 canvas 에 그리려 할 때 cross-origin 이라
+ * tainted 상태가 되어 배경이 빠진 채로 캡쳐되는 버그가 있음 (Supabase Storage URL 등).
+ *
+ * 반환: 캡쳐 끝나고 호출하면 원본 src/background-image 로 복원하는 함수.
+ */
+async function inlineExternalImages(el: HTMLElement): Promise<() => void> {
+  const restorations: Array<() => void> = [];
+  const isInlineable = (url: string) =>
+    url.startsWith("http://") || url.startsWith("https://");
+
+  // 1) <img> 태그.
+  const imgs = Array.from(el.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.getAttribute("src") ?? "";
+      if (!src || !isInlineable(src)) return;
+      try {
+        const res = await fetch(src, { mode: "cors", cache: "force-cache" });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        const original = src;
+        img.setAttribute("src", dataUrl);
+        // img.crossOrigin 도 명시 — html-to-image 내부의 cloneNode 경로에서
+        // 안전하게 그릴 수 있게.
+        img.setAttribute("crossorigin", "anonymous");
+        restorations.push(() => img.setAttribute("src", original));
+      } catch {
+        // 실패하면 그대로 둠 (적어도 이미지는 안 나오지만 다른 요소는 그려짐).
+      }
+    }),
+  );
+
+  // 2) background-image: url(...) — RunningCard 의 .rc-photo 등이 여기 해당.
+  const all = Array.from(el.querySelectorAll<HTMLElement>("*"));
+  // el 자신도 포함.
+  all.push(el);
+  await Promise.all(
+    all.map(async (node) => {
+      const computed = window.getComputedStyle(node).backgroundImage;
+      // 여러 background-image 가능. 첫 url() 하나만 처리해도 보통 충분.
+      const match = computed.match(/url\(["']?([^"')]+)["']?\)/);
+      if (!match) return;
+      const url = match[1];
+      if (!url || !isInlineable(url)) return;
+      try {
+        const res = await fetch(url, { mode: "cors", cache: "force-cache" });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        const original = node.style.backgroundImage;
+        // computed style 의 background-image 를 inline 으로 덮어쓰면 우선순위 최상.
+        node.style.backgroundImage = computed.replace(url, dataUrl);
+        restorations.push(() => {
+          if (original) node.style.backgroundImage = original;
+          else node.style.removeProperty("background-image");
+        });
+      } catch {
+        // 실패하면 그대로.
+      }
+    }),
+  );
+
+  return () => restorations.forEach((fn) => fn());
+}
+
 export async function downloadCardAsImage(
   selector = ".running-card",
   filename?: string,
@@ -27,18 +105,21 @@ export async function downloadCardAsImage(
     filename ??
     `tracksy-card-${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
 
-  // 이미지 캡쳐 — 2배 해상도로 선명하게.
-  // skipFonts/fontEmbedCSS — cross-origin 스타일시트(예: Google Fonts, Next dev
-  // overlay) 의 cssRules 를 읽으려다 SecurityError 가 발생하는 걸 막는다.
-  // 폰트는 임베드 없이 그대로 렌더되며, 시스템 fallback 으로 동작하기 충분.
-  const blob = await htmlToImage.toBlob(el, {
-    pixelRatio: 2,
-    cacheBust: true,
-    skipFonts: true,
-    fontEmbedCSS: "",
-    // 카드 자체가 둥근 모서리 + 그림자라 투명 배경이 자연스럽다.
-    backgroundColor: undefined,
-  });
+  // 외부 이미지(Storage URL 등) 를 data URL 로 인라인 처리. 캡쳐 후 원복.
+  const restore = await inlineExternalImages(el);
+
+  let blob: Blob | null;
+  try {
+    blob = await htmlToImage.toBlob(el, {
+      pixelRatio: 2,
+      cacheBust: true,
+      skipFonts: true,
+      fontEmbedCSS: "",
+      backgroundColor: undefined,
+    });
+  } finally {
+    restore();
+  }
   if (!blob) throw new Error("카드 캡쳐에 실패했어요");
 
   // 1) 모바일 — Web Share API + files. 시스템 공유시트에서 "사진에 저장" 선택 가능.

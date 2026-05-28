@@ -8626,3 +8626,20 @@ textarea:focus { border-color: var(--primary); }
   box-sizing: border-box;
   overflow: hidden;
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * iOS Safari 의 노란색 tap-highlight 색상 제거.
+ * 스튜디오에서 스티커/탭 버튼 클릭 시 하단에 노란 선이 잠깐 보이던 버그.
+ * 모든 클릭 가능한 요소에 전역 적용 — 부작용 없음 (시각 효과만 제거).
+ * ───────────────────────────────────────────────────────────── */
+button,
+a,
+[role="button"],
+.placed-sticker,
+.sticker-grid > *,
+.studio-tab,
+.studio-fab,
+input[type="button"],
+input[type="submit"] {
+  -webkit-tap-highlight-color: transparent;
+}

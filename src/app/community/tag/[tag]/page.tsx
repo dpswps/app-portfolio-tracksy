@@ -110,16 +110,9 @@ export default function CommunityTagBoardPage() {
           </svg>
         </button>
         <span className="ctag-title">{tagLabel}</span>
-        <Link
-          href="/community/compose"
-          className="cc-write"
-          style={{ textDecoration: "none", marginLeft: "auto" }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          <span>글쓰기</span>
-        </Link>
+        {/* 우측 상단 글쓰기 버튼은 인기검색어 진입 페이지에서 혼란을 줘서 삭제됨.
+            글쓰기는 커뮤니티 메인의 FAB 또는 하단 nav 에서 진입. */}
+        <span style={{ marginLeft: "auto" }} />
       </div>
 
       {/* 매칭된 게시글이 있을 때만 그리드 노출. 0개면 빈 상태 UI 로 대체.

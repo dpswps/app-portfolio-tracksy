@@ -30,11 +30,14 @@ function extFromMime(mime: string): string {
 /**
  * dataURL/Blob/File 을 버킷의 본인 폴더에 업로드 → 공개 URL 반환.
  * 경로 규약: `<userId>/<prefix?-><random>.<ext>`
+ *
+ * 모바일 네트워크나 큰 파일 때문에 무한 대기 걸리는 케이스 방지로
+ * timeoutMs 옵션을 받는다. 기본 30초.
  */
 export async function uploadImage(
   bucket: BucketId,
   data: string | Blob | File,
-  opts: { prefix?: string; cacheControl?: string } = {},
+  opts: { prefix?: string; cacheControl?: string; timeoutMs?: number } = {},
 ): Promise<string> {
   const sb = getSupabaseBrowser();
   const { data: { user } } = await sb.auth.getUser();
@@ -57,11 +60,16 @@ export async function uploadImage(
   const prefix = opts.prefix ? `${opts.prefix}-` : "";
   const path = `${user.id}/${prefix}${ts}-${rand}.${ext}`;
 
-  const { error } = await sb.storage.from(bucket).upload(path, blob, {
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const uploadPromise = sb.storage.from(bucket).upload(path, blob, {
     cacheControl: opts.cacheControl ?? "31536000",
     upsert: false,
     contentType: blob.type,
   });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`업로드 timeout (${timeoutMs / 1000}s)`)), timeoutMs),
+  );
+  const { error } = await Promise.race([uploadPromise, timeoutPromise]);
   if (error) throw error;
 
   const { data: pub } = sb.storage.from(bucket).getPublicUrl(path);

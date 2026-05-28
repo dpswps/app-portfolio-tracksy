@@ -23,6 +23,7 @@ export type Database = {
           avatar_url: string | null;
           cover_url: string | null;
           has_onboarded: boolean;
+          is_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -35,6 +36,7 @@ export type Database = {
           avatar_url?: string | null;
           cover_url?: string | null;
           has_onboarded?: boolean;
+          is_admin?: boolean;
         };
         Update: {
           name?: string | null;
@@ -44,6 +46,7 @@ export type Database = {
           avatar_url?: string | null;
           cover_url?: string | null;
           has_onboarded?: boolean;
+          is_admin?: boolean;
         };
         Relationships: [];
       };
